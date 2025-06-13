@@ -12,8 +12,6 @@ A modern music streaming website built with React, Node.js, and advanced audio l
 
 The frontend is already running and fully functional! Simply visit:
 
-**🌐 https://work-1-bdnhsafuzubjmrbg.prod-runtime.all-hands.dev**
-
 If you need to restart the frontend:
 ```bash
 cd /workspace/listeners

@@ -1,22 +1,11 @@
-const { Pool } = require('pg');
-const mongoose = require('mongoose');
-const redis = require('redis');
+import mongoose from 'mongoose';
+import { createClient } from 'redis';
 
-// PostgreSQL configuration
-const pgPool = new Pool({
-  user: process.env.PG_USER || 'postgres',
-  host: process.env.PG_HOST || 'localhost',
-  database: process.env.PG_DATABASE || 'listeners_db',
-  password: process.env.PG_PASSWORD || 'password',
-  port: process.env.PG_PORT || 5432,
-});
-
-// MongoDB configuration
 const connectMongoDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/listeners', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+    await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      maxPoolSize: 10,
     });
     console.log('MongoDB connected successfully');
   } catch (error) {
@@ -25,11 +14,8 @@ const connectMongoDB = async () => {
   }
 };
 
-// Redis configuration
-const redisClient = redis.createClient({
-  host: process.env.REDIS_HOST || 'localhost',
-  port: process.env.REDIS_PORT || 6379,
-  password: process.env.REDIS_PASSWORD || undefined,
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379',
 });
 
 redisClient.on('error', (err) => {
@@ -40,8 +26,12 @@ redisClient.on('connect', () => {
   console.log('Redis connected successfully');
 });
 
-module.exports = {
-  pgPool,
-  connectMongoDB,
-  redisClient,
+const initializeRedis = async () => {
+  try {
+    await redisClient.connect();
+  } catch (error) {
+    console.error('Redis connection error:', error);
+  }
 };
+
+export { connectMongoDB, redisClient, initializeRedis };

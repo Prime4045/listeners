@@ -1,361 +1,366 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const { body, query, validationResult } = require('express-validator');
-const Song = require('../models/Song');
-const User = require('../models/User');
-const { authenticateToken, optionalAuth, requirePremium } = require('../middleware/auth');
+import express from 'express';
+import { Buffer } from 'buffer';
+import { authenticateToken, optionalAuth } from '../middleware/auth.js';
+import Song from '../models/Song.js';
+import User from '../models/User.js';
 
 const router = express.Router();
 
-// Configure multer for audio file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/audio/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+let accessToken = null;
+let tokenExpiresAt = 0;
 
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/mp4'];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type. Only MP3, WAV, FLAC, and M4A files are allowed.'), false);
+// Get Spotify access token
+const getAccessToken = async () => {
+  if (accessToken && tokenExpiresAt > Date.now()) {
+    return accessToken;
+  }
+
+  try {
+    const authString = Buffer.from(
+      `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+    ).toString('base64');
+
+    const response = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${authString}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'grant_type=client_credentials',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        `HTTP error! Status: ${response.status}, Message: ${errorData.error_description || 'Unknown error'}`
+      );
+    }
+
+    const data = await response.json();
+    accessToken = data.access_token;
+    tokenExpiresAt = Date.now() + data.expires_in * 1000 - 60000;
+    console.log('Spotify access token obtained:', accessToken);
+    return accessToken;
+  } catch (error) {
+    console.error('Spotify token error:', error.message);
+    throw new Error('Failed to obtain Spotify access token');
   }
 };
 
-const upload = multer({
-  storage,
-  fileFilter,
-  limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB limit
-  }
-});
-
-// Get all songs with pagination and filtering
-router.get('/', optionalAuth, [
-  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
-  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
-  query('genre').optional().isString().withMessage('Genre must be a string'),
-  query('search').optional().isString().withMessage('Search must be a string')
-], async (req, res) => {
+// Fetch trending songs (limit 10)
+router.get('/trending-songs', optionalAuth, async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
-    const { genre, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
-
-    // Build query
-    let query = { isPublic: true };
-    
-    if (genre) {
-      query.genre = new RegExp(genre, 'i');
-    }
-    
-    if (search) {
-      query.$text = { $search: search };
-    }
-
-    // Build sort object
-    const sort = {};
-    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
-    const songs = await Song.find(query)
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .populate('uploadedBy', 'username avatar')
-      .select('-__v');
-
-    const total = await Song.countDocuments(query);
-
-    res.json({
-      songs,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
+    const accessToken = await getAccessToken();
+    const playlistId = '2fxEEA6a9CPP5CmIJyaIM8'; // Hot Hits Hindi
+    const response = await fetch(
+      `https://api.spotify.com/v1/playlists/${playlistId}/tracks?market=IN&limit=10`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
       }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        `HTTP error! Status: ${response.status}, Message: ${errorData.error.message || 'Unknown error'}`
+      );
+    }
+
+    const data = await response.json();
+    const tracks = data.items.map((item) => ({
+      spotifyId: item.track.id,
+      title: item.track.name,
+      artist: item.track.artists.map((artist) => artist.name).join(', '),
+      album: item.track.album.name,
+      duration: item.track.duration_ms,
+      previewUrl: item.track.preview_url,
+      imageUrl: item.track.album.images[0]?.url || null,
+    }));
+
+    for (const track of tracks) {
+      await Song.findOneAndUpdate(
+        { spotifyId: track.spotifyId },
+        track,
+        { upsert: true, new: true }
+      );
+    }
+
+    console.log(`Total Trending Songs Fetched: ${tracks.length}`);
+    res.json(tracks);
+  } catch (error) {
+    console.error('Trending songs error:', error.message);
+    res.status(500).json({ message: 'Failed to fetch trending songs', error: error.message });
+  }
+});
+
+// Fetch Bollywood albums (limit 10)
+router.get('/bollywood-albums', optionalAuth, async (req, res) => {
+  try {
+    const accessToken = await getAccessToken();
+    const response = await fetch(
+      'https://api.spotify.com/v1/search?q=bollywood&type=album&market=IN&limit=10',
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        `HTTP error! Status: ${response.status}, Message: ${errorData.error.message || 'Unknown error'}`
+      );
+    }
+
+    const data = await response.json();
+    const albums = data.albums.items.map((album) => ({
+      spotifyId: album.id,
+      title: album.name,
+      artist: album.artists.map((artist) => artist.name).join(', '),
+      releaseDate: album.release_date,
+      imageUrl: album.images[0]?.url || null,
+      totalTracks: album.total_tracks,
+      spotifyUrl: album.external_urls.spotify,
+    }));
+
+    for (const album of albums) {
+      await Song.findOneAndUpdate(
+        { spotifyId: album.spotifyId },
+        {
+          spotifyId: album.spotifyId,
+          title: album.title,
+          artist: album.artist,
+          album: album.title,
+          duration: 0,
+          previewUrl: null,
+          imageUrl: album.imageUrl,
+        },
+        { upsert: true, new: true }
+      );
+    }
+
+    console.log(`Total Bollywood Albums Fetched: ${albums.length}`);
+    res.json(albums);
+  } catch (error) {
+    console.error('Bollywood albums error:', error.message);
+    res.status(500).json({ message: 'Failed to fetch Bollywood albums', error: error.message });
+  }
+});
+
+// Fetch first track from an album
+router.get('/albums/:id/track', optionalAuth, async (req, res) => {
+  try {
+    const accessToken = await getAccessToken();
+    console.log(`Fetching track for album ID: ${req.params.id}`);
+    const response = await fetch(
+      `https://api.spotify.com/v1/albums/${req.params.id}/tracks?market=IN&limit=1`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Spotify API error:', errorData);
+      throw new Error(
+        `HTTP error! Status: ${response.status}, Message: ${errorData.error.message || 'Unknown error'}`
+      );
+    }
+
+    const data = await response.json();
+    if (!data.items || !data.items.length) {
+      console.warn(`No tracks found for album ID: ${req.params.id}`);
+      return res.status(404).json({ message: 'No tracks found for this album' });
+    }
+
+    const track = data.items[0];
+    const trackData = {
+      spotifyId: track.id,
+      title: track.name,
+      artist: track.artists?.map((artist) => artist.name).join(', ') || 'Unknown Artist',
+      album: track.album?.name || 'Unknown Album',
+      duration: track.duration_ms || 0,
+      previewUrl: track.preview_url || null,
+      imageUrl: track.album?.images[0]?.url || null,
+    };
+
+    console.log('Track data to save:', trackData);
+    const savedTrack = await Song.findOneAndUpdate(
+      { spotifyId: trackData.spotifyId },
+      trackData,
+      { upsert: true, new: true }
+    );
+    console.log('Saved track:', savedTrack);
+
+    res.json(trackData);
+  } catch (error) {
+    console.error(`Error fetching album track for ID ${req.params.id}:`, error.message);
+    res.status(500).json({ message: 'Failed to fetch album track', error: error.message });
+  }
+});
+
+// Search songs
+router.get('/search', optionalAuth, async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query) {
+      return res.status(400).json({ message: 'Query parameter is required' });
+    }
+
+    const accessToken = await getAccessToken();
+    const response = await fetch(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&market=IN&limit=20`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.error.message}`);
+    }
+
+    const data = await response.json();
+    const tracks = data.tracks.items.map((track) => ({
+      spotifyId: track.id,
+      title: track.name,
+      artist: track.artists.map((artist) => artist.name).join(', '),
+      album: track.album.name,
+      duration: track.duration_ms,
+      previewUrl: track.preview_url,
+      imageUrl: track.album.images[0]?.url,
+    }));
+
+    for (const track of tracks) {
+      await Song.findOneAndUpdate(
+        { spotifyId: track.spotifyId },
+        track,
+        { upsert: true, new: true }
+      );
+    }
+
+    res.json(tracks);
+  } catch (error) {
+    console.error('Search error:', error.message);
+    res.status(500).json({ message: 'Failed to search songs', error: error.message });
+  }
+});
+
+// Play a song
+router.post('/:id/play', authenticateToken, async (req, res) => {
+  try {
+    const song = await Song.findOne({ spotifyId: req.params.id });
+    let songData;
+
+    if (!song) {
+      const accessToken = await getAccessToken();
+      const response = await fetch(`https://api.spotify.com/v1/tracks/${req.params.id}?market=IN`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.error.message}`);
+      }
+
+      const track = await response.json();
+      songData = {
+        spotifyId: track.id,
+        title: track.name,
+        artist: track.artists.map((artist) => artist.name).join(', '),
+        album: track.album.name,
+        duration: track.duration_ms,
+        previewUrl: track.preview_url,
+        imageUrl: track.album.images[0]?.url,
+      };
+
+      const newSong = new Song(songData);
+      await newSong.save();
+      songData = newSong;
+    } else {
+      songData = {
+        spotifyId: song.spotifyId,
+        title: song.title,
+        artist: song.artist,
+        album: song.album,
+        duration: song.duration,
+        previewUrl: song.previewUrl,
+        imageUrl: song.imageUrl,
+      };
+    }
+
+    // Update user's recently played, deduplicate by song ID
+    const songId = song?._id || (await Song.findOne({ spotifyId: req.params.id }))._id;
+    await User.findByIdAndUpdate(req.user._id, {
+      $pull: { recentlyPlayed: { song: songId } },
     });
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: {
+        recentlyPlayed: {
+          song: songId,
+          playedAt: new Date(),
+        },
+      },
+      $slice: { recentlyPlayed: -5 },
+    });
+
+    res.json(songData);
   } catch (error) {
-    console.error('Get songs error:', error);
-    res.status(500).json({ message: 'Failed to fetch songs' });
+    console.error('Play error:', error.message);
+    res.status(500).json({ message: 'Failed to play song', error: error.message });
   }
 });
 
-// Get trending songs
-router.get('/trending', optionalAuth, async (req, res) => {
-  try {
-    const limit = parseInt(req.query.limit) || 20;
-    
-    const songs = await Song.find({ isPublic: true })
-      .sort({ playCount: -1, createdAt: -1 })
-      .limit(limit)
-      .populate('uploadedBy', 'username avatar')
-      .select('-__v');
-
-    res.json({ songs });
-  } catch (error) {
-    console.error('Get trending songs error:', error);
-    res.status(500).json({ message: 'Failed to fetch trending songs' });
-  }
-});
-
-// Get recently added songs
-router.get('/recent', optionalAuth, async (req, res) => {
-  try {
-    const limit = parseInt(req.query.limit) || 20;
-    
-    const songs = await Song.find({ isPublic: true })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .populate('uploadedBy', 'username avatar')
-      .select('-__v');
-
-    res.json({ songs });
-  } catch (error) {
-    console.error('Get recent songs error:', error);
-    res.status(500).json({ message: 'Failed to fetch recent songs' });
-  }
-});
-
-// Get single song
+// Get song details
 router.get('/:id', optionalAuth, async (req, res) => {
   try {
-    const song = await Song.findById(req.params.id)
-      .populate('uploadedBy', 'username avatar')
-      .select('-__v');
-
+    const song = await Song.findOne({ spotifyId: req.params.id });
     if (!song) {
-      return res.status(404).json({ message: 'Song not found' });
-    }
-
-    // Check if song is public or user owns it
-    if (!song.isPublic && (!req.user || song.uploadedBy._id.toString() !== req.user._id.toString())) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    res.json({ song });
-  } catch (error) {
-    console.error('Get song error:', error);
-    res.status(500).json({ message: 'Failed to fetch song' });
-  }
-});
-
-// Upload new song
-router.post('/upload', authenticateToken, upload.single('audio'), [
-  body('title').notEmpty().trim().withMessage('Title is required'),
-  body('artist').notEmpty().trim().withMessage('Artist is required'),
-  body('album').optional().trim(),
-  body('genre').optional().trim(),
-  body('duration').isInt({ min: 1 }).withMessage('Duration must be a positive integer'),
-  body('isPublic').optional().isBoolean().withMessage('isPublic must be a boolean')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        message: 'Validation failed',
-        errors: errors.array()
+      const accessToken = await getAccessToken();
+      const response = await fetch(`https://api.spotify.com/v1/tracks/${req.params.id}?market=IN`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       });
-    }
 
-    if (!req.file) {
-      return res.status(400).json({ message: 'Audio file is required' });
-    }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.error.message}`);
+      }
 
-    const { title, artist, album, genre, duration, isPublic = true, tags, lyrics } = req.body;
+      const track = await response.json();
+      const songData = {
+        spotifyId: track.id,
+        title: track.name,
+        artist: track.artists.map((artist) => artist.name).join(', '),
+        album: track.album.name,
+        duration: track.duration_ms,
+        previewUrl: track.preview_url,
+        imageUrl: track.album.images[0]?.url,
+      };
 
-    const song = new Song({
-      title,
-      artist,
-      album,
-      genre,
-      duration: parseInt(duration),
-      fileUrl: `/uploads/audio/${req.file.filename}`,
-      isPublic: isPublic === 'true',
-      uploadedBy: req.user._id,
-      tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
-      lyrics
-    });
-
-    await song.save();
-    await song.populate('uploadedBy', 'username avatar');
-
-    res.status(201).json({
-      message: 'Song uploaded successfully',
-      song
-    });
-  } catch (error) {
-    console.error('Upload song error:', error);
-    res.status(500).json({ message: 'Failed to upload song' });
-  }
-});
-
-// Update song
-router.put('/:id', authenticateToken, [
-  body('title').optional().notEmpty().trim().withMessage('Title cannot be empty'),
-  body('artist').optional().notEmpty().trim().withMessage('Artist cannot be empty'),
-  body('album').optional().trim(),
-  body('genre').optional().trim(),
-  body('isPublic').optional().isBoolean().withMessage('isPublic must be a boolean')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
-    const song = await Song.findById(req.params.id);
-    
-    if (!song) {
-      return res.status(404).json({ message: 'Song not found' });
-    }
-
-    // Check ownership
-    if (song.uploadedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    const { title, artist, album, genre, isPublic, tags, lyrics } = req.body;
-
-    // Update fields
-    if (title !== undefined) song.title = title;
-    if (artist !== undefined) song.artist = artist;
-    if (album !== undefined) song.album = album;
-    if (genre !== undefined) song.genre = genre;
-    if (isPublic !== undefined) song.isPublic = isPublic;
-    if (tags !== undefined) song.tags = tags.split(',').map(tag => tag.trim());
-    if (lyrics !== undefined) song.lyrics = lyrics;
-
-    await song.save();
-    await song.populate('uploadedBy', 'username avatar');
-
-    res.json({
-      message: 'Song updated successfully',
-      song
-    });
-  } catch (error) {
-    console.error('Update song error:', error);
-    res.status(500).json({ message: 'Failed to update song' });
-  }
-});
-
-// Delete song
-router.delete('/:id', authenticateToken, async (req, res) => {
-  try {
-    const song = await Song.findById(req.params.id);
-    
-    if (!song) {
-      return res.status(404).json({ message: 'Song not found' });
-    }
-
-    // Check ownership
-    if (song.uploadedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    await Song.findByIdAndDelete(req.params.id);
-
-    res.json({ message: 'Song deleted successfully' });
-  } catch (error) {
-    console.error('Delete song error:', error);
-    res.status(500).json({ message: 'Failed to delete song' });
-  }
-});
-
-// Like/Unlike song
-router.post('/:id/like', authenticateToken, async (req, res) => {
-  try {
-    const song = await Song.findById(req.params.id);
-    
-    if (!song) {
-      return res.status(404).json({ message: 'Song not found' });
-    }
-
-    const user = await User.findById(req.user._id);
-    const isLiked = user.likedSongs.includes(song._id);
-
-    if (isLiked) {
-      // Unlike
-      user.likedSongs = user.likedSongs.filter(id => id.toString() !== song._id.toString());
-      song.likes = Math.max(0, song.likes - 1);
+      const newSong = new Song(songData);
+      await newSong.save();
+      res.json(songData);
     } else {
-      // Like
-      user.likedSongs.push(song._id);
-      song.likes += 1;
+      res.json(song);
     }
-
-    await Promise.all([user.save(), song.save()]);
-
-    res.json({
-      message: isLiked ? 'Song unliked' : 'Song liked',
-      isLiked: !isLiked,
-      likes: song.likes
-    });
   } catch (error) {
-    console.error('Like song error:', error);
-    res.status(500).json({ message: 'Failed to like/unlike song' });
+    console.error('Get song error:', error.message);
+    res.status(500).json({ message: 'Failed to get song', error: error.message });
   }
 });
 
-// Track play count
-router.post('/:id/play', optionalAuth, async (req, res) => {
-  try {
-    const song = await Song.findById(req.params.id);
-    
-    if (!song) {
-      return res.status(404).json({ message: 'Song not found' });
-    }
-
-    // Increment play count
-    await song.incrementPlayCount();
-
-    // Add to user's recently played if authenticated
-    if (req.user) {
-      const user = await User.findById(req.user._id);
-      
-      // Remove if already in recently played
-      user.recentlyPlayed = user.recentlyPlayed.filter(
-        item => item.song.toString() !== song._id.toString()
-      );
-      
-      // Add to beginning
-      user.recentlyPlayed.unshift({
-        song: song._id,
-        playedAt: new Date()
-      });
-      
-      // Keep only last 50 played songs
-      user.recentlyPlayed = user.recentlyPlayed.slice(0, 50);
-      
-      await user.save();
-    }
-
-    res.json({
-      message: 'Play tracked',
-      playCount: song.playCount
-    });
-  } catch (error) {
-    console.error('Track play error:', error);
-    res.status(500).json({ message: 'Failed to track play' });
-  }
-});
-
-module.exports = router;
+export default router;

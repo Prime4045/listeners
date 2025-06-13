@@ -1,5 +1,5 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -8,97 +8,102 @@ const userSchema = new mongoose.Schema({
     unique: true,
     trim: true,
     minlength: 3,
-    maxlength: 30
+    maxlength: 30,
   },
   email: {
     type: String,
     required: true,
     unique: true,
     lowercase: true,
-    trim: true
+    trim: true,
   },
   password: {
     type: String,
-    required: function() {
-      return !this.googleId; // Password required only if not using Google OAuth
+    required: function () {
+      return !this.googleId;
     },
-    minlength: 6
+    minlength: 6,
   },
   googleId: {
     type: String,
-    sparse: true // Allows multiple null values
+    sparse: true,
+    unique: true,
   },
   avatar: {
     type: String,
-    default: null
+    default: null,
   },
   isVerified: {
     type: Boolean,
-    default: false
+    default: false,
   },
   preferences: {
     theme: {
       type: String,
       enum: ['dark', 'light'],
-      default: 'dark'
+      default: 'dark',
     },
     autoplay: {
       type: Boolean,
-      default: true
+      default: true,
     },
     quality: {
       type: String,
       enum: ['low', 'medium', 'high'],
-      default: 'high'
-    }
+      default: 'high',
+    },
   },
   subscription: {
     type: {
       type: String,
       enum: ['free', 'premium'],
-      default: 'free'
+      default: 'free',
     },
-    expiresAt: Date
+    expiresAt: Date,
   },
   likedSongs: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Song'
+    ref: 'Song',
   }],
   playlists: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Playlist'
+    ref: 'Playlist',
   }],
   followedArtists: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Artist'
+    ref: 'Artist',
   }],
-  recentlyPlayed: [{
-    song: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Song'
+  recentlyPlayed: {
+    type: [{
+      song: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Song',
+        required: true,
+      },
+      playedAt: {
+        type: Date,
+        default: Date.now,
+      },
+    }],
+    validate: {
+      validator: function (arr) {
+        return arr.length <= 5;
+      },
+      message: 'Recently played tracks cannot exceed 5 entries.',
     },
-    playedAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
+  },
   lastLogin: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 }, {
-  timestamps: true
+  timestamps: true,
 });
 
-// Index for better query performance
-userSchema.index({ email: 1 });
-userSchema.index({ username: 1 });
-userSchema.index({ googleId: 1 });
-
 // Hash password before saving
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-  
+
   try {
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
@@ -108,17 +113,26 @@ userSchema.pre('save', async function(next) {
   }
 });
 
+// Validate authentication method
+userSchema.pre('save', function (next) {
+  if (!this.password && !this.googleId) {
+    next(new Error('At least one authentication method (password or Google OAuth) is required'));
+  }
+  next();
+});
+
 // Compare password method
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Remove password from JSON output
-userSchema.methods.toJSON = function() {
+// Exclude sensitive fields from JSON output
+userSchema.methods.toJSON = function () {
   const userObject = this.toObject();
   delete userObject.password;
+  delete userObject.googleId;
   return userObject;
 };
 
-module.exports = mongoose.model('User', userSchema);
+export default mongoose.model('User', userSchema);

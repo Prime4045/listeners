@@ -1,115 +1,117 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const playlistSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
     trim: true,
-    maxlength: 100
+    maxlength: 100,
   },
   description: {
     type: String,
     trim: true,
-    maxlength: 500
+    maxlength: 500,
   },
   coverImage: {
     type: String,
-    default: null
+    default: null,
   },
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: true,
   },
   songs: [{
     song: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Song'
+      ref: 'Song',
     },
     addedAt: {
       type: Date,
-      default: Date.now
+      default: Date.now,
     },
     addedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    }
+      ref: 'User',
+    },
   }],
   isPublic: {
     type: Boolean,
-    default: false
+    default: false,
   },
   isCollaborative: {
     type: Boolean,
-    default: false
+    default: false,
   },
   collaborators: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+      ref: 'User',
     },
     permissions: {
       type: String,
       enum: ['view', 'edit', 'admin'],
-      default: 'edit'
+      default: 'edit',
     },
     addedAt: {
       type: Date,
-      default: Date.now
-    }
+      default: Date.now,
+    },
   }],
   followers: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'User',
   }],
   tags: [{
     type: String,
-    trim: true
+    trim: true,
   }],
   playCount: {
     type: Number,
-    default: 0
-  }
+    default: 0,
+  },
 }, {
-  timestamps: true
+  timestamps: true,
 });
 
-// Indexes
 playlistSchema.index({ owner: 1 });
 playlistSchema.index({ name: 'text', description: 'text' });
 playlistSchema.index({ isPublic: 1 });
 playlistSchema.index({ createdAt: -1 });
 
-// Virtual for total duration
-playlistSchema.virtual('totalDuration').get(function() {
-  // This would need to be populated with song data to calculate
-  return 0; // Placeholder
+playlistSchema.virtual('totalDuration').get(function () {
+  if (!this.populated('songs.song')) {
+    return 0;
+  }
+  return this.songs.reduce((total, { song }) => total + (song.duration || 0), 0);
 });
 
-// Virtual for song count
-playlistSchema.virtual('songCount').get(function() {
+playlistSchema.virtual('songCount').get(function () {
   return this.songs.length;
 });
 
-// Method to add song
-playlistSchema.methods.addSong = function(songId, userId) {
-  const existingSong = this.songs.find(s => s.song.toString() === songId.toString());
+playlistSchema.methods.addSong = async function (songId, userId) {
+  const existingSong = this.songs.find((s) => s.song.toString() === songId.toString());
   if (existingSong) {
     throw new Error('Song already exists in playlist');
   }
-  
+
   this.songs.push({
     song: songId,
-    addedBy: userId
+    addedBy: userId,
   });
-  
+
   return this.save();
 };
 
-// Method to remove song
-playlistSchema.methods.removeSong = function(songId) {
-  this.songs = this.songs.filter(s => s.song.toString() !== songId.toString());
+playlistSchema.methods.removeSong = async function (songId) {
+  this.songs = this.songs.filter((s) => s.song.toString() !== songId.toString());
   return this.save();
 };
 
-module.exports = mongoose.model('Playlist', playlistSchema);
+playlistSchema.pre('save', function (next) {
+  this.collaborators = [...new Map(this.collaborators.map((item) => [item.user.toString(), item])).values()];
+  next();
+});
+
+export default mongoose.model('Playlist', playlistSchema);

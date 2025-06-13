@@ -1,347 +1,139 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { useAudioPlayer } from '../hooks/useAudioPlayer';
-import apiService from '../services/api';
+import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 
-// Initial state
-const initialState = {
-  currentTrack: null,
-  playlist: [],
-  currentIndex: 0,
-  isPlaying: false,
-  isShuffled: false,
-  repeatMode: 'none', // 'none', 'one', 'all'
-  volume: 0.8,
-  queue: [],
-  history: [],
-  isLoading: false,
-  error: null,
-};
-
-// Action types
-const MUSIC_ACTIONS = {
-  SET_CURRENT_TRACK: 'SET_CURRENT_TRACK',
-  SET_PLAYLIST: 'SET_PLAYLIST',
-  SET_PLAYING: 'SET_PLAYING',
-  SET_SHUFFLE: 'SET_SHUFFLE',
-  SET_REPEAT: 'SET_REPEAT',
-  SET_VOLUME: 'SET_VOLUME',
-  ADD_TO_QUEUE: 'ADD_TO_QUEUE',
-  REMOVE_FROM_QUEUE: 'REMOVE_FROM_QUEUE',
-  CLEAR_QUEUE: 'CLEAR_QUEUE',
-  NEXT_TRACK: 'NEXT_TRACK',
-  PREVIOUS_TRACK: 'PREVIOUS_TRACK',
-  SET_LOADING: 'SET_LOADING',
-  SET_ERROR: 'SET_ERROR',
-  CLEAR_ERROR: 'CLEAR_ERROR',
-};
-
-// Reducer
-const musicReducer = (state, action) => {
-  switch (action.type) {
-    case MUSIC_ACTIONS.SET_CURRENT_TRACK:
-      return {
-        ...state,
-        currentTrack: action.payload.track,
-        currentIndex: action.payload.index !== undefined ? action.payload.index : state.currentIndex,
-        error: null,
-      };
-
-    case MUSIC_ACTIONS.SET_PLAYLIST:
-      return {
-        ...state,
-        playlist: action.payload.playlist,
-        currentIndex: action.payload.startIndex || 0,
-        error: null,
-      };
-
-    case MUSIC_ACTIONS.SET_PLAYING:
-      return {
-        ...state,
-        isPlaying: action.payload.isPlaying,
-      };
-
-    case MUSIC_ACTIONS.SET_SHUFFLE:
-      return {
-        ...state,
-        isShuffled: action.payload.isShuffled,
-      };
-
-    case MUSIC_ACTIONS.SET_REPEAT:
-      return {
-        ...state,
-        repeatMode: action.payload.repeatMode,
-      };
-
-    case MUSIC_ACTIONS.SET_VOLUME:
-      return {
-        ...state,
-        volume: action.payload.volume,
-      };
-
-    case MUSIC_ACTIONS.ADD_TO_QUEUE:
-      return {
-        ...state,
-        queue: [...state.queue, action.payload.track],
-      };
-
-    case MUSIC_ACTIONS.REMOVE_FROM_QUEUE:
-      return {
-        ...state,
-        queue: state.queue.filter((_, index) => index !== action.payload.index),
-      };
-
-    case MUSIC_ACTIONS.CLEAR_QUEUE:
-      return {
-        ...state,
-        queue: [],
-      };
-
-    case MUSIC_ACTIONS.NEXT_TRACK:
-      const nextIndex = state.currentIndex + 1;
-      const hasNextTrack = nextIndex < state.playlist.length;
-      
-      if (hasNextTrack || state.repeatMode === 'all') {
-        const newIndex = hasNextTrack ? nextIndex : 0;
-        return {
-          ...state,
-          currentIndex: newIndex,
-          currentTrack: state.playlist[newIndex],
-        };
-      }
-      return state;
-
-    case MUSIC_ACTIONS.PREVIOUS_TRACK:
-      const prevIndex = state.currentIndex - 1;
-      const hasPrevTrack = prevIndex >= 0;
-      
-      if (hasPrevTrack || state.repeatMode === 'all') {
-        const newIndex = hasPrevTrack ? prevIndex : state.playlist.length - 1;
-        return {
-          ...state,
-          currentIndex: newIndex,
-          currentTrack: state.playlist[newIndex],
-        };
-      }
-      return state;
-
-    case MUSIC_ACTIONS.SET_LOADING:
-      return {
-        ...state,
-        isLoading: action.payload.isLoading,
-      };
-
-    case MUSIC_ACTIONS.SET_ERROR:
-      return {
-        ...state,
-        error: action.payload.error,
-        isLoading: false,
-      };
-
-    case MUSIC_ACTIONS.CLEAR_ERROR:
-      return {
-        ...state,
-        error: null,
-      };
-
-    default:
-      return state;
-  }
-};
-
-// Create context
 const MusicContext = createContext();
 
-// Provider component
 export const MusicProvider = ({ children }) => {
-  const [state, dispatch] = useReducer(musicReducer, initialState);
-  const audioPlayer = useAudioPlayer();
+  const [currentTrack, setCurrentTrack] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [volume, setVolume] = useState(parseFloat(localStorage.getItem('playerVolume')) || 0.5);
+  const [isShuffled, setIsShuffled] = useState(false);
+  const [repeatMode, setRepeatMode] = useState('none'); // none, track, playlist
+  const [trackList, setTrackList] = useState([]);
+  const audioRef = useRef(new Audio());
 
-  // Sync audio player with state
   useEffect(() => {
-    if (state.currentTrack && state.currentTrack !== audioPlayer.currentTrack) {
-      audioPlayer.playTrack(state.currentTrack);
+    audioRef.current.volume = volume;
+  }, [volume]);
+
+  const playTrack = (track, tracks = []) => {
+    if (!track.previewUrl) {
+      console.warn('No preview URL available for this track');
+      return;
     }
-  }, [state.currentTrack]);
-
-  useEffect(() => {
-    audioPlayer.changeVolume(state.volume);
-  }, [state.volume]);
-
-  // Track play count when a song starts playing
-  useEffect(() => {
-    if (state.isPlaying && state.currentTrack) {
-      apiService.trackPlay(state.currentTrack.id).catch(console.error);
-    }
-  }, [state.isPlaying, state.currentTrack]);
-
-  // Play track
-  const playTrack = (track, playlist = null, startIndex = 0) => {
-    dispatch({
-      type: MUSIC_ACTIONS.SET_CURRENT_TRACK,
-      payload: { track, index: startIndex },
-    });
-
-    if (playlist) {
-      dispatch({
-        type: MUSIC_ACTIONS.SET_PLAYLIST,
-        payload: { playlist, startIndex },
-      });
-    }
-
-    dispatch({
-      type: MUSIC_ACTIONS.SET_PLAYING,
-      payload: { isPlaying: true },
-    });
+    setTrackList(tracks);
+    setCurrentTrack(track);
+    audioRef.current.src = track.previewUrl;
+    audioRef.current.play().then(() => setIsPlaying(true)).catch((err) => console.error('Playback error:', err));
+    setCurrentTime(0);
+    setProgress(0);
   };
 
-  // Toggle play/pause
   const togglePlayPause = () => {
-    const newIsPlaying = !state.isPlaying;
-    dispatch({
-      type: MUSIC_ACTIONS.SET_PLAYING,
-      payload: { isPlaying: newIsPlaying },
-    });
-    audioPlayer.togglePlayPause();
-  };
-
-  // Next track
-  const nextTrack = () => {
-    if (state.queue.length > 0) {
-      // Play from queue first
-      const nextTrack = state.queue[0];
-      dispatch({ type: MUSIC_ACTIONS.REMOVE_FROM_QUEUE, payload: { index: 0 } });
-      playTrack(nextTrack);
-    } else if (state.repeatMode === 'one') {
-      // Repeat current track
-      audioPlayer.seekTo(0);
-      audioPlayer.togglePlayPause();
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
     } else {
-      // Move to next track in playlist
-      dispatch({ type: MUSIC_ACTIONS.NEXT_TRACK });
+      audioRef.current.play().then(() => setIsPlaying(true)).catch((err) => console.error('Playback error:', err));
     }
   };
 
-  // Previous track
-  const previousTrack = () => {
-    dispatch({ type: MUSIC_ACTIONS.PREVIOUS_TRACK });
-  };
-
-  // Set playlist
-  const setPlaylist = (playlist, startIndex = 0) => {
-    dispatch({
-      type: MUSIC_ACTIONS.SET_PLAYLIST,
-      payload: { playlist, startIndex },
-    });
-
-    if (playlist.length > 0) {
-      dispatch({
-        type: MUSIC_ACTIONS.SET_CURRENT_TRACK,
-        payload: { track: playlist[startIndex], index: startIndex },
-      });
-    }
-  };
-
-  // Toggle shuffle
   const toggleShuffle = () => {
-    const newIsShuffled = !state.isShuffled;
-    dispatch({
-      type: MUSIC_ACTIONS.SET_SHUFFLE,
-      payload: { isShuffled: newIsShuffled },
-    });
-
-    // TODO: Implement playlist shuffling logic
+    setIsShuffled(!isShuffled);
   };
 
-  // Toggle repeat mode
   const toggleRepeat = () => {
-    const modes = ['none', 'all', 'one'];
-    const currentIndex = modes.indexOf(state.repeatMode);
-    const nextMode = modes[(currentIndex + 1) % modes.length];
-    
-    dispatch({
-      type: MUSIC_ACTIONS.SET_REPEAT,
-      payload: { repeatMode: nextMode },
-    });
+    setRepeatMode(repeatMode === 'none' ? 'track' : repeatMode === 'track' ? 'playlist' : 'none');
   };
 
-  // Set volume
-  const setVolume = (volume) => {
-    dispatch({
-      type: MUSIC_ACTIONS.SET_VOLUME,
-      payload: { volume },
-    });
+  const previousTrack = () => {
+    if (!trackList.length) return;
+    const currentIndex = trackList.findIndex((t) => t.spotifyId === currentTrack?.spotifyId);
+    const prevIndex = currentIndex > 0 ? currentIndex - 1 : trackList.length - 1;
+    playTrack(trackList[prevIndex], trackList);
   };
 
-  // Add to queue
-  const addToQueue = (track) => {
-    dispatch({
-      type: MUSIC_ACTIONS.ADD_TO_QUEUE,
-      payload: { track },
-    });
+  const nextTrack = () => {
+    if (!trackList.length) return;
+    let nextIndex;
+    if (isShuffled) {
+      nextIndex = Math.floor(Math.random() * trackList.length);
+    } else {
+      const currentIndex = trackList.findIndex((t) => t.spotifyId === currentTrack?.spotifyId);
+      nextIndex = currentIndex < trackList.length - 1 ? currentIndex + 1 : 0;
+    }
+    playTrack(trackList[nextIndex], trackList);
   };
 
-  // Remove from queue
-  const removeFromQueue = (index) => {
-    dispatch({
-      type: MUSIC_ACTIONS.REMOVE_FROM_QUEUE,
-      payload: { index },
-    });
+  const seekTo = (percent) => {
+    const newTime = (percent / 100) * duration;
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+    setProgress(percent);
   };
 
-  // Clear queue
-  const clearQueue = () => {
-    dispatch({ type: MUSIC_ACTIONS.CLEAR_QUEUE });
+  const formatTime = (seconds) => {
+    if (!seconds) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Seek to position
-  const seekTo = (time) => {
-    audioPlayer.seekTo(time);
-  };
+  useEffect(() => {
+    const audio = audioRef.current;
+    const updateTime = () => {
+      setCurrentTime(audio.currentTime);
+      setProgress((audio.currentTime / audio.duration) * 100 || 0);
+    };
+    const setAudioDuration = () => setDuration(audio.duration);
+    const handleEnded = () => {
+      if (repeatMode === 'track') {
+        audio.currentTime = 0;
+        audio.play();
+      } else if (repeatMode === 'playlist' || !repeatMode) {
+        nextTrack();
+      } else {
+        setIsPlaying(false);
+      }
+    };
 
-  // Clear error
-  const clearError = () => {
-    dispatch({ type: MUSIC_ACTIONS.CLEAR_ERROR });
-  };
-
-  // Context value
-  const value = {
-    ...state,
-    // Audio player state
-    currentTime: audioPlayer.currentTime,
-    duration: audioPlayer.duration,
-    progress: audioPlayer.progress,
-    formatTime: audioPlayer.formatTime,
-    
-    // Actions
-    playTrack,
-    togglePlayPause,
-    nextTrack,
-    previousTrack,
-    setPlaylist,
-    toggleShuffle,
-    toggleRepeat,
-    setVolume,
-    addToQueue,
-    removeFromQueue,
-    clearQueue,
-    seekTo,
-    clearError,
-  };
+    audio.addEventListener('timeupdate', updateTime);
+    audio.addEventListener('loadedmetadata', setAudioDuration);
+    audio.addEventListener('ended', handleEnded);
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime);
+      audio.removeEventListener('loadedmetadata', setAudioDuration);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, [trackList, repeatMode]);
 
   return (
-    <MusicContext.Provider value={value}>
+    <MusicContext.Provider
+      value={{
+        currentTrack,
+        isPlaying,
+        currentTime,
+        duration,
+        progress,
+        volume,
+        isShuffled,
+        repeatMode,
+        playTrack,
+        togglePlayPause,
+        toggleShuffle,
+        previousTrack,
+        nextTrack,
+        toggleRepeat,
+        seekTo,
+        setVolume,
+        formatTime,
+      }}
+    >
       {children}
     </MusicContext.Provider>
   );
 };
 
-// Custom hook to use music context
-export const useMusic = () => {
-  const context = useContext(MusicContext);
-  if (!context) {
-    throw new Error('useMusic must be used within a MusicProvider');
-  }
-  return context;
-};
-
-export default MusicContext;
+export const useMusic = () => useContext(MusicContext);

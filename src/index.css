@@ -1,5 +1,4 @@
 :root {
-  /* Custom Color Palette for Listeners */
   --primary-bg: #0a0a0a;
   --secondary-bg: #121212;
   --tertiary-bg: #1a1a1a;
@@ -8,22 +7,19 @@
   --accent-blue: #3b82f6;
   --text-primary: #ffffff;
   --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
+  --text-muted: #a3a3a3;
+  /* Adjusted for better contrast */
   --border-color: #27272a;
   --hover-bg: #262626;
   --gradient-primary: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
   --gradient-secondary: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-  
+
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color-scheme: dark;
   color: var(--text-primary);
   background-color: var(--primary-bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
@@ -89,34 +85,13 @@ a:hover {
   color: var(--accent-purple);
 }
 
-/* Utility Classes */
-.gradient-text {
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.glass-effect {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.hover-lift {
-  transition: transform 0.2s ease;
-}
-
-.hover-lift:hover {
-  transform: translateY(-2px);
-}
-
 /* Animation Classes */
 @keyframes fadeIn {
   from {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -125,17 +100,4 @@ a:hover {
 
 .fade-in {
   animation: fadeIn 0.6s ease-out;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.pulse {
-  animation: pulse 2s infinite;
 }

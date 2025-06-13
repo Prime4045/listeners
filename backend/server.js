@@ -1,134 +1,150 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const compression = require('compression');
-const morgan = require('morgan');
-const rateLimit = require('express-rate-limit');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-
-// Import database connections
-const { connectMongoDB, redisClient } = require('./config/database');
-
-// Import routes
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const musicRoutes = require('./routes/music');
-const playlistRoutes = require('./routes/playlists');
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { authenticateToken } from './middleware/auth.js';
+import { connectMongoDB, initializeRedis } from './config/database.js';
+import authRoutes from './routes/auth.js';
+import userRoutes from './routes/users.js';
+import musicRoutes from './routes/music.js';
+import playlistRoutes from './routes/playlists.js';
 
 const app = express();
 const server = createServer(app);
 
-// Socket.IO setup for real-time features
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:12000",
-    methods: ["GET", "POST"]
-  }
+    origin: process.env.FRONTEND_URL || 'http://localhost:12000',
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
 });
 
-// Security middleware
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      mediaSrc: ["'self'", "blob:"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
+      scriptSrc: ["'self'", 'https:'],
+      imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+      mediaSrc: ["'self'", 'blob:', 'https:'],
+      connectSrc: ["'self'", 'wss:', 'ws:', 'https:'],
     },
   },
 }));
 
-// Rate limiting
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
   message: 'Too many requests from this IP, please try again later.',
 });
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: 'Too many authentication attempts, please try again later.',
+});
+
+app.use('/api/auth', authLimiter);
 app.use('/api/', limiter);
 
-// CORS configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:12000",
+  origin: process.env.FRONTEND_URL || 'http://localhost:12000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Compression and logging
 app.use(compression());
 app.use(morgan('combined'));
 
-// Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static file serving for audio files
 app.use('/uploads', express.static('uploads'));
 
-// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/music', musicRoutes);
 app.use('/api/playlists', playlistRoutes);
 
-// Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV 
+    environment: process.env.NODE_ENV,
   });
 });
 
-// Socket.IO connection handling
-io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+io.use((socket, next) => {
+  if (socket.handshake.auth && socket.handshake.auth.token) {
+    const token = socket.handshake.auth.token.split(' ')[1];
+    authenticateToken({ headers: { authorization: socket.handshake.auth.token } }, {}, (err) => {
+      if (err) return next(new Error('Authentication error'));
+      socket.user = socket.request.user;
+      next();
+    });
+  } else {
+    next(new Error('Authentication error'));
+  }
+});
 
-  // Handle real-time music synchronization
-  socket.on('join-room', (roomId) => {
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id, socket.user.username);
+
+  socket.on('join-room', async (roomId) => {
+    if (!roomId || typeof roomId !== 'string') {
+      socket.emit('error', { message: 'Invalid room ID' });
+      return;
+    }
     socket.join(roomId);
-    console.log(`User ${socket.id} joined room ${roomId}`);
+    await redisClient.set(`room:${roomId}:lastActive`, Date.now());
+    console.log(`User ${socket.user.username} joined room ${roomId}`);
   });
 
-  socket.on('sync-playback', (data) => {
+  socket.on('sync-playback', async (data) => {
+    if (!data.roomId || !data.currentTime || !data.isPlaying) {
+      socket.emit('error', { message: 'Invalid playback data' });
+      return;
+    }
+    await redisClient.set(`room:${data.roomId}:playback`, JSON.stringify(data));
     socket.to(data.roomId).emit('playback-sync', data);
   });
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     console.log('User disconnected:', socket.id);
+    const rooms = Array.from(socket.rooms).filter((room) => room !== socket.id);
+    for (const room of rooms) {
+      await redisClient.del(`room:${room}:playback`);
+    }
   });
 });
 
-// Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ 
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+  const status = err.status || 500;
+  res.status(status).json({
+    message: err.message || 'Something went wrong!',
+    error: process.env.NODE_ENV === 'development' ? err.stack : undefined,
   });
 });
 
-// 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
 const PORT = process.env.PORT || 3001;
 
-// Initialize database connections and start server
 async function startServer() {
   try {
-    // Connect to MongoDB
     await connectMongoDB();
-    
-    // Connect to Redis
-    await redisClient.connect();
-    
-    // Start server
+    await initializeRedis();
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`🎵 Listeners Backend Server running on port ${PORT}`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
@@ -142,4 +158,4 @@ async function startServer() {
 
 startServer();
 
-module.exports = app;
+export default app;
