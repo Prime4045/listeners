@@ -3,7 +3,19 @@ import './TrackList.css'
 
 const TrackList = ({ tracks, currentTrack, isPlaying, onTrackSelect, onTogglePlay }) => {
   const formatDuration = (duration) => {
-    return duration
+    if (!duration) return '0:00';
+    const totalSeconds = Math.floor(duration / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  if (!tracks || tracks.length === 0) {
+    return (
+      <div className="track-list-empty">
+        <p>No tracks available</p>
+      </div>
+    );
   }
 
   return (
@@ -19,17 +31,19 @@ const TrackList = ({ tracks, currentTrack, isPlaying, onTrackSelect, onTogglePla
       <div className="track-list-body">
         {tracks.map((track, index) => (
           <div 
-            key={track.id} 
-            className={`track-row ${currentTrack?.id === track.id ? 'active' : ''}`}
+            key={track.spotifyId || track.id || index} 
+            className={`track-row ${currentTrack?.spotifyId === track.spotifyId ? 'active' : ''}`}
             onClick={() => onTrackSelect(track)}
           >
             <div className="track-number">
-              {currentTrack?.id === track.id ? (
+              {currentTrack?.spotifyId === track.spotifyId ? (
                 <button 
                   className="track-play-btn"
                   onClick={(e) => {
                     e.stopPropagation()
-                    onTogglePlay()
+                    if (onTogglePlay) {
+                      onTogglePlay()
+                    }
                   }}
                 >
                   {isPlaying ? <Pause size={14} /> : <Play size={14} />}
@@ -48,10 +62,10 @@ const TrackList = ({ tracks, currentTrack, isPlaying, onTrackSelect, onTogglePla
             <div className="track-duration">{formatDuration(track.duration)}</div>
             
             <div className="track-actions">
-              <button className="action-btn">
+              <button className="action-btn" title="Like this song">
                 <Heart size={16} />
               </button>
-              <button className="action-btn">
+              <button className="action-btn" title="More options">
                 <MoreHorizontal size={16} />
               </button>
             </div>

@@ -16,6 +16,7 @@ import {
   User,
   Clock,
   TrendingUp,
+  Loader2,
 } from 'lucide-react';
 import TrackList from './components/TrackList';
 import WaveformPlayer from './components/WaveformPlayer';
@@ -46,10 +47,12 @@ const AppContent = () => {
   const [currentView, setCurrentView] = useState('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [trendingSongs, setTrendingSongs] = useState([]);
   const [bollywoodAlbums, setBollywoodAlbums] = useState([]);
   const [recentlyPlayed, setRecentlyPlayed] = useState([]);
   const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const {
     currentTrack,
     isPlaying,
@@ -71,40 +74,106 @@ const AppContent = () => {
   } = useMusic();
   const { user, isAuthenticated, logout } = useAuth();
 
-  // Fetch trending songs (10)
+  // Debounced search function
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery.trim() && searchQuery.length >= 2) {
+        handleSearch();
+      } else if (searchQuery.trim() === '') {
+        setSearchResults([]);
+        if (currentView === 'search') {
+          setCurrentView('home');
+        }
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // Fetch trending songs
   const fetchTrendingSongs = async () => {
     try {
-      const songs = await ApiService.request('GET', '/music/trending-songs');
-      setTrendingSongs(songs);
+      setIsLoading(true);
+      const songs = await ApiService.getTrendingSongs(10);
+      setTrendingSongs(songs || []);
       setError(null);
     } catch (err) {
       console.error('Failed to fetch trending songs:', err);
-      setError('Failed to load trending songs. Please try again.');
+      setError('Failed to load trending songs. Using offline mode.');
+      // Fallback to sample data
+      setTrendingSongs([
+        {
+          spotifyId: 'sample1',
+          title: 'Sample Song 1',
+          artist: 'Sample Artist',
+          album: 'Sample Album',
+          duration: 180000,
+          previewUrl: '/audio/sample.mp3',
+          imageUrl: null,
+        },
+        {
+          spotifyId: 'sample2',
+          title: 'Sample Song 2',
+          artist: 'Another Artist',
+          album: 'Another Album',
+          duration: 210000,
+          previewUrl: '/audio/sample.mp3',
+          imageUrl: null,
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Fetch Bollywood albums (10)
+  // Fetch Bollywood albums
   const fetchBollywoodAlbums = async () => {
     try {
-      const albums = await ApiService.request('GET', '/music/bollywood-albums');
-      setBollywoodAlbums(albums);
+      const albums = await ApiService.getBollywoodAlbums(10);
+      setBollywoodAlbums(albums || []);
       setError(null);
     } catch (err) {
       console.error('Failed to fetch Bollywood albums:', err);
-      setError('Failed to load Bollywood albums. Please try again.');
+      setError('Failed to load Bollywood albums. Using offline mode.');
+      // Fallback to sample data
+      setBollywoodAlbums([
+        {
+          spotifyId: 'album1',
+          title: 'Sample Album 1',
+          artist: 'Bollywood Artist',
+          imageUrl: null,
+          totalTracks: 10,
+        },
+        {
+          spotifyId: 'album2',
+          title: 'Sample Album 2',
+          artist: 'Another Bollywood Artist',
+          imageUrl: null,
+          totalTracks: 8,
+        },
+      ]);
     }
   };
 
   // Fetch recently played for authenticated users
   const fetchRecentlyPlayed = async () => {
     if (!isAuthenticated) {
-      setRecentlyPlayed([]);
+      // Load from localStorage for non-authenticated users
+      const stored = localStorage.getItem('recentlyPlayed');
+      if (stored) {
+        try {
+          setRecentlyPlayed(JSON.parse(stored));
+        } catch (e) {
+          console.error('Failed to parse stored recently played:', e);
+        }
+      }
       return;
     }
+
     try {
-      const userData = await ApiService.request('GET', '/auth/me');
+      const userData = await ApiService.getCurrentUser();
       const songs = userData.recentlyPlayed
-        .map((item) => ({
+        ?.map((item) => ({
           spotifyId: item.song.spotifyId,
           title: item.song.title,
           artist: item.song.artist,
@@ -114,12 +183,51 @@ const AppContent = () => {
           imageUrl: item.song.imageUrl,
           playedAt: item.playedAt,
         }))
-        .reverse();
+        .reverse() || [];
       setRecentlyPlayed(songs);
       setError(null);
     } catch (err) {
       console.error('Failed to fetch recently played:', err);
-      setError('Failed to load recently played tracks.');
+      // Don't show error for this, just use local storage
+    }
+  };
+
+  // Enhanced search function
+  const handleSearch = async () => {
+    if (!searchQuery.trim() || searchQuery.length < 2) return;
+    
+    try {
+      setIsSearching(true);
+      setError(null);
+      
+      const results = await ApiService.searchMusic(searchQuery.trim(), 20);
+      setSearchResults(results || []);
+      setCurrentView('search');
+    } catch (error) {
+      console.error('Search failed:', error);
+      setError(`Search failed: ${error.message}. Please try again.`);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Handle search input changes
+  const handleSearchInputChange = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    
+    // Show search view immediately when typing
+    if (value.trim() && currentView !== 'search') {
+      setCurrentView('search');
+    }
+  };
+
+  // Handle search form submission
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      handleSearch();
     }
   };
 
@@ -131,53 +239,58 @@ const AppContent = () => {
     }
   }, [currentView, isAuthenticated]);
 
-  const handleSearch = async () => {
-    if (!searchQuery) return;
-    try {
-      const results = await ApiService.request('GET', `/music/search?query=${encodeURIComponent(searchQuery)}`);
-      setSearchResults(results);
-      setCurrentView('search');
-      setError(null);
-    } catch (error) {
-      console.error('Search failed:', error);
-      setError('Search failed. Please try again.');
-    }
-  };
-
   const handleTrackSelect = async (trackOrAlbum, isAlbum = false) => {
     let track = trackOrAlbum;
 
     if (isAlbum) {
       try {
-        track = await ApiService.request('GET', `/music/albums/${trackOrAlbum.spotifyId}/track`);
+        setIsLoading(true);
+        track = await ApiService.getAlbumTrack(trackOrAlbum.spotifyId);
       } catch (err) {
         console.error('Failed to fetch album track:', err);
         setError('Failed to play album track. Please try again.');
         return;
+      } finally {
+        setIsLoading(false);
       }
     }
 
     if (!track.previewUrl) {
-      setError('This track is not playable.');
+      setError('This track is not playable (no preview available).');
       return;
     }
 
     const tracks = currentView === 'search' ? searchResults : trendingSongs;
     playTrack(track, tracks);
 
+    // Update recently played
+    const recentTrack = { ...track, playedAt: new Date().toISOString() };
+    
     if (isAuthenticated) {
-      ApiService.request('POST', `/music/${track.spotifyId}/play`)
-        .then(() => fetchRecentlyPlayed())
-        .catch((err) => console.error('Failed to update recently played:', err));
+      try {
+        await ApiService.playTrack(track.spotifyId);
+        fetchRecentlyPlayed();
+      } catch (err) {
+        console.error('Failed to update recently played on server:', err);
+        // Still update locally
+        updateLocalRecentlyPlayed(recentTrack);
+      }
     } else {
-      setRecentlyPlayed((prev) => {
-        const updated = [
-          ...prev.filter((t) => t.spotifyId !== track.spotifyId),
-          { ...track, playedAt: new Date() },
-        ].slice(-5);
-        return updated.reverse();
-      });
+      updateLocalRecentlyPlayed(recentTrack);
     }
+  };
+
+  const updateLocalRecentlyPlayed = (track) => {
+    setRecentlyPlayed((prev) => {
+      const updated = [
+        track,
+        ...prev.filter((t) => t.spotifyId !== track.spotifyId),
+      ].slice(0, 5);
+      
+      // Store in localStorage
+      localStorage.setItem('recentlyPlayed', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   // Apply user theme
@@ -195,15 +308,59 @@ const AppContent = () => {
           <div className="library-view">
             <div className="section-header">
               <Search className="section-icon" />
-              <h2>Search Results</h2>
+              <h2>
+                {isSearching ? 'Searching...' : searchQuery ? `Results for "${searchQuery}"` : 'Search Music'}
+              </h2>
             </div>
-            {error && <p style={{ color: 'red' }}>{error}</p>}
-            <TrackList
-              tracks={searchResults}
-              currentTrack={currentTrack}
-              isPlaying={isPlaying}
-              onTrackSelect={(track) => handleTrackSelect(track)}
-            />
+            
+            {error && (
+              <div className="error-message" style={{ 
+                color: '#ef4444', 
+                background: 'rgba(239, 68, 68, 0.1)', 
+                padding: '1rem', 
+                borderRadius: '8px', 
+                margin: '1rem 0' 
+              }}>
+                {error}
+              </div>
+            )}
+            
+            {isSearching && (
+              <div className="loading-indicator" style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.5rem', 
+                padding: '2rem',
+                justifyContent: 'center'
+              }}>
+                <Loader2 className="animate-spin" size={20} />
+                <span>Searching for music...</span>
+              </div>
+            )}
+            
+            {!isSearching && searchResults.length > 0 && (
+              <TrackList
+                tracks={searchResults}
+                currentTrack={currentTrack}
+                isPlaying={isPlaying}
+                onTrackSelect={(track) => handleTrackSelect(track)}
+              />
+            )}
+            
+            {!isSearching && searchQuery && searchResults.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                <Music size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
+                <p>No results found for "{searchQuery}"</p>
+                <p>Try searching with different keywords</p>
+              </div>
+            )}
+            
+            {!searchQuery && (
+              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                <Search size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
+                <p>Start typing to search for songs, artists, or albums</p>
+              </div>
+            )}
           </div>
         );
       case 'library':
@@ -265,7 +422,30 @@ const AppContent = () => {
               <p>Discover new music and enjoy your favorites</p>
             </div>
 
-            {error && <p style={{ color: 'red', margin: '10px' }}>{error}</p>}
+            {error && (
+              <div className="error-message" style={{ 
+                color: '#ef4444', 
+                background: 'rgba(239, 68, 68, 0.1)', 
+                padding: '1rem', 
+                borderRadius: '8px', 
+                margin: '1rem 0' 
+              }}>
+                {error}
+              </div>
+            )}
+
+            {isLoading && (
+              <div className="loading-indicator" style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.5rem', 
+                padding: '1rem',
+                justifyContent: 'center'
+              }}>
+                <Loader2 className="animate-spin" size={20} />
+                <span>Loading music...</span>
+              </div>
+            )}
 
             <div className="music-section">
               <div className="section-header">
@@ -282,10 +462,20 @@ const AppContent = () => {
                     >
                       <div className="card-image">
                         <img
-                          src={track.imageUrl || '/placeholder.jpg'}
+                          src={track.imageUrl || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300'}
                           alt={track.title}
-                          style={{ width: '100%', borderRadius: '8px' }}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }}
+                          onError={(e) => {
+                            e.target.src = 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300';
+                          }}
                         />
+                        <button className="play-btn">
+                          {currentTrack?.spotifyId === track.spotifyId && isPlaying ? (
+                            <Pause size={16} />
+                          ) : (
+                            <Play size={16} />
+                          )}
+                        </button>
                       </div>
                       <h3>{track.title}</h3>
                       <p>{track.artist}</p>
@@ -312,10 +502,16 @@ const AppContent = () => {
                     >
                       <div className="card-image">
                         <img
-                          src={album.imageUrl || '/placeholder.jpg'}
+                          src={album.imageUrl || 'https://images.pexels.com/photos/1105666/pexels-photo-1105666.jpeg?auto=compress&cs=tinysrgb&w=300'}
                           alt={album.title}
-                          style={{ width: '100%', borderRadius: '8px' }}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }}
+                          onError={(e) => {
+                            e.target.src = 'https://images.pexels.com/photos/1105666/pexels-photo-1105666.jpeg?auto=compress&cs=tinysrgb&w=300';
+                          }}
                         />
+                        <button className="play-btn">
+                          <Play size={16} />
+                        </button>
                       </div>
                       <h3>{album.title}</h3>
                       <p>{album.artist}</p>
@@ -327,14 +523,14 @@ const AppContent = () => {
               </div>
             </div>
 
-            <div className="music-section">
-              <div className="section-header">
-                <Clock className="section-icon" />
-                <h2>Recently Played</h2>
-              </div>
-              <div className="music-grid">
-                {recentlyPlayed.length ? (
-                  recentlyPlayed.slice(0, 5).map((track) => (
+            {recentlyPlayed.length > 0 && (
+              <div className="music-section">
+                <div className="section-header">
+                  <Clock className="section-icon" />
+                  <h2>Recently Played</h2>
+                </div>
+                <div className="music-grid">
+                  {recentlyPlayed.slice(0, 5).map((track) => (
                     <div
                       key={track.spotifyId}
                       className={`music-card ${currentTrack?.spotifyId === track.spotifyId ? 'playing' : ''}`}
@@ -342,20 +538,28 @@ const AppContent = () => {
                     >
                       <div className="card-image">
                         <img
-                          src={track.imageUrl || '/placeholder.jpg'}
+                          src={track.imageUrl || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300'}
                           alt={track.title}
-                          style={{ width: '100%', borderRadius: '8px' }}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }}
+                          onError={(e) => {
+                            e.target.src = 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300';
+                          }}
                         />
+                        <button className="play-btn">
+                          {currentTrack?.spotifyId === track.spotifyId && isPlaying ? (
+                            <Pause size={16} />
+                          ) : (
+                            <Play size={16} />
+                          )}
+                        </button>
                       </div>
                       <h3>{track.title}</h3>
                       <p>{track.artist}</p>
                     </div>
-                  ))
-                ) : (
-                  <p>No recently played songs.</p>
-                )}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </>
         );
     }
@@ -367,24 +571,38 @@ const AppContent = () => {
         <header className="header">
           <div className="header-left">
             <div className="logo">
-              <Music className="logo-icon" />
+              <div className="logo-icon">
+                <Music size={20} />
+              </div>
               <span className="logo-text">Listeners</span>
             </div>
           </div>
 
           <div className="header-center">
-            <div className="search-bar">
+            <form className="search-bar" onSubmit={handleSearchSubmit}>
               <Search className="search-icon" />
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder="Search for songs, artists, or albums..."
+                onChange={handleSearchInputChange}
+                placeholder="Search for songs, artists, albums..."
                 className="search-input"
                 aria-label="Search for songs, artists, or albums"
               />
-            </div>
+              {isSearching && (
+                <Loader2 
+                  className="search-loading" 
+                  size={18} 
+                  style={{ 
+                    position: 'absolute', 
+                    right: '1rem', 
+                    top: '50%', 
+                    transform: 'translateY(-50%)',
+                    animation: 'spin 1s linear infinite'
+                  }} 
+                />
+              )}
+            </form>
           </div>
 
           <div className="header-right">
@@ -392,14 +610,23 @@ const AppContent = () => {
               {isAuthenticated ? (
                 <>
                   <span>{user?.username}</span>
-                  <button onClick={logout} style={{ marginLeft: '10px', background: 'none', border: 'none', color: '#fff' }}>
+                  <button 
+                    onClick={logout} 
+                    style={{ 
+                      marginLeft: '10px', 
+                      background: 'none', 
+                      border: 'none', 
+                      color: '#fff',
+                      cursor: 'pointer'
+                    }}
+                  >
                     Logout
                   </button>
                 </>
               ) : (
-                <a href="/login" style={{ color: '#fff' }}>
-                  <User className="user-icon" />
-                </a>
+                <div className="user-icon">
+                  <User size={20} />
+                </div>
               )}
             </div>
           </div>
@@ -443,7 +670,7 @@ const AppContent = () => {
             <div className="playlists">
               <div className="playlists-header">
                 <h3 className="nav-title">PLAYLISTS</h3>
-                <Plus className="add-playlist-btn" />
+                <Plus className="add-playlist" />
               </div>
               <div className="playlist-list">
                 {samplePlaylists.map((playlist) => (
@@ -467,9 +694,12 @@ const AppContent = () => {
         <div className="player-track">
           <div className="track-cover">
             <img
-              src={currentTrack?.imageUrl || '/placeholder.jpg'}
-              alt={currentTrack?.title}
-              style={{ width: '40px', height: '40px', borderRadius: '4px' }}
+              src={currentTrack?.imageUrl || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=100'}
+              alt={currentTrack?.title || 'No track'}
+              style={{ width: '56px', height: '56px', borderRadius: '8px', objectFit: 'cover' }}
+              onError={(e) => {
+                e.target.src = 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=100';
+              }}
             />
           </div>
           <div className="track-info">
@@ -541,7 +771,7 @@ const AppContent = () => {
               }}
               className="volume-slider"
               style={{
-                background: `linear-gradient(to right, #1db954 ${volume * 100}%, #535353 ${volume * 100}%)`,
+                background: `linear-gradient(to right, #8b5cf6 ${volume * 100}%, #535353 ${volume * 100}%)`,
               }}
             />
           </div>
