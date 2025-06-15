@@ -17,8 +17,12 @@ import {
   Clock,
   TrendingUp,
   Loader2,
+  Settings,
+  LogOut,
+  Shield,
 } from 'lucide-react';
 import TrackList from './components/TrackList';
+import AuthModal from './components/auth/AuthModal';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { MusicProvider, useMusic } from './contexts/MusicContext';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -52,6 +56,9 @@ const AppContent = () => {
   const [recentlyPlayed, setRecentlyPlayed] = useState([]);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [authModal, setAuthModal] = useState({ isOpen: false, mode: 'login' });
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  
   const {
     currentTrack,
     isPlaying,
@@ -71,7 +78,8 @@ const AppContent = () => {
     isShuffled,
     repeatMode,
   } = useMusic();
-  const { user, isAuthenticated, logout } = useAuth();
+  
+  const { user, isAuthenticated, logout, loading: authLoading } = useAuth();
 
   // Debounced search function
   useEffect(() => {
@@ -171,7 +179,7 @@ const AppContent = () => {
 
     try {
       const userData = await ApiService.getCurrentUser();
-      const songs = userData.recentlyPlayed
+      const songs = userData.user.recentlyPlayed
         ?.map((item) => ({
           spotifyId: item.song.spotifyId,
           title: item.song.title,
@@ -299,6 +307,43 @@ const AppContent = () => {
       document.body.classList.toggle('light', user.preferences.theme === 'light');
     }
   }, [user?.preferences?.theme]);
+
+  // Handle auth modal
+  const openAuthModal = (mode = 'login') => {
+    setAuthModal({ isOpen: true, mode });
+  };
+
+  const closeAuthModal = () => {
+    setAuthModal({ isOpen: false, mode: 'login' });
+  };
+
+  // Handle user menu
+  const handleUserMenuClick = () => {
+    setShowUserMenu(!showUserMenu);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setShowUserMenu(false);
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showUserMenu && !event.target.closest('.user-menu-container')) {
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserMenu]);
 
   const renderMainContent = () => {
     switch (currentView) {
@@ -543,6 +588,18 @@ const AppContent = () => {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-content">
+          <Music size={48} className="loading-icon" />
+          <Loader2 className="animate-spin" size={24} />
+          <p>Loading Listeners...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <div className="app-container">
@@ -584,26 +641,86 @@ const AppContent = () => {
           </div>
 
           <div className="header-right">
-            <div className="user-menu">
+            <div className="user-menu-container">
               {isAuthenticated ? (
                 <>
-                  <span>{user?.username}</span>
-                  <button 
-                    onClick={logout} 
-                    style={{ 
-                      marginLeft: '10px', 
-                      background: 'none', 
-                      border: 'none', 
-                      color: '#fff',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Logout
-                  </button>
+                  <div className="user-info" onClick={handleUserMenuClick}>
+                    <div className="user-avatar">
+                      {user?.profilePicture ? (
+                        <img src={user.profilePicture} alt={user.username} />
+                      ) : (
+                        <User size={20} />
+                      )}
+                    </div>
+                    <span className="username">{user?.username}</span>
+                  </div>
+                  
+                  {showUserMenu && (
+                    <div className="user-dropdown">
+                      <div className="dropdown-header">
+                        <div className="user-avatar-large">
+                          {user?.profilePicture ? (
+                            <img src={user.profilePicture} alt={user.username} />
+                          ) : (
+                            <User size={24} />
+                          )}
+                        </div>
+                        <div className="user-details">
+                          <div className="user-name">
+                            {user?.firstName && user?.lastName 
+                              ? `${user.firstName} ${user.lastName}`
+                              : user?.username
+                            }
+                          </div>
+                          <div className="user-email">{user?.email}</div>
+                          <div className="user-subscription">
+                            {user?.subscription?.type === 'premium' ? (
+                              <span className="premium-badge">Premium</span>
+                            ) : (
+                              <span className="free-badge">Free</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="dropdown-menu">
+                        <button className="dropdown-item">
+                          <User size={16} />
+                          <span>Profile</span>
+                        </button>
+                        <button className="dropdown-item">
+                          <Settings size={16} />
+                          <span>Settings</span>
+                        </button>
+                        {user?.mfaEnabled && (
+                          <button className="dropdown-item">
+                            <Shield size={16} />
+                            <span>Security</span>
+                          </button>
+                        )}
+                        <div className="dropdown-divider"></div>
+                        <button className="dropdown-item logout" onClick={handleLogout}>
+                          <LogOut size={16} />
+                          <span>Sign Out</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
-                <div className="user-icon">
-                  <User size={20} />
+                <div className="auth-buttons">
+                  <button 
+                    className="auth-btn login-btn"
+                    onClick={() => openAuthModal('login')}
+                  >
+                    Sign In
+                  </button>
+                  <button 
+                    className="auth-btn register-btn"
+                    onClick={() => openAuthModal('register')}
+                  >
+                    Sign Up
+                  </button>
                 </div>
               )}
             </div>
@@ -748,6 +865,12 @@ const AppContent = () => {
           </div>
         </div>
       </div>
+
+      <AuthModal
+        isOpen={authModal.isOpen}
+        onClose={closeAuthModal}
+        initialMode={authModal.mode}
+      />
     </div>
   );
 };
