@@ -19,7 +19,6 @@ import {
   Loader2,
 } from 'lucide-react';
 import TrackList from './components/TrackList';
-import WaveformPlayer from './components/WaveformPlayer';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { MusicProvider, useMusic } from './contexts/MusicContext';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -393,27 +392,6 @@ const AppContent = () => {
             />
           </div>
         );
-      case 'waveform':
-        return (
-          <div className="library-view">
-            <div className="section-header">
-              <Music className="section-icon" />
-              <h2>Track Visualizer</h2>
-            </div>
-            <div className="waveform-section">
-              <WaveformPlayer
-                audioUrl={currentTrack?.previewUrl || '/audio/sample.mp3'}
-                isPlaying={isPlaying}
-                onPlayPause={() => togglePlayPause()}
-                height={120}
-              />
-              <div className="track-details">
-                <h3>{currentTrack?.title || 'No track selected'}</h3>
-                <p>{currentTrack?.artist || 'Select a track to see waveform'}</p>
-              </div>
-            </div>
-          </div>
-        );
       default:
         return (
           <>
@@ -657,13 +635,6 @@ const AppContent = () => {
                 >
                   <Heart className="nav-icon" />
                   <span>Liked Songs</span>
-                </li>
-                <li
-                  className={`nav-item ${currentView === 'waveform' ? 'active' : ''}`}
-                  onClick={() => setCurrentView('waveform')}
-                >
-                  <Music className="nav-icon" />
-                  <span>Visualizer</span>
                 </li>
               </ul>
             </nav>
