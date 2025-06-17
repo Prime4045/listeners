@@ -54,7 +54,7 @@ const getAccessToken = async () => {
 router.get('/trending-songs', optionalAuth, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 10, 50);
-    
+
     // Check cache first
     const cachedSongs = await cacheService.getTrendingSongs();
     if (cachedSongs && cachedSongs.length > 0) {
@@ -64,7 +64,7 @@ router.get('/trending-songs', optionalAuth, async (req, res) => {
 
     const accessToken = await getAccessToken();
     const playlistId = '2fxEEA6a9CPP5CmIJyaIM8'; // Hot Hits Hindi
-    
+
     const response = await fetch(
       `https://api.spotify.com/v1/playlists/${playlistId}/tracks?market=IN&limit=${limit}`,
       {
@@ -104,7 +104,7 @@ router.get('/trending-songs', optionalAuth, async (req, res) => {
     for (const track of tracks) {
       try {
         let existingSong = await Song.findOne({ spotifyId: track.spotifyId });
-        
+
         if (!existingSong) {
           existingSong = new Song(track);
           await existingSong.save();
@@ -137,9 +137,9 @@ router.get('/trending-songs', optionalAuth, async (req, res) => {
     res.json(processedTracks);
   } catch (error) {
     console.error('Trending songs error:', error.message);
-    res.status(500).json({ 
-      message: 'Failed to fetch trending songs', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to fetch trending songs',
+      error: error.message
     });
   }
 });
@@ -148,7 +148,7 @@ router.get('/trending-songs', optionalAuth, async (req, res) => {
 router.get('/bollywood-albums', optionalAuth, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 10, 50);
-    
+
     // Check cache first
     const cacheKey = 'bollywood_albums';
     const cachedAlbums = await cacheService.get(cacheKey);
@@ -158,7 +158,7 @@ router.get('/bollywood-albums', optionalAuth, async (req, res) => {
     }
 
     const accessToken = await getAccessToken();
-    
+
     const response = await fetch(
       `https://api.spotify.com/v1/search?q=bollywood&type=album&market=IN&limit=${limit}`,
       {
@@ -216,9 +216,9 @@ router.get('/bollywood-albums', optionalAuth, async (req, res) => {
     res.json(albums);
   } catch (error) {
     console.error('Bollywood albums error:', error.message);
-    res.status(500).json({ 
-      message: 'Failed to fetch Bollywood albums', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to fetch Bollywood albums',
+      error: error.message
     });
   }
 });
@@ -227,15 +227,15 @@ router.get('/bollywood-albums', optionalAuth, async (req, res) => {
 router.get('/search', optionalAuth, async (req, res) => {
   try {
     const { query, limit = 20 } = req.query;
-    
+
     if (!query || query.trim().length < 2) {
-      return res.status(400).json({ 
-        message: 'Query parameter is required and must be at least 2 characters long' 
+      return res.status(400).json({
+        message: 'Query parameter is required and must be at least 2 characters long'
       });
     }
 
     const searchLimit = Math.min(parseInt(limit) || 20, 50);
-    
+
     // Check cache first
     const cachedResults = await cacheService.getSearchResults(query.trim());
     if (cachedResults && cachedResults.length > 0) {
@@ -283,7 +283,7 @@ router.get('/search', optionalAuth, async (req, res) => {
     }
 
     const data = await response.json();
-    
+
     // Process tracks
     const tracks = data.tracks?.items?.map((track) => ({
       spotifyId: track.id,
@@ -302,7 +302,7 @@ router.get('/search', optionalAuth, async (req, res) => {
     // Process artists (get their top tracks)
     const artists = data.artists?.items?.slice(0, 3) || [];
     const artistTracks = [];
-    
+
     for (const artist of artists) {
       try {
         const topTracksResponse = await fetch(
@@ -313,7 +313,7 @@ router.get('/search', optionalAuth, async (req, res) => {
             },
           }
         );
-        
+
         if (topTracksResponse.ok) {
           const topTracksData = await topTracksResponse.json();
           const topTracks = topTracksData.tracks?.slice(0, 3).map((track) => ({
@@ -329,7 +329,7 @@ router.get('/search', optionalAuth, async (req, res) => {
             popularity: track.popularity || 0,
             explicit: track.explicit || false,
           })) || [];
-          
+
           artistTracks.push(...topTracks);
         }
       } catch (artistError) {
@@ -340,7 +340,7 @@ router.get('/search', optionalAuth, async (req, res) => {
     // Process albums (get first track from each)
     const albums = data.albums?.items?.slice(0, 3) || [];
     const albumTracks = [];
-    
+
     for (const album of albums) {
       try {
         const albumTracksResponse = await fetch(
@@ -351,11 +351,11 @@ router.get('/search', optionalAuth, async (req, res) => {
             },
           }
         );
-        
+
         if (albumTracksResponse.ok) {
           const albumTracksData = await albumTracksResponse.json();
           const firstTrack = albumTracksData.items?.[0];
-          
+
           if (firstTrack) {
             albumTracks.push({
               spotifyId: firstTrack.id,
@@ -390,8 +390,8 @@ router.get('/search', optionalAuth, async (req, res) => {
       playCount: song.playCount,
       likeCount: song.likeCount,
     })), ...tracks, ...artistTracks, ...albumTracks];
-    
-    const uniqueTracks = allTracks.filter((track, index, self) => 
+
+    const uniqueTracks = allTracks.filter((track, index, self) =>
       index === self.findIndex(t => t.spotifyId === track.spotifyId)
     );
 
@@ -428,7 +428,7 @@ router.get('/search', optionalAuth, async (req, res) => {
     }
 
     const finalResults = sortedTracks.slice(0, searchLimit);
-    
+
     // Cache the results
     await cacheService.cacheSearchResults(query.trim(), finalResults);
 
@@ -436,9 +436,9 @@ router.get('/search', optionalAuth, async (req, res) => {
     res.json(finalResults);
   } catch (error) {
     console.error('Search error:', error.message);
-    res.status(500).json({ 
-      message: 'Failed to search songs', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to search songs',
+      error: error.message
     });
   }
 });
@@ -529,9 +529,9 @@ router.post('/:id/play', authenticateToken, async (req, res) => {
     res.json(songData);
   } catch (error) {
     console.error('Play error:', error.message);
-    res.status(500).json({ 
-      message: 'Failed to play song', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to play song',
+      error: error.message
     });
   }
 });
@@ -540,7 +540,7 @@ router.post('/:id/play', authenticateToken, async (req, res) => {
 router.post('/:id/like', authenticateToken, async (req, res) => {
   try {
     const songId = req.params.id;
-    
+
     // Find the song by Spotify ID
     const song = await Song.findOne({ spotifyId: songId });
     if (!song) {
@@ -548,7 +548,7 @@ router.post('/:id/like', authenticateToken, async (req, res) => {
     }
 
     const result = await UserLikes.likeSong(req.user._id, song._id);
-    
+
     // Invalidate relevant caches
     await cacheService.invalidateSongCaches(song._id);
     await cacheService.invalidateUserCaches(req.user._id);
@@ -556,9 +556,9 @@ router.post('/:id/like', authenticateToken, async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Like song error:', error.message);
-    res.status(500).json({ 
-      message: 'Failed to like/unlike song', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to like/unlike song',
+      error: error.message
     });
   }
 });
@@ -567,10 +567,10 @@ router.post('/:id/like', authenticateToken, async (req, res) => {
 router.get('/liked', authenticateToken, async (req, res) => {
   try {
     const { limit = 50, skip = 0 } = req.query;
-    
+
     const likedSongs = await UserLikes.getUserLikedSongs(
-      req.user._id, 
-      parseInt(limit), 
+      req.user._id,
+      parseInt(limit),
       parseInt(skip)
     );
 
@@ -590,9 +590,9 @@ router.get('/liked', authenticateToken, async (req, res) => {
     res.json(songs);
   } catch (error) {
     console.error('Get liked songs error:', error.message);
-    res.status(500).json({ 
-      message: 'Failed to get liked songs', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to get liked songs',
+      error: error.message
     });
   }
 });
@@ -601,7 +601,7 @@ router.get('/liked', authenticateToken, async (req, res) => {
 router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const songId = req.params.id;
-    
+
     // Check cache first
     const cachedSong = await cacheService.getSongMetadata(songId);
     if (cachedSong) {
@@ -613,12 +613,12 @@ router.get('/:id', optionalAuth, async (req, res) => {
           isLiked = !!(await UserLikes.isLikedByUser(req.user._id, song._id));
         }
       }
-      
+
       return res.json({ ...cachedSong, isLiked });
     }
 
     let song = await Song.findOne({ spotifyId: songId });
-    
+
     if (!song) {
       // Fetch from Spotify if not in database
       const accessToken = await getAccessToken();
@@ -679,9 +679,9 @@ router.get('/:id', optionalAuth, async (req, res) => {
     res.json({ ...songData, isLiked });
   } catch (error) {
     console.error('Get song error:', error.message);
-    res.status(500).json({ 
-      message: 'Failed to get song', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to get song',
+      error: error.message
     });
   }
 });
@@ -690,7 +690,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
 router.get('/albums/:id/track', optionalAuth, async (req, res) => {
   try {
     const albumId = req.params.id;
-    
+
     // Check cache first
     const cacheKey = `album_track:${albumId}`;
     const cachedTrack = await cacheService.get(cacheKey);
@@ -700,9 +700,9 @@ router.get('/albums/:id/track', optionalAuth, async (req, res) => {
     }
 
     const accessToken = await getAccessToken();
-    
+
     console.log(`Fetching track for album ID: ${albumId}`);
-    
+
     const response = await fetch(
       `https://api.spotify.com/v1/albums/${albumId}/tracks?market=IN&limit=1`,
       {
@@ -728,7 +728,7 @@ router.get('/albums/:id/track', optionalAuth, async (req, res) => {
     }
 
     const track = data.items[0];
-    
+
     // Get album info for the track
     const albumResponse = await fetch(
       `https://api.spotify.com/v1/albums/${albumId}?market=IN`,
@@ -759,7 +759,7 @@ router.get('/albums/:id/track', optionalAuth, async (req, res) => {
     };
 
     console.log('Track data to save:', trackData);
-    
+
     try {
       const savedTrack = await Song.findOneAndUpdate(
         { spotifyId: trackData.spotifyId },
@@ -767,7 +767,7 @@ router.get('/albums/:id/track', optionalAuth, async (req, res) => {
         { upsert: true, new: true }
       );
       console.log('Saved track:', savedTrack);
-      
+
       // Use Cloudinary URL if available
       trackData.previewUrl = savedTrack.getAudioUrl();
     } catch (dbError) {
@@ -780,9 +780,9 @@ router.get('/albums/:id/track', optionalAuth, async (req, res) => {
     res.json(trackData);
   } catch (error) {
     console.error(`Error fetching album track for ID ${req.params.id}:`, error.message);
-    res.status(500).json({ 
-      message: 'Failed to fetch album track', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to fetch album track',
+      error: error.message
     });
   }
 });
@@ -791,7 +791,7 @@ router.get('/albums/:id/track', optionalAuth, async (req, res) => {
 router.get('/popular', optionalAuth, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 10, 50);
-    
+
     // Check cache first
     const cachedSongs = await cacheService.getPopularSongs();
     if (cachedSongs && cachedSongs.length > 0) {
@@ -800,7 +800,7 @@ router.get('/popular', optionalAuth, async (req, res) => {
     }
 
     const popularSongs = await Song.findPopular(limit);
-    
+
     const songs = popularSongs.map(song => ({
       spotifyId: song.spotifyId,
       title: song.title,
@@ -820,9 +820,9 @@ router.get('/popular', optionalAuth, async (req, res) => {
     res.json(songs);
   } catch (error) {
     console.error('Get popular songs error:', error.message);
-    res.status(500).json({ 
-      message: 'Failed to get popular songs', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to get popular songs',
+      error: error.message
     });
   }
 });

@@ -48,7 +48,7 @@ const authenticateToken = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         message: 'Access token required',
         code: 'TOKEN_MISSING'
       });
@@ -57,7 +57,7 @@ const authenticateToken = async (req, res, next) => {
     // Check if token is blacklisted
     const isBlacklisted = await redisClient.get(`blacklist:${token}`);
     if (isBlacklisted) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         message: 'Token has been revoked',
         code: 'TOKEN_REVOKED'
       });
@@ -67,7 +67,7 @@ const authenticateToken = async (req, res, next) => {
     const user = await User.findById(decoded.userId).select('-password -mfaSecret');
 
     if (!user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         message: 'Invalid token - user not found',
         code: 'USER_NOT_FOUND'
       });
@@ -75,7 +75,7 @@ const authenticateToken = async (req, res, next) => {
 
     // Check if account is locked
     if (user.isLocked) {
-      return res.status(423).json({ 
+      return res.status(423).json({
         message: 'Account is temporarily locked due to multiple failed login attempts',
         code: 'ACCOUNT_LOCKED',
         lockUntil: user.lockUntil
@@ -84,7 +84,7 @@ const authenticateToken = async (req, res, next) => {
 
     // Check if email is verified for sensitive operations
     if (!user.isVerified && req.path.includes('/sensitive')) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         message: 'Email verification required',
         code: 'EMAIL_NOT_VERIFIED'
       });
@@ -94,22 +94,22 @@ const authenticateToken = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Token verification error:', error);
-    
+
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ 
+      return res.status(401).json({
         message: 'Invalid token',
         code: 'TOKEN_INVALID'
       });
     }
-    
+
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ 
+      return res.status(401).json({
         message: 'Token expired',
         code: 'TOKEN_EXPIRED'
       });
     }
-    
-    return res.status(500).json({ 
+
+    return res.status(500).json({
       message: 'Token verification failed',
       code: 'TOKEN_VERIFICATION_FAILED'
     });
@@ -137,7 +137,7 @@ const optionalAuth = async (req, res, next) => {
 
 const requirePremium = (req, res, next) => {
   if (!req.user) {
-    return res.status(401).json({ 
+    return res.status(401).json({
       message: 'Authentication required',
       code: 'AUTH_REQUIRED'
     });
@@ -158,7 +158,7 @@ const requirePremium = (req, res, next) => {
 const requireOwnership = (resourceField = 'owner') => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         message: 'Authentication required',
         code: 'AUTH_REQUIRED'
       });
@@ -167,7 +167,7 @@ const requireOwnership = (resourceField = 'owner') => {
     const resource = req.resource || req.playlist || req.song;
 
     if (!resource) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         message: 'Resource not found',
         code: 'RESOURCE_NOT_FOUND'
       });
@@ -175,7 +175,7 @@ const requireOwnership = (resourceField = 'owner') => {
 
     const ownerId = resource[resourceField];
     if (ownerId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         message: 'Access denied - insufficient permissions',
         code: 'INSUFFICIENT_PERMISSIONS'
       });
@@ -187,7 +187,7 @@ const requireOwnership = (resourceField = 'owner') => {
 
 const generateToken = (userId, expiresIn = '15m') => {
   return jwt.sign(
-    { 
+    {
       userId,
       type: 'access',
       iat: Math.floor(Date.now() / 1000)
@@ -199,7 +199,7 @@ const generateToken = (userId, expiresIn = '15m') => {
 
 const generateRefreshToken = (userId) => {
   const refreshToken = jwt.sign(
-    { 
+    {
       userId,
       type: 'refresh',
       iat: Math.floor(Date.now() / 1000),
@@ -208,7 +208,7 @@ const generateRefreshToken = (userId) => {
     process.env.JWT_REFRESH_SECRET,
     { expiresIn: '7d' }
   );
-  
+
   return refreshToken;
 };
 
@@ -217,7 +217,7 @@ const validateRefreshToken = async (req, res, next) => {
     const { refreshToken } = req.body;
 
     if (!refreshToken) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         message: 'Refresh token required',
         code: 'REFRESH_TOKEN_MISSING'
       });
@@ -226,7 +226,7 @@ const validateRefreshToken = async (req, res, next) => {
     // Check if refresh token is blacklisted
     const isBlacklisted = await redisClient.get(`blacklist:${refreshToken}`);
     if (isBlacklisted) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         message: 'Refresh token has been revoked',
         code: 'REFRESH_TOKEN_REVOKED'
       });
@@ -236,7 +236,7 @@ const validateRefreshToken = async (req, res, next) => {
     const user = await User.findById(decoded.userId).select('-password -mfaSecret');
 
     if (!user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         message: 'Invalid refresh token - user not found',
         code: 'USER_NOT_FOUND'
       });
@@ -245,7 +245,7 @@ const validateRefreshToken = async (req, res, next) => {
     // Check if the refresh token exists in Redis
     const storedToken = await redisClient.get(`refreshToken:${user._id}`);
     if (storedToken !== refreshToken) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         message: 'Invalid refresh token',
         code: 'REFRESH_TOKEN_INVALID'
       });
@@ -256,22 +256,22 @@ const validateRefreshToken = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Refresh token error:', error);
-    
+
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ 
+      return res.status(401).json({
         message: 'Invalid refresh token',
         code: 'REFRESH_TOKEN_INVALID'
       });
     }
-    
+
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ 
+      return res.status(401).json({
         message: 'Refresh token expired',
         code: 'REFRESH_TOKEN_EXPIRED'
       });
     }
-    
-    return res.status(401).json({ 
+
+    return res.status(401).json({
       message: 'Refresh token validation failed',
       code: 'REFRESH_TOKEN_VALIDATION_FAILED'
     });
@@ -292,7 +292,7 @@ const csrfProtection = (req, res, next) => {
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
     const token = req.headers['x-csrf-token'] || req.body._csrf;
     const sessionToken = req.session?.csrfToken;
-    
+
     if (!token || !sessionToken || token !== sessionToken) {
       return res.status(403).json({
         message: 'Invalid CSRF token',

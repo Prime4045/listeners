@@ -27,17 +27,17 @@ const TrackList = ({ tracks, currentTrack, isPlaying, onTrackSelect, onTogglePla
         <div className="track-duration">Duration</div>
         <div className="track-actions"></div>
       </div>
-      
+
       <div className="track-list-body">
         {tracks.map((track, index) => (
-          <div 
-            key={track.spotifyId || track.id || index} 
+          <div
+            key={track.spotifyId || track.id || index}
             className={`track-row ${currentTrack?.spotifyId === track.spotifyId ? 'active' : ''}`}
             onClick={() => onTrackSelect(track)}
           >
             <div className="track-number">
               {currentTrack?.spotifyId === track.spotifyId ? (
-                <button 
+                <button
                   className="track-play-btn"
                   onClick={(e) => {
                     e.stopPropagation()
@@ -52,15 +52,15 @@ const TrackList = ({ tracks, currentTrack, isPlaying, onTrackSelect, onTogglePla
                 <span>{index + 1}</span>
               )}
             </div>
-            
+
             <div className="track-info">
               <div className="track-name">{track.title}</div>
               <div className="track-artist">{track.artist}</div>
             </div>
-            
+
             <div className="track-album">{track.album}</div>
             <div className="track-duration">{formatDuration(track.duration)}</div>
-            
+
             <div className="track-actions">
               <button className="action-btn" title="Like this song">
                 <Heart size={16} />

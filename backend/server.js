@@ -15,6 +15,7 @@ import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import musicRoutes from './routes/music.js';
 import playlistRoutes from './routes/playlists.js';
+import crypto from 'crypto'; // <-- Add this at the top
 
 const app = express();
 const server = createServer(app);
@@ -70,7 +71,7 @@ app.use(cors({
       'http://localhost:3000',
       'http://localhost:5173',
     ];
-    
+
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -80,8 +81,8 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
+    'Content-Type',
+    'Authorization',
     'X-Requested-With',
     'X-CSRF-Token',
     'Accept',
@@ -118,7 +119,6 @@ app.use('/uploads', express.static('uploads'));
 // CSRF token generation
 app.use((req, res, next) => {
   if (!req.session.csrfToken) {
-    const crypto = await import('crypto');
     req.session.csrfToken = crypto.randomBytes(32).toString('hex');
   }
   res.locals.csrfToken = req.session.csrfToken;
@@ -196,7 +196,6 @@ io.on('connection', (socket) => {
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
-  
   // Handle specific error types
   if (err.name === 'ValidationError') {
     return res.status(400).json({
@@ -205,28 +204,24 @@ app.use((err, req, res, next) => {
       errors: Object.values(err.errors).map(e => e.message),
     });
   }
-  
   if (err.name === 'CastError') {
     return res.status(400).json({
       message: 'Invalid ID format',
       code: 'INVALID_ID',
     });
   }
-  
   if (err.code === 11000) {
     return res.status(409).json({
       message: 'Duplicate entry',
       code: 'DUPLICATE_ENTRY',
     });
   }
-  
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({
       message: 'Invalid token',
       code: 'INVALID_TOKEN',
     });
   }
-  
   if (err.name === 'TokenExpiredError') {
     return res.status(401).json({
       message: 'Token expired',
@@ -244,7 +239,7 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use('*', (req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     message: 'Route not found',
     code: 'ROUTE_NOT_FOUND',
     path: req.originalUrl,
@@ -257,7 +252,7 @@ async function startServer() {
   try {
     await connectMongoDB();
     await initializeRedis();
-    
+
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`🎵 Listeners Backend Server running on port ${PORT}`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV}`);

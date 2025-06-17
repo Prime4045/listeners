@@ -41,7 +41,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
         >
           <X size={24} />
         </button>
-        
+
         <div className="auth-modal-content">
           {mode === 'login' ? (
             <LoginForm

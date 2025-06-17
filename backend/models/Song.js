@@ -105,7 +105,7 @@ songSchema.index({ createdAt: -1 });
 songSchema.index({ releaseDate: -1 });
 
 // Virtual for formatted duration
-songSchema.virtual('formattedDuration').get(function() {
+songSchema.virtual('formattedDuration').get(function () {
   if (!this.duration) return '0:00';
   const totalSeconds = Math.floor(this.duration / 1000);
   const minutes = Math.floor(totalSeconds / 60);
@@ -114,25 +114,25 @@ songSchema.virtual('formattedDuration').get(function() {
 });
 
 // Method to increment play count
-songSchema.methods.incrementPlayCount = async function() {
+songSchema.methods.incrementPlayCount = async function () {
   this.playCount += 1;
   return this.save();
 };
 
 // Method to get audio URL (Cloudinary or preview)
-songSchema.methods.getAudioUrl = function() {
+songSchema.methods.getAudioUrl = function () {
   return this.cloudinaryUrl || this.previewUrl;
 };
 
 // Static method to find popular songs
-songSchema.statics.findPopular = function(limit = 10) {
+songSchema.statics.findPopular = function (limit = 10) {
   return this.find({ isActive: true })
     .sort({ popularity: -1, playCount: -1 })
     .limit(limit);
 };
 
 // Static method to search songs
-songSchema.statics.searchSongs = function(query, limit = 20) {
+songSchema.statics.searchSongs = function (query, limit = 20) {
   return this.find({
     $and: [
       { isActive: true },
@@ -146,12 +146,12 @@ songSchema.statics.searchSongs = function(query, limit = 20) {
       }
     ]
   })
-  .sort({ popularity: -1, playCount: -1 })
-  .limit(limit);
+    .sort({ popularity: -1, playCount: -1 })
+    .limit(limit);
 };
 
 // Pre-save middleware to update timestamps
-songSchema.pre('save', function(next) {
+songSchema.pre('save', function (next) {
   if (this.isModified('playCount')) {
     this.updatedAt = new Date();
   }

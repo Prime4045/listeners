@@ -153,12 +153,13 @@
 }
 
 @media (max-width: 768px) {
+
   .track-list-header,
   .track-row {
     grid-template-columns: 40px 1fr 80px;
     gap: 0.75rem;
   }
-  
+
   .track-album,
   .track-actions {
     display: none;
@@ -166,25 +167,26 @@
 }
 
 @media (max-width: 480px) {
+
   .track-list-header,
   .track-row {
     grid-template-columns: 30px 1fr 60px;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
   }
-  
+
   .track-number {
     font-size: 0.75rem;
   }
-  
+
   .track-name {
     font-size: 0.85rem;
   }
-  
+
   .track-artist {
     font-size: 0.75rem;
   }
-  
+
   .track-duration {
     font-size: 0.75rem;
   }
