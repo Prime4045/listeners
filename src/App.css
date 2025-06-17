@@ -360,7 +360,7 @@ body.light {
 
 .search-bar {
   flex: 1;
-  max-width: 500px;
+  max-width: 600px;
   margin: 0 2rem;
   position: relative;
 }
@@ -833,6 +833,10 @@ body.light {
   .sidebar {
     width: 240px;
   }
+  
+  .search-bar {
+    max-width: 500px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -842,6 +846,7 @@ body.light {
 
   .search-bar {
     margin: 0 1rem;
+    max-width: 400px;
   }
 
   .sidebar {
@@ -904,5 +909,29 @@ body.light {
   .user-dropdown {
     right: -1rem;
     min-width: 200px;
+  }
+  
+  .search-bar {
+    max-width: 300px;
+  }
+}
+
+@media (max-width: 480px) {
+  .search-bar {
+    max-width: 250px;
+    margin: 0 0.5rem;
+  }
+  
+  .header {
+    padding: 0.75rem;
+  }
+  
+  .logo {
+    font-size: 1.25rem;
+  }
+  
+  .logo-icon {
+    width: 28px;
+    height: 28px;
   }
 }

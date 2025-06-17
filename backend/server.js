@@ -40,7 +40,6 @@ app.use(helmet({
       connectSrc: ["'self'", 'wss:', 'ws:', 'https:'],
       fontSrc: ["'self'", 'https:', 'data:'],
       objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
       frameSrc: ["'none'"],
     },
   },
@@ -119,7 +118,8 @@ app.use('/uploads', express.static('uploads'));
 // CSRF token generation
 app.use((req, res, next) => {
   if (!req.session.csrfToken) {
-    req.session.csrfToken = require('crypto').randomBytes(32).toString('hex');
+    const crypto = await import('crypto');
+    req.session.csrfToken = crypto.randomBytes(32).toString('hex');
   }
   res.locals.csrfToken = req.session.csrfToken;
   next();
