@@ -143,8 +143,10 @@ const requirePremium = (req, res, next) => {
     });
   }
 
-  if (req.user.subscription.type !== 'premium' ||
-    (req.user.subscription.expiresAt && req.user.subscription.expiresAt < new Date())) {
+  if (
+    req.user.subscription.type !== 'premium' ||
+    (req.user.subscription.expiresAt && req.user.subscription.expiresAt < new Date())
+  ) {
     return res.status(403).json({
       message: 'Premium subscription required',
       code: 'PREMIUM_REQUIRED',
@@ -208,7 +210,6 @@ const generateRefreshToken = (userId) => {
     process.env.JWT_REFRESH_SECRET,
     { expiresIn: '7d' }
   );
-
   return refreshToken;
 };
 

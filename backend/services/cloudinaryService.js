@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { v2 as cloudinary } from 'cloudinary';
 import { redisClient } from '../config/database.js';
 
@@ -36,10 +35,10 @@ class CloudinaryService {
       };
 
       const result = await cloudinary.uploader.upload(file, uploadOptions);
-      
+
       // Cache the result
       await this.cacheUploadResult(result.public_id, result);
-      
+
       return {
         publicId: result.public_id,
         url: result.secure_url,
@@ -75,10 +74,10 @@ class CloudinaryService {
       };
 
       const result = await cloudinary.uploader.upload(file, uploadOptions);
-      
+
       // Cache the result
       await this.cacheUploadResult(result.public_id, result);
-      
+
       return {
         publicId: result.public_id,
         url: result.secure_url,
@@ -303,7 +302,7 @@ class CloudinaryService {
       });
 
       const results = await Promise.allSettled(uploadPromises);
-      
+
       return results.map((result, index) => ({
         file: files[index],
         success: result.status === 'fulfilled',
@@ -315,31 +314,6 @@ class CloudinaryService {
       throw new Error(`Batch upload failed: ${error.message}`);
     }
   }
-=======
-import cloudinary from '../config/cloudinary.js';
-
-class CloudinaryService {
-    async uploadAudio(file, options = {}) {
-        try {
-            const uploadOptions = {
-                resource_type: 'video',
-                folder: 'my_music_app/audio',
-                use_filename: true,
-                unique_filename: true,
-                overwrite: false,
-                format: 'mp3',
-                audio_codec: 'mp3',
-                ...options,
-            };
-
-            const result = await cloudinary.uploader.upload(file, uploadOptions);
-            return result.secure_url;
-        } catch (error) {
-            console.error('Cloudinary upload error:', error);
-            throw new Error(`Failed to upload audio: ${error.message}`);
-        }
-    }
->>>>>>> 267ccd8 (Adding login and Registration form, Connecting cloudinary for songs)
 }
 
 export default new CloudinaryService();

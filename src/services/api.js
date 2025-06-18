@@ -56,11 +56,6 @@ class ApiService {
         error: error.response?.data || error.message,
         status: error.response?.status
       });
-<<<<<<< HEAD
-      
-=======
-
->>>>>>> 267ccd8 (Adding login and Registration form, Connecting cloudinary for songs)
       // Throw a more descriptive error
       const errorMessage = error.response?.data?.message || error.message || 'Request failed';
       throw new Error(errorMessage);
