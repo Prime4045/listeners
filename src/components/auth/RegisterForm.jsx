@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Eye, 
-  EyeOff, 
-  Mail, 
-  Lock, 
-  User, 
-  Phone, 
+import React, { useState } from 'react';
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  User,
+  Phone,
   Upload,
   Check,
   X,
@@ -39,7 +39,7 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
 
   const handleChange = (e) => {
     const { name, value, type, files } = e.target;
-    
+
     if (type === 'file') {
       const file = files[0];
       if (file) {
@@ -48,14 +48,14 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
           setErrors(prev => ({ ...prev, profilePicture: 'File size must be less than 5MB' }));
           return;
         }
-        
+
         if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
           setErrors(prev => ({ ...prev, profilePicture: 'Only JPG, JPEG, and PNG files are allowed' }));
           return;
         }
-        
+
         setFormData(prev => ({ ...prev, [name]: file }));
-        
+
         // Create preview
         const reader = new FileReader();
         reader.onload = (e) => setProfilePreview(e.target.result);
@@ -64,12 +64,12 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
-    
+
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
-    
+
     // Check password strength
     if (name === 'password') {
       checkPasswordStrength(value);
@@ -84,13 +84,13 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
       { test: /\d/, message: 'One number' },
       { test: /[@$!%*?&]/, message: 'One special character' }
     ];
-    
+
     const passed = checks.filter(check => check.test.test(password));
     const feedback = checks.map(check => ({
       ...check,
       passed: check.test.test(password)
     }));
-    
+
     setPasswordStrength({
       score: passed.length,
       feedback
@@ -99,7 +99,7 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     // Username validation
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required';
@@ -108,53 +108,53 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
     } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
       newErrors.username = 'Username can only contain letters, numbers, and underscores';
     }
-    
+
     // Email validation
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
-    
+
     // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (passwordStrength.score < 5) {
       newErrors.password = 'Password does not meet security requirements';
     }
-    
+
     // Confirm password validation
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password';
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
-    
+
     // Optional field validations
     if (formData.firstName && (formData.firstName.length < 2 || formData.firstName.length > 30)) {
       newErrors.firstName = 'First name must be 2-30 characters';
     }
-    
+
     if (formData.lastName && (formData.lastName.length < 2 || formData.lastName.length > 30)) {
       newErrors.lastName = 'Last name must be 2-30 characters';
     }
-    
+
     if (formData.phoneNumber && !/^\+[1-9]\d{1,14}$/.test(formData.phoneNumber)) {
       newErrors.phoneNumber = 'Phone number must be in international format (+1234567890)';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setIsLoading(true);
     setErrors({});
-    
+
     try {
       const formDataToSend = new FormData();
       Object.keys(formData).forEach(key => {
@@ -162,12 +162,12 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
           formDataToSend.append(key, formData[key]);
         }
       });
-      
+
       await register(formDataToSend);
       onClose?.();
     } catch (error) {
       console.error('Registration error:', error);
-      
+
       if (error.code === 'USER_EXISTS') {
         if (error.message.includes('email')) {
           setErrors({ email: 'This email is already registered' });
@@ -391,20 +391,20 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
           {errors.password && (
             <span className="error-text">{errors.password}</span>
           )}
-          
+
           {/* Password Strength Indicator */}
           {formData.password && (
             <div className="password-strength">
               <div className="strength-bar">
-                <div 
+                <div
                   className="strength-fill"
-                  style={{ 
+                  style={{
                     width: `${(passwordStrength.score / 5) * 100}%`,
                     backgroundColor: getPasswordStrengthColor()
                   }}
                 />
               </div>
-              <span 
+              <span
                 className="strength-text"
                 style={{ color: getPasswordStrengthColor() }}
               >

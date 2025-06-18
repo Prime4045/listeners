@@ -56,7 +56,6 @@ class ApiService {
         error: error.response?.data || error.message,
         status: error.response?.status
       });
-      
       // Throw a more descriptive error
       const errorMessage = error.response?.data?.message || error.message || 'Request failed';
       throw new Error(errorMessage);

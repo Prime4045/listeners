@@ -58,7 +58,7 @@ const AppContent = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [authModal, setAuthModal] = useState({ isOpen: false, mode: 'login' });
   const [showUserMenu, setShowUserMenu] = useState(false);
-  
+
   const {
     currentTrack,
     isPlaying,
@@ -78,7 +78,7 @@ const AppContent = () => {
     isShuffled,
     repeatMode,
   } = useMusic();
-  
+
   const { user, isAuthenticated, logout, loading: authLoading } = useAuth();
 
   // Debounced search function
@@ -202,11 +202,11 @@ const AppContent = () => {
   // Enhanced search function
   const handleSearch = async () => {
     if (!searchQuery.trim() || searchQuery.length < 2) return;
-    
+
     try {
       setIsSearching(true);
       setError(null);
-      
+
       const results = await ApiService.searchMusic(searchQuery.trim(), 20);
       setSearchResults(results || []);
       setCurrentView('search');
@@ -223,7 +223,7 @@ const AppContent = () => {
   const handleSearchInputChange = (e) => {
     const value = e.target.value;
     setSearchQuery(value);
-    
+
     // Show search view immediately when typing
     if (value.trim() && currentView !== 'search') {
       setCurrentView('search');
@@ -272,7 +272,7 @@ const AppContent = () => {
 
     // Update recently played
     const recentTrack = { ...track, playedAt: new Date().toISOString() };
-    
+
     if (isAuthenticated) {
       try {
         await ApiService.playTrack(track.spotifyId);
@@ -293,7 +293,7 @@ const AppContent = () => {
         track,
         ...prev.filter((t) => t.spotifyId !== track.spotifyId),
       ].slice(0, 5);
-      
+
       // Store in localStorage
       localStorage.setItem('recentlyPlayed', JSON.stringify(updated));
       return updated;
@@ -356,24 +356,24 @@ const AppContent = () => {
                 {isSearching ? 'Searching...' : searchQuery ? `Results for "${searchQuery}"` : 'Search Music'}
               </h2>
             </div>
-            
+
             {error && (
-              <div className="error-message" style={{ 
-                color: '#ef4444', 
-                background: 'rgba(239, 68, 68, 0.1)', 
-                padding: '1rem', 
-                borderRadius: '8px', 
-                margin: '1rem 0' 
+              <div className="error-message" style={{
+                color: '#ef4444',
+                background: 'rgba(239, 68, 68, 0.1)',
+                padding: '1rem',
+                borderRadius: '8px',
+                margin: '1rem 0'
               }}>
                 {error}
               </div>
             )}
-            
+
             {isSearching && (
-              <div className="loading-indicator" style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.5rem', 
+              <div className="loading-indicator" style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
                 padding: '2rem',
                 justifyContent: 'center'
               }}>
@@ -381,7 +381,7 @@ const AppContent = () => {
                 <span>Searching for music...</span>
               </div>
             )}
-            
+
             {!isSearching && searchResults.length > 0 && (
               <TrackList
                 tracks={searchResults}
@@ -390,7 +390,7 @@ const AppContent = () => {
                 onTrackSelect={(track) => handleTrackSelect(track)}
               />
             )}
-            
+
             {!isSearching && searchQuery && searchResults.length === 0 && (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
                 <Music size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
@@ -398,7 +398,7 @@ const AppContent = () => {
                 <p>Try searching with different keywords</p>
               </div>
             )}
-            
+
             {!searchQuery && (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
                 <Search size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
@@ -446,22 +446,22 @@ const AppContent = () => {
             </div>
 
             {error && (
-              <div className="error-message" style={{ 
-                color: '#ef4444', 
-                background: 'rgba(239, 68, 68, 0.1)', 
-                padding: '1rem', 
-                borderRadius: '8px', 
-                margin: '1rem 0' 
+              <div className="error-message" style={{
+                color: '#ef4444',
+                background: 'rgba(239, 68, 68, 0.1)',
+                padding: '1rem',
+                borderRadius: '8px',
+                margin: '1rem 0'
               }}>
                 {error}
               </div>
             )}
 
             {isLoading && (
-              <div className="loading-indicator" style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.5rem', 
+              <div className="loading-indicator" style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
                 padding: '1rem',
                 justifyContent: 'center'
               }}>
@@ -625,16 +625,16 @@ const AppContent = () => {
                 aria-label="Search for songs, artists, or albums"
               />
               {isSearching && (
-                <Loader2 
-                  className="search-loading" 
-                  size={18} 
-                  style={{ 
-                    position: 'absolute', 
-                    right: '1rem', 
-                    top: '50%', 
+                <Loader2
+                  className="search-loading"
+                  size={18}
+                  style={{
+                    position: 'absolute',
+                    right: '1rem',
+                    top: '50%',
                     transform: 'translateY(-50%)',
                     animation: 'spin 1s linear infinite'
-                  }} 
+                  }}
                 />
               )}
             </form>
@@ -654,7 +654,7 @@ const AppContent = () => {
                     </div>
                     <span className="username">{user?.username}</span>
                   </div>
-                  
+
                   {showUserMenu && (
                     <div className="user-dropdown">
                       <div className="dropdown-header">
@@ -667,7 +667,7 @@ const AppContent = () => {
                         </div>
                         <div className="user-details">
                           <div className="user-name">
-                            {user?.firstName && user?.lastName 
+                            {user?.firstName && user?.lastName
                               ? `${user.firstName} ${user.lastName}`
                               : user?.username
                             }
@@ -682,7 +682,7 @@ const AppContent = () => {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="dropdown-menu">
                         <button className="dropdown-item">
                           <User size={16} />
@@ -709,13 +709,13 @@ const AppContent = () => {
                 </>
               ) : (
                 <div className="auth-buttons">
-                  <button 
+                  <button
                     className="auth-btn login-btn"
                     onClick={() => openAuthModal('login')}
                   >
                     Sign In
                   </button>
-                  <button 
+                  <button
                     className="auth-btn register-btn"
                     onClick={() => openAuthModal('register')}
                   >

@@ -312,7 +312,7 @@ class CacheService {
     try {
       const info = await redisClient.info('memory');
       const keyspace = await redisClient.info('keyspace');
-      
+
       return {
         memory: info,
         keyspace: keyspace,

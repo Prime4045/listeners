@@ -34,33 +34,33 @@ userLikesSchema.index({ song: 1, likedAt: -1 });
 userLikesSchema.index({ isActive: 1 });
 
 // Static method to like a song
-userLikesSchema.statics.likeSong = async function(userId, songId) {
+userLikesSchema.statics.likeSong = async function (userId, songId) {
   try {
     const existingLike = await this.findOne({ user: userId, song: songId });
-    
+
     if (existingLike) {
       if (existingLike.isActive) {
         // Unlike the song
         existingLike.isActive = false;
         await existingLike.save();
-        
+
         // Decrement like count on song
         await mongoose.model('Song').findByIdAndUpdate(songId, {
           $inc: { likeCount: -1 }
         });
-        
+
         return { liked: false, message: 'Song unliked' };
       } else {
         // Re-like the song
         existingLike.isActive = true;
         existingLike.likedAt = new Date();
         await existingLike.save();
-        
+
         // Increment like count on song
         await mongoose.model('Song').findByIdAndUpdate(songId, {
           $inc: { likeCount: 1 }
         });
-        
+
         return { liked: true, message: 'Song liked' };
       }
     } else {
@@ -70,12 +70,12 @@ userLikesSchema.statics.likeSong = async function(userId, songId) {
         song: songId,
       });
       await newLike.save();
-      
+
       // Increment like count on song
       await mongoose.model('Song').findByIdAndUpdate(songId, {
         $inc: { likeCount: 1 }
       });
-      
+
       return { liked: true, message: 'Song liked' };
     }
   } catch (error) {
@@ -88,7 +88,7 @@ userLikesSchema.statics.likeSong = async function(userId, songId) {
 };
 
 // Static method to get user's liked songs
-userLikesSchema.statics.getUserLikedSongs = function(userId, limit = 50, skip = 0) {
+userLikesSchema.statics.getUserLikedSongs = function (userId, limit = 50, skip = 0) {
   return this.find({ user: userId, isActive: true })
     .populate('song')
     .sort({ likedAt: -1 })
@@ -97,17 +97,17 @@ userLikesSchema.statics.getUserLikedSongs = function(userId, limit = 50, skip = 
 };
 
 // Static method to check if user liked a song
-userLikesSchema.statics.isLikedByUser = function(userId, songId) {
+userLikesSchema.statics.isLikedByUser = function (userId, songId) {
   return this.findOne({ user: userId, song: songId, isActive: true });
 };
 
 // Static method to get song's like count
-userLikesSchema.statics.getSongLikeCount = function(songId) {
+userLikesSchema.statics.getSongLikeCount = function (songId) {
   return this.countDocuments({ song: songId, isActive: true });
 };
 
 // Static method to get most liked songs
-userLikesSchema.statics.getMostLikedSongs = function(limit = 10) {
+userLikesSchema.statics.getMostLikedSongs = function (limit = 10) {
   return this.aggregate([
     { $match: { isActive: true } },
     {

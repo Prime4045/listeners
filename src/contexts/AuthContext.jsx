@@ -42,11 +42,11 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       const response = await ApiService.request('POST', '/auth/login', credentials);
-      
+
       if (response.requiresMFA) {
         return response; // Return MFA requirement
       }
-      
+
       const { token, refreshToken, user } = response;
       setUser(user);
       setIsAuthenticated(true);
@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       let response;
-      
+
       if (userData instanceof FormData) {
         // Handle FormData for file uploads
         response = await ApiService.axiosInstance.post('/auth/register', userData, {
@@ -75,7 +75,7 @@ export const AuthProvider = ({ children }) => {
       } else {
         response = await ApiService.request('POST', '/auth/register', userData);
       }
-      
+
       const { token, refreshToken, user } = response;
       setUser(user);
       setIsAuthenticated(true);
@@ -118,7 +118,7 @@ export const AuthProvider = ({ children }) => {
       const { token: newToken, refreshToken: newRefreshToken } = response;
       localStorage.setItem('token', newToken);
       localStorage.setItem('refreshToken', newRefreshToken);
-      
+
       return newToken;
     } catch (error) {
       console.error('Token refresh failed:', error);

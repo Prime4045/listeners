@@ -283,12 +283,12 @@
   transition: all 0.2s ease;
 }
 
-.checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
+.checkbox-label input[type="checkbox"]:checked+.checkbox-custom {
   background: var(--accent-purple);
   border-color: var(--accent-purple);
 }
 
-.checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
+.checkbox-label input[type="checkbox"]:checked+.checkbox-custom::after {
   content: '✓';
   position: absolute;
   top: 50%;
@@ -421,17 +421,17 @@
     padding: 1.5rem;
     margin: 1rem;
   }
-  
+
   .form-row {
     grid-template-columns: 1fr;
   }
-  
+
   .profile-upload {
     flex-direction: column;
     align-items: center;
     text-align: center;
   }
-  
+
   .form-options {
     flex-direction: column;
     align-items: flex-start;
@@ -445,6 +445,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -460,6 +461,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }

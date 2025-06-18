@@ -1,139 +1,55 @@
-import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback } from 'react';
+import api from '../services/api';
 
-const MusicContext = createContext();
+const MusicContext = createContext({});
 
 export const MusicProvider = ({ children }) => {
-  const [currentTrack, setCurrentTrack] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const [volume, setVolume] = useState(parseFloat(localStorage.getItem('playerVolume')) || 0.5);
-  const [isShuffled, setIsShuffled] = useState(false);
-  const [repeatMode, setRepeatMode] = useState('none'); // none, track, playlist
-  const [trackList, setTrackList] = useState([]);
-  const audioRef = useRef(new Audio());
+  const [trendingSongs, setTrendingSongs] = useState([]);
+  const [currentSong, setCurrentSong] = useState(null);
 
-  useEffect(() => {
-    audioRef.current.volume = volume;
-  }, [volume]);
-
-  const playTrack = (track, tracks = []) => {
-    if (!track.previewUrl) {
-      console.warn('No preview URL available for this track');
-      return;
+  const fetchTrendingSongs = useCallback(async () => {
+    try {
+      const response = await api.get('/music/trending-songs');
+      setTrendingSongs(response.data);
+    } catch (error) {
+      console.error('Failed to fetch trending songs:', error);
     }
-    setTrackList(tracks);
-    setCurrentTrack(track);
-    audioRef.current.src = track.previewUrl;
-    audioRef.current.play().then(() => setIsPlaying(true)).catch((err) => console.error('Playback error:', err));
-    setCurrentTime(0);
-    setProgress(0);
-  };
+  }, []);
 
-  const togglePlayPause = () => {
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.play().then(() => setIsPlaying(true)).catch((err) => console.error('Playback error:', err));
+  const playSong = useCallback(async (song) => {
+    try {
+      // If api.trackPlay is not a function, use api.post or api.get as appropriate
+      // const response = await api.get(`/music/play/${song.spotifyId}`);
+      const response = await api.post('/music/play', { spotifyId: song.spotifyId });
+      setCurrentSong(response.data);
+    } catch (error) {
+      console.error('Failed to play song:', error);
     }
+  }, []);
+
+  const formatTime = (milliseconds) => {
+    if (!milliseconds || isNaN(milliseconds)) return '0:00';
+    const seconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  const toggleShuffle = () => {
-    setIsShuffled(!isShuffled);
+  const value = {
+    trendingSongs,
+    currentSong,
+    fetchTrendingSongs,
+    playSong,
+    formatTime,
   };
 
-  const toggleRepeat = () => {
-    setRepeatMode(repeatMode === 'none' ? 'track' : repeatMode === 'track' ? 'playlist' : 'none');
-  };
-
-  const previousTrack = () => {
-    if (!trackList.length) return;
-    const currentIndex = trackList.findIndex((t) => t.spotifyId === currentTrack?.spotifyId);
-    const prevIndex = currentIndex > 0 ? currentIndex - 1 : trackList.length - 1;
-    playTrack(trackList[prevIndex], trackList);
-  };
-
-  const nextTrack = () => {
-    if (!trackList.length) return;
-    let nextIndex;
-    if (isShuffled) {
-      nextIndex = Math.floor(Math.random() * trackList.length);
-    } else {
-      const currentIndex = trackList.findIndex((t) => t.spotifyId === currentTrack?.spotifyId);
-      nextIndex = currentIndex < trackList.length - 1 ? currentIndex + 1 : 0;
-    }
-    playTrack(trackList[nextIndex], trackList);
-  };
-
-  const seekTo = (percent) => {
-    const newTime = (percent / 100) * duration;
-    audioRef.current.currentTime = newTime;
-    setCurrentTime(newTime);
-    setProgress(percent);
-  };
-
-  const formatTime = (seconds) => {
-    if (!seconds) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    const updateTime = () => {
-      setCurrentTime(audio.currentTime);
-      setProgress((audio.currentTime / audio.duration) * 100 || 0);
-    };
-    const setAudioDuration = () => setDuration(audio.duration);
-    const handleEnded = () => {
-      if (repeatMode === 'track') {
-        audio.currentTime = 0;
-        audio.play();
-      } else if (repeatMode === 'playlist' || !repeatMode) {
-        nextTrack();
-      } else {
-        setIsPlaying(false);
-      }
-    };
-
-    audio.addEventListener('timeupdate', updateTime);
-    audio.addEventListener('loadedmetadata', setAudioDuration);
-    audio.addEventListener('ended', handleEnded);
-    return () => {
-      audio.removeEventListener('timeupdate', updateTime);
-      audio.removeEventListener('loadedmetadata', setAudioDuration);
-      audio.removeEventListener('ended', handleEnded);
-    };
-  }, [trackList, repeatMode]);
-
-  return (
-    <MusicContext.Provider
-      value={{
-        currentTrack,
-        isPlaying,
-        currentTime,
-        duration,
-        progress,
-        volume,
-        isShuffled,
-        repeatMode,
-        playTrack,
-        togglePlayPause,
-        toggleShuffle,
-        previousTrack,
-        nextTrack,
-        toggleRepeat,
-        seekTo,
-        setVolume,
-        formatTime,
-      }}
-    >
-      {children}
-    </MusicContext.Provider>
-  );
+  return <MusicContext.Provider value={value}>{children}</MusicContext.Provider>;
 };
 
-export const useMusic = () => useContext(MusicContext);
+export const useMusic = () => {
+  const context = useContext(MusicContext);
+  if (!context) {
+    throw new Error('useMusic must be used within a MusicProvider');
+  }
+  return context;
+};

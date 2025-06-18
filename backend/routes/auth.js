@@ -2,13 +2,12 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import passport from 'passport';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
-import { 
-  generateToken, 
-  generateRefreshToken, 
-  authenticateToken, 
+import {
+  generateToken,
+  generateRefreshToken,
+  authenticateToken,
   validateRefreshToken,
   blacklistToken,
   authLimiter,
@@ -23,17 +22,6 @@ const router = express.Router();
 
 // Apply security headers to all routes
 router.use(securityHeaders);
-
-// Email transporter setup
-const transporter = nodemailer.createTransporter({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
 
 // Input validation rules
 const registerValidation = [
@@ -96,14 +84,13 @@ router.get('/me', authenticateToken, async (req, res) => {
     const user = await User.findById(req.user._id)
       .populate('recentlyPlayed.song')
       .select('-password -mfaSecret -emailVerificationToken -passwordResetToken');
-    
+
     if (!user) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         message: 'User not found',
         code: 'USER_NOT_FOUND'
       });
     }
-    
     res.json({
       user,
       permissions: {
@@ -114,10 +101,10 @@ router.get('/me', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Get user error:', error.message);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Failed to get user',
       code: 'GET_USER_FAILED',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -126,30 +113,30 @@ router.get('/me', authenticateToken, async (req, res) => {
 router.post('/register', authLimiter, registerValidation, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       message: 'Validation failed',
       code: 'VALIDATION_ERROR',
-      errors: errors.array() 
+      errors: errors.array()
     });
   }
 
   try {
-    const { 
-      username, 
-      email, 
-      password, 
-      firstName, 
-      lastName, 
-      phoneNumber 
+    const {
+      username,
+      email,
+      password,
+      firstName,
+      lastName,
+      phoneNumber
     } = req.body;
 
     // Check if user already exists
-    const existingUser = await User.findOne({ 
-      $or: [{ email }, { username }] 
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username }]
     });
-    
+
     if (existingUser) {
-      return res.status(409).json({ 
+      return res.status(409).json({
         message: existingUser.email === email ? 'Email already registered' : 'Username already taken',
         code: 'USER_EXISTS'
       });
@@ -159,9 +146,9 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
     const emailVerificationToken = crypto.randomBytes(32).toString('hex');
 
     // Create new user
-    const user = new User({ 
-      username, 
-      email, 
+    const user = new User({
+      username,
+      email,
       password,
       firstName,
       lastName,
@@ -201,7 +188,6 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
     // Generate tokens
     const token = generateToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
-    
     // Store refresh token in Redis
     await redisClient.setEx(`refreshToken:${user._id}`, 7 * 24 * 60 * 60, refreshToken);
 
@@ -211,19 +197,19 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
     // Skip rate limiting for successful registration
     req.skipRateLimit = true;
 
-    res.status(201).json({ 
+    res.status(201).json({
       message: 'Registration successful. Please check your email to verify your account.',
-      token, 
-      refreshToken, 
+      token,
+      refreshToken,
       user: user.toJSON(),
       emailSent: true
     });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Registration failed',
       code: 'REGISTRATION_FAILED',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -232,10 +218,10 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
 router.post('/login', progressiveAuthLimiter, loginValidation, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       message: 'Validation failed',
       code: 'VALIDATION_ERROR',
-      errors: errors.array() 
+      errors: errors.array()
     });
   }
 
@@ -251,7 +237,7 @@ router.post('/login', progressiveAuthLimiter, loginValidation, async (req, res) 
     });
 
     if (!user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         message: 'Invalid credentials',
         code: 'INVALID_CREDENTIALS'
       });
@@ -259,7 +245,7 @@ router.post('/login', progressiveAuthLimiter, loginValidation, async (req, res) 
 
     // Check if account is locked
     if (user.isLocked) {
-      return res.status(423).json({ 
+      return res.status(423).json({
         message: 'Account is temporarily locked due to multiple failed login attempts',
         code: 'ACCOUNT_LOCKED',
         lockUntil: user.lockUntil
@@ -271,8 +257,8 @@ router.post('/login', progressiveAuthLimiter, loginValidation, async (req, res) 
     if (!isPasswordValid) {
       await user.incLoginAttempts();
       await user.addLoginHistory(req.ip, req.get('User-Agent'), false);
-      
-      return res.status(401).json({ 
+
+      return res.status(401).json({
         message: 'Invalid credentials',
         code: 'INVALID_CREDENTIALS'
       });
@@ -298,8 +284,8 @@ router.post('/login', progressiveAuthLimiter, loginValidation, async (req, res) 
       if (!verified) {
         await user.incLoginAttempts();
         await user.addLoginHistory(req.ip, req.get('User-Agent'), false);
-        
-        return res.status(401).json({ 
+
+        return res.status(401).json({
           message: 'Invalid MFA code',
           code: 'INVALID_MFA_CODE'
         });
@@ -336,19 +322,19 @@ router.post('/login', progressiveAuthLimiter, loginValidation, async (req, res) 
       });
     }
 
-    res.json({ 
+    res.json({
       message: 'Login successful',
-      token, 
-      refreshToken, 
+      token,
+      refreshToken,
       user: user.toJSON(),
       expiresIn: tokenExpiry
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Login failed',
       code: 'LOGIN_FAILED',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -368,17 +354,17 @@ router.post('/refresh-token', validateRefreshToken, async (req, res) => {
     // Blacklist old refresh token
     await blacklistToken(oldRefreshToken, 7 * 24 * 60 * 60);
 
-    res.json({ 
+    res.json({
       message: 'Token refreshed successfully',
-      token: newToken, 
-      refreshToken: newRefreshToken 
+      token: newToken,
+      refreshToken: newRefreshToken
     });
   } catch (error) {
     console.error('Token refresh error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Token refresh failed',
       code: 'TOKEN_REFRESH_FAILED',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -403,16 +389,16 @@ router.post('/logout', authenticateToken, async (req, res) => {
     // Clear cookie
     res.clearCookie('refreshToken');
 
-    res.json({ 
+    res.json({
       message: 'Logout successful',
       code: 'LOGOUT_SUCCESS'
     });
   } catch (error) {
     console.error('Logout error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Logout failed',
       code: 'LOGOUT_FAILED',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -423,7 +409,7 @@ router.get('/verify-email', async (req, res) => {
     const { token } = req.query;
 
     if (!token) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Verification token is required',
         code: 'TOKEN_REQUIRED'
       });
@@ -432,7 +418,7 @@ router.get('/verify-email', async (req, res) => {
     const user = await User.findOne({ emailVerificationToken: token });
 
     if (!user) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Invalid or expired verification token',
         code: 'INVALID_TOKEN'
       });
@@ -443,16 +429,16 @@ router.get('/verify-email', async (req, res) => {
     user.emailVerificationToken = null;
     await user.save();
 
-    res.json({ 
+    res.json({
       message: 'Email verified successfully',
       code: 'EMAIL_VERIFIED'
     });
   } catch (error) {
     console.error('Email verification error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Email verification failed',
       code: 'VERIFICATION_FAILED',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -463,10 +449,10 @@ router.post('/forgot-password', [
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       message: 'Valid email is required',
       code: 'VALIDATION_ERROR',
-      errors: errors.array() 
+      errors: errors.array()
     });
   }
 
@@ -476,7 +462,7 @@ router.post('/forgot-password', [
 
     // Always return success to prevent email enumeration
     if (!user) {
-      return res.json({ 
+      return res.json({
         message: 'If an account with that email exists, a password reset link has been sent.',
         code: 'RESET_EMAIL_SENT'
       });
@@ -510,16 +496,16 @@ router.post('/forgot-password', [
       `,
     });
 
-    res.json({ 
+    res.json({
       message: 'If an account with that email exists, a password reset link has been sent.',
       code: 'RESET_EMAIL_SENT'
     });
   } catch (error) {
     console.error('Password reset request error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Password reset request failed',
       code: 'RESET_REQUEST_FAILED',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -541,10 +527,10 @@ router.post('/reset-password', [
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       message: 'Validation failed',
       code: 'VALIDATION_ERROR',
-      errors: errors.array() 
+      errors: errors.array()
     });
   }
 
@@ -557,7 +543,7 @@ router.post('/reset-password', [
     });
 
     if (!user) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Invalid or expired reset token',
         code: 'INVALID_RESET_TOKEN'
       });
@@ -574,16 +560,16 @@ router.post('/reset-password', [
     // Invalidate all existing sessions
     await redisClient.del(`refreshToken:${user._id}`);
 
-    res.json({ 
+    res.json({
       message: 'Password reset successful',
       code: 'PASSWORD_RESET_SUCCESS'
     });
   } catch (error) {
     console.error('Password reset error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Password reset failed',
       code: 'PASSWORD_RESET_FAILED',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -594,7 +580,7 @@ router.post('/setup-mfa', authenticateToken, async (req, res) => {
     const user = req.user;
 
     if (user.mfaEnabled) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'MFA is already enabled',
         code: 'MFA_ALREADY_ENABLED'
       });
@@ -621,10 +607,10 @@ router.post('/setup-mfa', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('MFA setup error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'MFA setup failed',
       code: 'MFA_SETUP_FAILED',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -635,10 +621,10 @@ router.post('/verify-mfa', authenticateToken, [
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       message: 'Valid 6-digit code is required',
       code: 'VALIDATION_ERROR',
-      errors: errors.array() 
+      errors: errors.array()
     });
   }
 
@@ -649,7 +635,7 @@ router.post('/verify-mfa', authenticateToken, [
     // Get temporary secret
     const secret = await redisClient.get(`mfa_setup:${user._id}`);
     if (!secret) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'MFA setup session expired. Please start over.',
         code: 'MFA_SETUP_EXPIRED'
       });
@@ -664,7 +650,7 @@ router.post('/verify-mfa', authenticateToken, [
     });
 
     if (!verified) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Invalid MFA code',
         code: 'INVALID_MFA_CODE'
       });
@@ -678,16 +664,16 @@ router.post('/verify-mfa', authenticateToken, [
     // Clean up temporary secret
     await redisClient.del(`mfa_setup:${user._id}`);
 
-    res.json({ 
+    res.json({
       message: 'MFA enabled successfully',
       code: 'MFA_ENABLED'
     });
   } catch (error) {
     console.error('MFA verification error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'MFA verification failed',
       code: 'MFA_VERIFICATION_FAILED',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -699,10 +685,10 @@ router.post('/disable-mfa', authenticateToken, [
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       message: 'Validation failed',
       code: 'VALIDATION_ERROR',
-      errors: errors.array() 
+      errors: errors.array()
     });
   }
 
@@ -711,7 +697,7 @@ router.post('/disable-mfa', authenticateToken, [
     const user = req.user;
 
     if (!user.mfaEnabled) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'MFA is not enabled',
         code: 'MFA_NOT_ENABLED'
       });
@@ -720,7 +706,7 @@ router.post('/disable-mfa', authenticateToken, [
     // Verify password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         message: 'Invalid password',
         code: 'INVALID_PASSWORD'
       });
@@ -735,7 +721,7 @@ router.post('/disable-mfa', authenticateToken, [
     });
 
     if (!verified) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Invalid MFA code',
         code: 'INVALID_MFA_CODE'
       });
@@ -746,16 +732,16 @@ router.post('/disable-mfa', authenticateToken, [
     user.mfaSecret = null;
     await user.save();
 
-    res.json({ 
+    res.json({
       message: 'MFA disabled successfully',
       code: 'MFA_DISABLED'
     });
   } catch (error) {
     console.error('MFA disable error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'MFA disable failed',
       code: 'MFA_DISABLE_FAILED',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -763,16 +749,16 @@ router.post('/disable-mfa', authenticateToken, [
 // Google OAuth routes
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
-router.get('/google/callback', 
+router.get('/google/callback',
   passport.authenticate('google', { failureRedirect: '/login' }),
   async (req, res) => {
     try {
       const token = generateToken(req.user._id);
       const refreshToken = generateRefreshToken(req.user._id);
-      
+
       await redisClient.setEx(`refreshToken:${req.user._id}`, 7 * 24 * 60 * 60, refreshToken);
       await req.user.addLoginHistory(req.ip, req.get('User-Agent'), true);
-      
+
       res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}&refreshToken=${refreshToken}`);
     } catch (error) {
       console.error('Google OAuth callback error:', error);

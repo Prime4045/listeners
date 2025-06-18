@@ -35,10 +35,10 @@ class CloudinaryService {
       };
 
       const result = await cloudinary.uploader.upload(file, uploadOptions);
-      
+
       // Cache the result
       await this.cacheUploadResult(result.public_id, result);
-      
+
       return {
         publicId: result.public_id,
         url: result.secure_url,
@@ -74,10 +74,10 @@ class CloudinaryService {
       };
 
       const result = await cloudinary.uploader.upload(file, uploadOptions);
-      
+
       // Cache the result
       await this.cacheUploadResult(result.public_id, result);
-      
+
       return {
         publicId: result.public_id,
         url: result.secure_url,
@@ -302,7 +302,7 @@ class CloudinaryService {
       });
 
       const results = await Promise.allSettled(uploadPromises);
-      
+
       return results.map((result, index) => ({
         file: files[index],
         success: result.status === 'fulfilled',

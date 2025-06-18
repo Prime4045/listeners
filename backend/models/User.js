@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema({
     },
     minlength: 8,
     validate: {
-      validator: function(password) {
+      validator: function (password) {
         if (!password && this.googleId) return true;
         // Password must contain: 1 uppercase, 1 lowercase, 1 number, 1 special character
         return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/.test(password);
@@ -190,7 +190,7 @@ userSchema.index({ passwordResetToken: 1 });
 userSchema.index({ lockUntil: 1 });
 
 // Virtual for account lock status
-userSchema.virtual('isLocked').get(function() {
+userSchema.virtual('isLocked').get(function () {
   return !!(this.lockUntil && this.lockUntil > Date.now());
 });
 
@@ -222,7 +222,7 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 };
 
 // Handle login attempts and account locking
-userSchema.methods.incLoginAttempts = async function() {
+userSchema.methods.incLoginAttempts = async function () {
   // If we have a previous lock that has expired, restart at 1
   if (this.lockUntil && this.lockUntil < Date.now()) {
     return this.updateOne({
@@ -234,19 +234,19 @@ userSchema.methods.incLoginAttempts = async function() {
       }
     });
   }
-  
+
   const updates = { $inc: { loginAttempts: 1 } };
-  
+
   // Lock account after 5 failed attempts for 2 hours
   if (this.loginAttempts + 1 >= 5 && !this.isLocked) {
     updates.$set = { lockUntil: Date.now() + 2 * 60 * 60 * 1000 }; // 2 hours
   }
-  
+
   return this.updateOne(updates);
 };
 
 // Reset login attempts on successful login
-userSchema.methods.resetLoginAttempts = async function() {
+userSchema.methods.resetLoginAttempts = async function () {
   return this.updateOne({
     $unset: {
       loginAttempts: 1,
@@ -256,19 +256,19 @@ userSchema.methods.resetLoginAttempts = async function() {
 };
 
 // Add login history entry
-userSchema.methods.addLoginHistory = async function(ip, userAgent, success = true) {
+userSchema.methods.addLoginHistory = async function (ip, userAgent, success = true) {
   this.loginHistory.unshift({
     ip,
     userAgent,
     success,
     timestamp: new Date(),
   });
-  
+
   // Keep only last 20 login attempts
   if (this.loginHistory.length > 20) {
     this.loginHistory = this.loginHistory.slice(0, 20);
   }
-  
+
   return this.save();
 };
 
