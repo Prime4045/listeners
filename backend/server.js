@@ -15,6 +15,7 @@ import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import musicRoutes from './routes/music.js';
 import playlistRoutes from './routes/playlists.js';
+import crypto from 'crypto'; // <-- Add this at the top
 
 const app = express();
 const server = createServer(app);
@@ -118,7 +119,6 @@ app.use('/uploads', express.static('uploads'));
 // CSRF token generation
 app.use((req, res, next) => {
   if (!req.session.csrfToken) {
-    const crypto = await import('crypto');
     req.session.csrfToken = crypto.randomBytes(32).toString('hex');
   }
   res.locals.csrfToken = req.session.csrfToken;

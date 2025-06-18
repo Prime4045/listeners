@@ -2,7 +2,6 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import passport from 'passport';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import {
@@ -23,17 +22,6 @@ const router = express.Router();
 
 // Apply security headers to all routes
 router.use(securityHeaders);
-
-// Email transporter setup
-const transporter = nodemailer.createTransporter({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
 
 // Input validation rules
 const registerValidation = [
