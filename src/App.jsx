@@ -22,6 +22,7 @@ import {
   Shield,
 } from 'lucide-react';
 import TrackList from './components/TrackList';
+import MusicPlayer from './components/MusicPlayer/MusicPlayer';
 import AuthModal from './components/auth/AuthModal';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { MusicProvider, useMusic } from './contexts/MusicContext';
@@ -271,6 +272,7 @@ const AppContent = () => {
     playTrack(track, tracks);
 
     // Update recently played
+
     const recentTrack = { ...track, playedAt: new Date().toISOString() };
 
     if (isAuthenticated) {
@@ -346,6 +348,11 @@ const AppContent = () => {
   }, [showUserMenu]);
 
   const renderMainContent = () => {
+    // Show music player for all views
+    if (currentView === 'player') {
+      return <MusicPlayer />;
+    }
+
     switch (currentView) {
       case 'search':
         return (
@@ -740,6 +747,13 @@ const AppContent = () => {
                   <span>Home</span>
                 </li>
                 <li
+                  className={`nav-item ${currentView === 'player' ? 'active' : ''}`}
+                  onClick={() => setCurrentView('player')}
+                >
+                  <Play className="nav-icon" />
+                  <span>Music Player</span>
+                </li>
+                <li
                   className={`nav-item ${currentView === 'library' ? 'active' : ''}`}
                   onClick={() => setCurrentView('library')}
                 >
@@ -778,93 +792,96 @@ const AppContent = () => {
         </div>
       </div>
 
-      <div className="player-bar">
-        <div className="player-track">
-          <div className="track-cover">
-            <img
-              src={currentTrack?.imageUrl || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=100'}
-              alt={currentTrack?.title || 'No track'}
-              style={{ width: '56px', height: '56px', borderRadius: '8px', objectFit: 'cover' }}
-              onError={(e) => {
-                e.target.src = 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=100';
-              }}
-            />
+      {/* Only show player bar if not in player view */}
+      {currentView !== 'player' && (
+        <div className="player-bar">
+          <div className="player-track">
+            <div className="track-cover">
+              <img
+                src={currentTrack?.imageUrl || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=100'}
+                alt={currentTrack?.title || 'No track'}
+                style={{ width: '56px', height: '56px', borderRadius: '8px', objectFit: 'cover' }}
+                onError={(e) => {
+                  e.target.src = 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=100';
+                }}
+              />
+            </div>
+            <div className="track-info">
+              <div className="track-title">{currentTrack?.title || 'No track selected'}</div>
+              <div className="track-artist">
+                {currentTrack?.artist || ''} {currentTrack?.duration ? `• ${formatDuration(currentTrack.duration)}` : ''}
+              </div>
+            </div>
           </div>
-          <div className="track-info">
-            <div className="track-title">{currentTrack?.title || 'No track selected'}</div>
-            <div className="track-artist">
-              {currentTrack?.artist || ''} {currentTrack?.duration ? `• ${formatDuration(currentTrack.duration)}` : ''}
+
+          <div className="player-controls">
+            <div className="control-buttons">
+              <button
+                className={`control-btn ${isShuffled ? 'active' : ''}`}
+                onClick={toggleShuffle}
+              >
+                <Shuffle size={16} />
+              </button>
+              <button className="control-btn" onClick={previousTrack}>
+                <SkipBack size={16} />
+              </button>
+              <button
+                className="play-pause-btn"
+                onClick={togglePlayPause}
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+              >
+                {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+              </button>
+              <button className="control-btn" onClick={nextTrack}>
+                <SkipForward size={16} />
+              </button>
+              <button
+                className={`control-btn ${repeatMode !== 'none' ? 'active' : ''}`}
+                onClick={toggleRepeat}
+              >
+                <Repeat size={16} />
+              </button>
+            </div>
+
+            <div className="progress-bar">
+              <span className="time">{formatTime(currentTime)}</span>
+              <div
+                className="progress"
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const percent = (e.clientX - rect.left) / rect.width;
+                  seekTo(percent * 100);
+                }}
+              >
+                <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+              </div>
+              <span className="time">{formatTime(duration)}</span>
+            </div>
+          </div>
+
+          <div className="volume-controls">
+            <Volume2 size={16} className="control-btn" />
+            <div className="volume-bar">
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={volume}
+                onChange={(e) => {
+                  const newVolume = parseFloat(e.target.value);
+                  setVolume(newVolume);
+                  localStorage.setItem('playerVolume', newVolume);
+                }}
+                className="volume-slider"
+                style={{
+                  background: `linear-gradient(to right, #8b5cf6 ${volume * 100}%, #535353 ${volume * 100}%)`,
+                }}
+              />
             </div>
           </div>
         </div>
-
-        <div className="player-controls">
-          <div className="control-buttons">
-            <button
-              className={`control-btn ${isShuffled ? 'active' : ''}`}
-              onClick={toggleShuffle}
-            >
-              <Shuffle size={16} />
-            </button>
-            <button className="control-btn" onClick={previousTrack}>
-              <SkipBack size={16} />
-            </button>
-            <button
-              className="play-pause-btn"
-              onClick={togglePlayPause}
-              aria-label={isPlaying ? 'Pause' : 'Play'}
-            >
-              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-            </button>
-            <button className="control-btn" onClick={nextTrack}>
-              <SkipForward size={16} />
-            </button>
-            <button
-              className={`control-btn ${repeatMode !== 'none' ? 'active' : ''}`}
-              onClick={toggleRepeat}
-            >
-              <Repeat size={16} />
-            </button>
-          </div>
-
-          <div className="progress-bar">
-            <span className="time">{formatTime(currentTime)}</span>
-            <div
-              className="progress"
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                const percent = (e.clientX - rect.left) / rect.width;
-                seekTo(percent * 100);
-              }}
-            >
-              <div className="progress-fill" style={{ width: `${progress}%` }}></div>
-            </div>
-            <span className="time">{formatTime(duration)}</span>
-          </div>
-        </div>
-
-        <div className="volume-controls">
-          <Volume2 size={16} className="control-btn" />
-          <div className="volume-bar">
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              value={volume}
-              onChange={(e) => {
-                const newVolume = parseFloat(e.target.value);
-                setVolume(newVolume);
-                localStorage.setItem('playerVolume', newVolume);
-              }}
-              className="volume-slider"
-              style={{
-                background: `linear-gradient(to right, #8b5cf6 ${volume * 100}%, #535353 ${volume * 100}%)`,
-              }}
-            />
-          </div>
-        </div>
-      </div>
+      )}
 
       <AuthModal
         isOpen={authModal.isOpen}

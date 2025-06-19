@@ -15,7 +15,7 @@ import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import musicRoutes from './routes/music.js';
 import playlistRoutes from './routes/playlists.js';
-import crypto from 'crypto'; // <-- Add this at the top
+import songsRoutes from './routes/songs.js';
 
 const app = express();
 const server = createServer(app);
@@ -117,8 +117,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static('uploads'));
 
 // CSRF token generation
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   if (!req.session.csrfToken) {
+    const crypto = await import('crypto');
     req.session.csrfToken = crypto.randomBytes(32).toString('hex');
   }
   res.locals.csrfToken = req.session.csrfToken;
@@ -130,6 +131,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/music', musicRoutes);
 app.use('/api/playlists', playlistRoutes);
+app.use('/api/songs', songsRoutes);
 
 // CSRF token endpoint
 app.get('/api/csrf-token', (req, res) => {
@@ -149,6 +151,7 @@ app.get('/api/health', (req, res) => {
       fileUpload: true,
       realtime: true,
       security: true,
+      musicPlayer: true,
     },
   });
 });
@@ -196,6 +199,7 @@ io.on('connection', (socket) => {
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
+
   // Handle specific error types
   if (err.name === 'ValidationError') {
     return res.status(400).json({
@@ -204,24 +208,28 @@ app.use((err, req, res, next) => {
       errors: Object.values(err.errors).map(e => e.message),
     });
   }
+
   if (err.name === 'CastError') {
     return res.status(400).json({
       message: 'Invalid ID format',
       code: 'INVALID_ID',
     });
   }
+
   if (err.code === 11000) {
     return res.status(409).json({
       message: 'Duplicate entry',
       code: 'DUPLICATE_ENTRY',
     });
   }
+
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({
       message: 'Invalid token',
       code: 'INVALID_TOKEN',
     });
   }
+
   if (err.name === 'TokenExpiredError') {
     return res.status(401).json({
       message: 'Token expired',
@@ -260,6 +268,7 @@ async function startServer() {
       console.log(`🔒 Security features enabled: Rate limiting, CORS, Helmet, CSRF protection`);
       console.log(`🔐 Authentication: JWT with refresh tokens, MFA support`);
       console.log(`📧 Email service: ${process.env.SMTP_HOST ? 'Configured' : 'Not configured'}`);
+      console.log(`🎶 Music Player: Advanced audio playback with MongoDB integration`);
       console.log(`🚀 Server ready for production use!`);
     });
   } catch (error) {

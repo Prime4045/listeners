@@ -1,0 +1,153 @@
+.music-player-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: var(--primary-bg);
+    color: var(--text-primary);
+}
+
+.music-player-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.player-main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem;
+}
+
+.player-sidebar {
+    width: 350px;
+    background: var(--secondary-bg);
+    border-left: 1px solid var(--border-color);
+    overflow-y: auto;
+}
+
+.main-audio-player {
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+}
+
+/* Loading State */
+.music-player-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    gap: 1rem;
+    color: var(--text-secondary);
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--tertiary-bg);
+    border-top: 3px solid var(--accent-purple);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Error Display */
+.player-error {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(239, 68, 68, 0.9);
+    color: white;
+    padding: 1rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.player-error button {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.player-error button:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .player-sidebar {
+        width: 300px;
+    }
+
+    .player-main {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .music-player-content {
+        flex-direction: column;
+    }
+
+    .player-sidebar {
+        width: 100%;
+        height: 300px;
+        border-left: none;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .player-main {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .player-main {
+        padding: 0.75rem;
+    }
+
+    .player-sidebar {
+        height: 250px;
+    }
+}
+
+/* Animations */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Focus States */
+.music-player-container *:focus {
+    outline: 2px solid var(--accent-purple);
+    outline-offset: 2px;
+}
