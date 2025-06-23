@@ -37,7 +37,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
       scriptSrc: ["'self'", 'https:'],
       imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
-      mediaSrc: ["'self'", 'blob:', 'https:'],
+      mediaSrc: ["'self'", 'blob:', 'https:', 'https://storage.googleapis.com'],
       connectSrc: ["'self'", 'wss:', 'ws:', 'https:'],
       fontSrc: ["'self'", 'https:', 'data:'],
       objectSrc: ["'none'"],
@@ -97,12 +97,12 @@ app.use(session({
   saveUninitialized: false,
   store: MongoStore.create({
     mongoUrl: process.env.MONGODB_URI,
-    touchAfter: 24 * 3600, // lazy session update
+    touchAfter: 24 * 3600,
   }),
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    maxAge: 24 * 60 * 60 * 1000,
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
   },
 }));
@@ -112,9 +112,6 @@ app.use(compression());
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Static file serving
-app.use('/uploads', express.static('uploads'));
 
 // CSRF token generation
 app.use(async (req, res, next) => {
@@ -148,10 +145,11 @@ app.get('/api/health', (req, res) => {
     features: {
       authentication: true,
       mfa: true,
-      fileUpload: true,
       realtime: true,
       security: true,
       musicPlayer: true,
+      googleCloudStorage: true,
+      spotify: true,
     },
   });
 });
@@ -200,7 +198,6 @@ io.on('connection', (socket) => {
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
 
-  // Handle specific error types
   if (err.name === 'ValidationError') {
     return res.status(400).json({
       message: 'Validation failed',
@@ -268,7 +265,9 @@ async function startServer() {
       console.log(`🔒 Security features enabled: Rate limiting, CORS, Helmet, CSRF protection`);
       console.log(`🔐 Authentication: JWT with refresh tokens, MFA support`);
       console.log(`📧 Email service: ${process.env.SMTP_HOST ? 'Configured' : 'Not configured'}`);
-      console.log(`🎶 Music Player: Advanced audio playback with MongoDB integration`);
+      console.log(`🎶 Music Player: Spotify API + Google Cloud Storage + MongoDB`);
+      console.log(`☁️ Google Cloud Storage: ${process.env.GOOGLE_CLOUD_PROJECT_ID ? 'Configured' : 'Not configured'}`);
+      console.log(`🎵 Spotify API: ${process.env.SPOTIFY_CLIENT_ID ? 'Configured' : 'Not configured'}`);
       console.log(`🚀 Server ready for production use!`);
     });
   } catch (error) {

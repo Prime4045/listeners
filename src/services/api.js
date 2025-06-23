@@ -2,11 +2,10 @@ import axios from 'axios';
 
 class ApiService {
   constructor() {
-    // Use environment variable or fallback to localhost
     this.baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
     this.axiosInstance = axios.create({
       baseURL: this.baseUrl,
-      timeout: 10000, // 10 second timeout
+      timeout: 15000,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -26,18 +25,53 @@ class ApiService {
       }
     );
 
-    // Add response interceptor for error handling
+    // Add response interceptor for error handling and token refresh
     this.axiosInstance.interceptors.response.use(
       (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          // Token expired or invalid
-          localStorage.removeItem('token');
-          window.location.href = '/login';
+      async (error) => {
+        const originalRequest = error.config;
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+
+          try {
+            const refreshToken = localStorage.getItem('refreshToken');
+            if (refreshToken) {
+              const response = await this.refreshToken(refreshToken);
+              localStorage.setItem('token', response.token);
+              localStorage.setItem('refreshToken', response.refreshToken);
+
+              // Retry original request with new token
+              originalRequest.headers.Authorization = `Bearer ${response.token}`;
+              return this.axiosInstance(originalRequest);
+            }
+          } catch (refreshError) {
+            // Refresh failed, redirect to login
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            window.location.href = '/login';
+          }
         }
-        return Promise.reject(error);
+
+        return Promise.reject(this.formatError(error));
       }
     );
+  }
+
+  formatError(error) {
+    if (error.response?.data) {
+      return {
+        message: error.response.data.message || 'Request failed',
+        code: error.response.data.code,
+        status: error.response.status,
+        errors: error.response.data.errors,
+      };
+    }
+    return {
+      message: error.message || 'Network error',
+      code: 'NETWORK_ERROR',
+      status: 0,
+    };
   }
 
   async request(method, url, data = null, headers = {}) {
@@ -50,15 +84,7 @@ class ApiService {
       });
       return response.data;
     } catch (error) {
-      console.error('API request failed:', {
-        method,
-        url,
-        error: error.response?.data || error.message,
-        status: error.response?.status
-      });
-      // Throw a more descriptive error
-      const errorMessage = error.response?.data?.message || error.message || 'Request failed';
-      throw new Error(errorMessage);
+      throw this.formatError(error);
     }
   }
 
@@ -81,28 +107,42 @@ class ApiService {
   }
 
   // Music-specific methods
+
+  // Get all songs from database (primary method)
+  async getDatabaseSongs(page = 1, limit = 50, search = '') {
+    const params = { page, limit };
+    if (search) params.search = search;
+    return this.get('/music/database/songs', params);
+  }
+
+  // Search music (database first, then Spotify)
   async searchMusic(query, limit = 20) {
     return this.get('/music/search', { query, limit });
   }
 
-  async getTrendingSongs(limit = 10) {
-    return this.get('/music/trending-songs', { limit });
+  // Get trending songs from database
+  async getTrendingSongs(limit = 20) {
+    return this.get('/music/database/trending', { limit });
   }
 
-  async getBollywoodAlbums(limit = 10) {
-    return this.get('/music/bollywood-albums', { limit });
+  // Play track (database first approach)
+  async playTrack(spotifyId) {
+    return this.post(`/music/${spotifyId}/play`);
   }
 
-  async getAlbumTrack(albumId) {
-    return this.get(`/music/albums/${albumId}/track`);
+  // Get song details
+  async getSongDetails(spotifyId) {
+    return this.get(`/music/${spotifyId}`);
   }
 
-  async playTrack(songId) {
-    return this.post(`/music/${songId}/play`);
+  // Like/unlike track
+  async likeTrack(spotifyId) {
+    return this.post(`/music/${spotifyId}/like`);
   }
 
-  async getSongDetails(songId) {
-    return this.get(`/music/${songId}`);
+  // Get user's liked songs
+  async getLikedSongs(limit = 50, skip = 0) {
+    return this.get('/music/user/liked', { limit, skip });
   }
 
   // Auth methods
@@ -110,16 +150,21 @@ class ApiService {
     return this.get('/auth/me');
   }
 
-  async login(email, password) {
-    return this.post('/auth/login', { email, password });
+  async login(credentials) {
+    return this.post('/auth/login', credentials);
   }
 
-  async register(username, email, password) {
-    return this.post('/auth/register', { username, email, password });
+  async register(userData) {
+    return this.post('/auth/register', userData);
   }
 
   async refreshToken(refreshToken) {
     return this.post('/auth/refresh-token', { refreshToken });
+  }
+
+  async logout() {
+    const refreshToken = localStorage.getItem('refreshToken');
+    return this.post('/auth/logout', { refreshToken });
   }
 
   // Health check

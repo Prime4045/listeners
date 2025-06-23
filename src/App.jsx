@@ -14,12 +14,12 @@ import {
   Plus,
   Music,
   User,
-  Clock,
   TrendingUp,
   Loader2,
   Settings,
   LogOut,
   Shield,
+  AlertCircle,
 } from 'lucide-react';
 import TrackList from './components/TrackList';
 import MusicPlayer from './components/MusicPlayer/MusicPlayer';
@@ -38,27 +38,19 @@ const samplePlaylists = [
   { id: 5, name: 'Late Night', songCount: 16 },
 ];
 
-// Format duration from milliseconds to min:sec
-const formatDuration = (ms) => {
-  if (!ms) return '0:00';
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-};
-
 const AppContent = () => {
   const [currentView, setCurrentView] = useState('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [databaseSongs, setDatabaseSongs] = useState([]);
   const [trendingSongs, setTrendingSongs] = useState([]);
-  const [bollywoodAlbums, setBollywoodAlbums] = useState([]);
-  const [recentlyPlayed, setRecentlyPlayed] = useState([]);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [authModal, setAuthModal] = useState({ isOpen: false, mode: 'login' });
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMoreSongs, setHasMoreSongs] = useState(true);
 
   const {
     currentTrack,
@@ -82,7 +74,6 @@ const AppContent = () => {
 
   const { user, isAuthenticated, logout, loading: authLoading } = useAuth();
 
-  // Debounced search function
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchQuery.trim() && searchQuery.length >= 2) {
@@ -93,114 +84,45 @@ const AppContent = () => {
           setCurrentView('home');
         }
       }
-    }, 500); // 500ms debounce
+    }, 500);
 
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  // Fetch trending songs
-  const fetchTrendingSongs = async () => {
+  const loadDatabaseSongs = async (page = 1) => {
     try {
       setIsLoading(true);
-      const songs = await ApiService.getTrendingSongs(10);
-      setTrendingSongs(songs || []);
+      const response = await ApiService.getDatabaseSongs(page, 50);
+
+      if (page === 1) {
+        setDatabaseSongs(response.songs || []);
+      } else {
+        setDatabaseSongs(prev => [...prev, ...(response.songs || [])]);
+      }
+
+      setHasMoreSongs(response.pagination?.hasNext || false);
       setError(null);
     } catch (err) {
-      console.error('Failed to fetch trending songs:', err);
-      setError('Failed to load trending songs. Using offline mode.');
-      // Fallback to sample data
-      setTrendingSongs([
-        {
-          spotifyId: 'sample1',
-          title: 'Sample Song 1',
-          artist: 'Sample Artist',
-          album: 'Sample Album',
-          duration: 180000,
-          previewUrl: '/audio/sample.mp3',
-          imageUrl: null,
-        },
-        {
-          spotifyId: 'sample2',
-          title: 'Sample Song 2',
-          artist: 'Another Artist',
-          album: 'Another Album',
-          duration: 210000,
-          previewUrl: '/audio/sample.mp3',
-          imageUrl: null,
-        },
-      ]);
+      console.error('Failed to load database songs:', err);
+      setError('Failed to load available songs. Please check your connection.');
+      setDatabaseSongs([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Fetch Bollywood albums
-  const fetchBollywoodAlbums = async () => {
+  const fetchTrendingSongs = async () => {
     try {
-      const albums = await ApiService.getBollywoodAlbums(10);
-      setBollywoodAlbums(albums || []);
+      const songs = await ApiService.getTrendingSongs(10);
+      setTrendingSongs(songs || []);
       setError(null);
     } catch (err) {
-      console.error('Failed to fetch Bollywood albums:', err);
-      setError('Failed to load Bollywood albums. Using offline mode.');
-      // Fallback to sample data
-      setBollywoodAlbums([
-        {
-          spotifyId: 'album1',
-          title: 'Sample Album 1',
-          artist: 'Bollywood Artist',
-          imageUrl: null,
-          totalTracks: 10,
-        },
-        {
-          spotifyId: 'album2',
-          title: 'Sample Album 2',
-          artist: 'Another Bollywood Artist',
-          imageUrl: null,
-          totalTracks: 8,
-        },
-      ]);
+      console.error('Failed to fetch trending songs:', err);
+      setError('Failed to load trending songs. Please check your connection.');
+      setTrendingSongs([]);
     }
   };
 
-  // Fetch recently played for authenticated users
-  const fetchRecentlyPlayed = async () => {
-    if (!isAuthenticated) {
-      // Load from localStorage for non-authenticated users
-      const stored = localStorage.getItem('recentlyPlayed');
-      if (stored) {
-        try {
-          setRecentlyPlayed(JSON.parse(stored));
-        } catch (e) {
-          console.error('Failed to parse stored recently played:', e);
-        }
-      }
-      return;
-    }
-
-    try {
-      const userData = await ApiService.getCurrentUser();
-      const songs = userData.user.recentlyPlayed
-        ?.map((item) => ({
-          spotifyId: item.song.spotifyId,
-          title: item.song.title,
-          artist: item.song.artist,
-          album: item.song.album,
-          duration: item.song.duration,
-          previewUrl: item.song.previewUrl,
-          imageUrl: item.song.imageUrl,
-          playedAt: item.playedAt,
-        }))
-        .reverse() || [];
-      setRecentlyPlayed(songs);
-      setError(null);
-    } catch (err) {
-      console.error('Failed to fetch recently played:', err);
-      // Don't show error for this, just use local storage
-    }
-  };
-
-  // Enhanced search function
   const handleSearch = async () => {
     if (!searchQuery.trim() || searchQuery.length < 2) return;
 
@@ -209,29 +131,30 @@ const AppContent = () => {
       setError(null);
 
       const results = await ApiService.searchMusic(searchQuery.trim(), 20);
-      setSearchResults(results || []);
+      console.log('Search results:', {
+        query: searchQuery,
+        total: results.songs?.length,
+        spotifyCount: results.spotifyCount,
+      });
+      setSearchResults(results.songs || []);
       setCurrentView('search');
     } catch (error) {
       console.error('Search failed:', error);
-      setError(`Search failed: ${error.message}. Please try again.`);
+      setError(`Search failed: ${error.message || 'Unable to fetch songs from Spotify'}. Please try again.`);
       setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
   };
 
-  // Handle search input changes
   const handleSearchInputChange = (e) => {
     const value = e.target.value;
     setSearchQuery(value);
-
-    // Show search view immediately when typing
     if (value.trim() && currentView !== 'search') {
       setCurrentView('search');
     }
   };
 
-  // Handle search form submission
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -241,68 +164,53 @@ const AppContent = () => {
 
   useEffect(() => {
     if (currentView === 'home') {
+      loadDatabaseSongs();
       fetchTrendingSongs();
-      fetchBollywoodAlbums();
-      fetchRecentlyPlayed();
     }
-  }, [currentView, isAuthenticated]);
+  }, [currentView]);
 
-  const handleTrackSelect = async (trackOrAlbum, isAlbum = false) => {
-    let track = trackOrAlbum;
+  const handleTrackSelect = async (track) => {
+    try {
+      setError(null);
 
-    if (isAlbum) {
-      try {
-        setIsLoading(true);
-        track = await ApiService.getAlbumTrack(trackOrAlbum.spotifyId);
-      } catch (err) {
-        console.error('Failed to fetch album track:', err);
-        setError('Failed to play album track. Please try again.');
+      if (!track.canPlay) {
+        setError(track.message || 'This song is not available for playback yet.');
         return;
-      } finally {
-        setIsLoading(false);
       }
-    }
 
-    if (!track.previewUrl) {
-      setError('This track is not playable (no preview available).');
-      return;
-    }
-
-    const tracks = currentView === 'search' ? searchResults : trendingSongs;
-    playTrack(track, tracks);
-
-    // Update recently played
-
-    const recentTrack = { ...track, playedAt: new Date().toISOString() };
-
-    if (isAuthenticated) {
-      try {
-        await ApiService.playTrack(track.spotifyId);
-        fetchRecentlyPlayed();
-      } catch (err) {
-        console.error('Failed to update recently played on server:', err);
-        // Still update locally
-        updateLocalRecentlyPlayed(recentTrack);
+      if (!isAuthenticated) {
+        setAuthModal({ isOpen: true, mode: 'login' });
+        return;
       }
-    } else {
-      updateLocalRecentlyPlayed(recentTrack);
+
+      const response = await ApiService.playTrack(track.spotifyId);
+      const tracks = currentView === 'search' ? searchResults : databaseSongs;
+
+      const updatedTrack = {
+        ...track,
+        audioUrl: response.audioUrl,
+        isInDatabase: response.isInDatabase,
+        canPlay: true,
+        spotifyData: response.spotifyData,
+      };
+
+      if (response.isNewlyAdded && currentView === 'search') {
+        setSearchResults(prev =>
+          prev.map(t =>
+            t.spotifyId === track.spotifyId ? { ...t, isInDatabase: true } : t
+          )
+        );
+        // Refresh available songs to include newly added song
+        await loadDatabaseSongs(1);
+      }
+
+      await playTrack(updatedTrack, tracks);
+    } catch (err) {
+      console.error('Failed to play track:', err);
+      setError(err.message || 'Failed to play track. Please try again.');
     }
   };
 
-  const updateLocalRecentlyPlayed = (track) => {
-    setRecentlyPlayed((prev) => {
-      const updated = [
-        track,
-        ...prev.filter((t) => t.spotifyId !== track.spotifyId),
-      ].slice(0, 5);
-
-      // Store in localStorage
-      localStorage.setItem('recentlyPlayed', JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  // Apply user theme
   useEffect(() => {
     if (user?.preferences?.theme) {
       document.body.classList.toggle('dark', user.preferences.theme === 'dark');
@@ -310,7 +218,6 @@ const AppContent = () => {
     }
   }, [user?.preferences?.theme]);
 
-  // Handle auth modal
   const openAuthModal = (mode = 'login') => {
     setAuthModal({ isOpen: true, mode });
   };
@@ -319,7 +226,6 @@ const AppContent = () => {
     setAuthModal({ isOpen: false, mode: 'login' });
   };
 
-  // Handle user menu
   const handleUserMenuClick = () => {
     setShowUserMenu(!showUserMenu);
   };
@@ -333,7 +239,6 @@ const AppContent = () => {
     }
   };
 
-  // Close user menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (showUserMenu && !event.target.closest('.user-menu-container')) {
@@ -342,13 +247,10 @@ const AppContent = () => {
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showUserMenu]);
 
   const renderMainContent = () => {
-    // Show music player for all views
     if (currentView === 'player') {
       return <MusicPlayer />;
     }
@@ -365,25 +267,14 @@ const AppContent = () => {
             </div>
 
             {error && (
-              <div className="error-message" style={{
-                color: '#ef4444',
-                background: 'rgba(239, 68, 68, 0.1)',
-                padding: '1rem',
-                borderRadius: '8px',
-                margin: '1rem 0'
-              }}>
+              <div className="error-message">
+                <AlertCircle size={16} />
                 {error}
               </div>
             )}
 
             {isSearching && (
-              <div className="loading-indicator" style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '2rem',
-                justifyContent: 'center'
-              }}>
+              <div className="loading-indicator">
                 <Loader2 className="animate-spin" size={20} />
                 <span>Searching for music...</span>
               </div>
@@ -394,7 +285,8 @@ const AppContent = () => {
                 tracks={searchResults}
                 currentTrack={currentTrack}
                 isPlaying={isPlaying}
-                onTrackSelect={(track) => handleTrackSelect(track)}
+                onTrackSelect={handleTrackSelect}
+                onTogglePlay={togglePlayPause}
               />
             )}
 
@@ -419,14 +311,37 @@ const AppContent = () => {
           <div className="library-view">
             <div className="section-header">
               <Library className="section-icon" />
-              <h2>Your Library</h2>
+              <h2>Music Library</h2>
             </div>
             <TrackList
-              tracks={trendingSongs}
+              tracks={databaseSongs}
               currentTrack={currentTrack}
               isPlaying={isPlaying}
-              onTrackSelect={(track) => handleTrackSelect(track)}
+              onTrackSelect={handleTrackSelect}
+              onTogglePlay={togglePlayPause}
             />
+            {hasMoreSongs && (
+              <div style={{ textAlign: 'center', padding: '2rem' }}>
+                <button
+                  onClick={() => {
+                    const nextPage = currentPage + 1;
+                    setCurrentPage(nextPage);
+                    loadDatabaseSongs(nextPage);
+                  }}
+                  disabled={isLoading}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: 'var(--accent-purple)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {isLoading ? 'Loading...' : 'Load More Songs'}
+                </button>
+              </div>
+            )}
           </div>
         );
       case 'liked':
@@ -437,10 +352,11 @@ const AppContent = () => {
               <h2>Liked Songs</h2>
             </div>
             <TrackList
-              tracks={trendingSongs.slice(0, 4)}
+              tracks={databaseSongs.slice(0, 4)}
               currentTrack={currentTrack}
               isPlaying={isPlaying}
-              onTrackSelect={(track) => handleTrackSelect(track)}
+              onTrackSelect={handleTrackSelect}
+              onTogglePlay={togglePlayPause}
             />
           </div>
         );
@@ -453,25 +369,14 @@ const AppContent = () => {
             </div>
 
             {error && (
-              <div className="error-message" style={{
-                color: '#ef4444',
-                background: 'rgba(239, 68, 68, 0.1)',
-                padding: '1rem',
-                borderRadius: '8px',
-                margin: '1rem 0'
-              }}>
+              <div className="error-message">
+                <AlertCircle size={16} />
                 {error}
               </div>
             )}
 
             {isLoading && (
-              <div className="loading-indicator" style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '1rem',
-                justifyContent: 'center'
-              }}>
+              <div className="loading-indicator">
                 <Loader2 className="animate-spin" size={20} />
                 <span>Loading music...</span>
               </div>
@@ -494,7 +399,6 @@ const AppContent = () => {
                         <img
                           src={track.imageUrl || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300'}
                           alt={track.title}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }}
                           onError={(e) => {
                             e.target.src = 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300';
                           }}
@@ -509,6 +413,9 @@ const AppContent = () => {
                       </div>
                       <h3>{track.title}</h3>
                       <p>{track.artist}</p>
+                      <small style={{ color: 'var(--text-muted)' }}>
+                        {track.playCount} plays
+                      </small>
                     </div>
                   ))
                 ) : (
@@ -520,47 +427,11 @@ const AppContent = () => {
             <div className="music-section">
               <div className="section-header">
                 <Music className="section-icon" />
-                <h2>Bollywood Albums</h2>
+                <h2>Available Songs</h2>
               </div>
               <div className="music-grid">
-                {bollywoodAlbums.length ? (
-                  bollywoodAlbums.slice(0, 8).map((album) => (
-                    <div
-                      key={album.spotifyId}
-                      className={`music-card ${currentTrack?.album === album.title ? 'playing' : ''}`}
-                      onClick={() => handleTrackSelect(album, true)}
-                    >
-                      <div className="card-image">
-                        <img
-                          src={album.imageUrl || 'https://images.pexels.com/photos/1105666/pexels-photo-1105666.jpeg?auto=compress&cs=tinysrgb&w=300'}
-                          alt={album.title}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }}
-                          onError={(e) => {
-                            e.target.src = 'https://images.pexels.com/photos/1105666/pexels-photo-1105666.jpeg?auto=compress&cs=tinysrgb&w=300';
-                          }}
-                        />
-                        <button className="play-btn">
-                          <Play size={16} />
-                        </button>
-                      </div>
-                      <h3>{album.title}</h3>
-                      <p>{album.artist}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p>No Bollywood albums available.</p>
-                )}
-              </div>
-            </div>
-
-            {recentlyPlayed.length > 0 && (
-              <div className="music-section">
-                <div className="section-header">
-                  <Clock className="section-icon" />
-                  <h2>Recently Played</h2>
-                </div>
-                <div className="music-grid">
-                  {recentlyPlayed.slice(0, 5).map((track) => (
+                {databaseSongs.length ? (
+                  databaseSongs.slice(0, 8).map((track) => (
                     <div
                       key={track.spotifyId}
                       className={`music-card ${currentTrack?.spotifyId === track.spotifyId ? 'playing' : ''}`}
@@ -570,7 +441,6 @@ const AppContent = () => {
                         <img
                           src={track.imageUrl || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300'}
                           alt={track.title}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }}
                           onError={(e) => {
                             e.target.src = 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300';
                           }}
@@ -585,11 +455,16 @@ const AppContent = () => {
                       </div>
                       <h3>{track.title}</h3>
                       <p>{track.artist}</p>
+                      <small style={{ color: 'var(--text-muted)' }}>
+                        {track.playCount} plays
+                      </small>
                     </div>
-                  ))}
-                </div>
+                  ))
+                ) : (
+                  <p>No songs available in database.</p>
+                )}
               </div>
-            )}
+            </div>
           </>
         );
     }
@@ -792,7 +667,6 @@ const AppContent = () => {
         </div>
       </div>
 
-      {/* Only show player bar if not in player view */}
       {currentView !== 'player' && (
         <div className="player-bar">
           <div className="player-track">
@@ -809,7 +683,7 @@ const AppContent = () => {
             <div className="track-info">
               <div className="track-title">{currentTrack?.title || 'No track selected'}</div>
               <div className="track-artist">
-                {currentTrack?.artist || ''} {currentTrack?.duration ? `• ${formatDuration(currentTrack.duration)}` : ''}
+                {currentTrack?.artist || ''} {currentTrack?.duration ? `• ${formatTime(currentTrack.duration / 1000)}` : ''}
               </div>
             </div>
           </div>
@@ -871,7 +745,6 @@ const AppContent = () => {
                 onChange={(e) => {
                   const newVolume = parseFloat(e.target.value);
                   setVolume(newVolume);
-                  localStorage.setItem('playerVolume', newVolume);
                 }}
                 className="volume-slider"
                 style={{

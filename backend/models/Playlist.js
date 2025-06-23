@@ -131,12 +131,12 @@ playlistSchema.methods.addSong = async function (songId, userId) {
 // Method to remove song from playlist
 playlistSchema.methods.removeSong = async function (songId) {
   this.songs = this.songs.filter((s) => s.song.toString() !== songId.toString());
-
+  
   // Reorder positions
   this.songs.forEach((song, index) => {
     song.position = index;
   });
-
+  
   return this.save();
 };
 
@@ -159,7 +159,7 @@ playlistSchema.methods.reorderSongs = async function (songId, newPosition) {
 };
 
 // Method to increment play count
-playlistSchema.methods.incrementPlayCount = async function () {
+playlistSchema.methods.incrementPlayCount = async function() {
   this.playCount += 1;
   return this.save();
 };

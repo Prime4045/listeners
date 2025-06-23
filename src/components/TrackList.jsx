@@ -1,4 +1,4 @@
-import { Play, Pause, Heart, MoreHorizontal } from 'lucide-react'
+import { Play, Pause, Heart, MoreHorizontal, AlertCircle } from 'lucide-react'
 import './TrackList.css'
 
 const TrackList = ({ tracks, currentTrack, isPlaying, onTrackSelect, onTogglePlay }) => {
@@ -25,15 +25,16 @@ const TrackList = ({ tracks, currentTrack, isPlaying, onTrackSelect, onTogglePla
         <div className="track-title">Title</div>
         <div className="track-album">Album</div>
         <div className="track-duration">Duration</div>
-        <div className="track-actions"></div>
+        <div className="track-actions">Status</div>
       </div>
 
       <div className="track-list-body">
         {tracks.map((track, index) => (
           <div
             key={track.spotifyId || track.id || index}
-            className={`track-row ${currentTrack?.spotifyId === track.spotifyId ? 'active' : ''}`}
-            onClick={() => onTrackSelect(track)}
+            className={`track-row ${currentTrack?.spotifyId === track.spotifyId ? 'active' : ''} ${!track.canPlay ? 'disabled' : ''}`}
+            onClick={() => track.canPlay && onTrackSelect(track)}
+            style={{ cursor: track.canPlay ? 'pointer' : 'not-allowed' }}
           >
             <div className="track-number">
               {currentTrack?.spotifyId === track.spotifyId ? (
@@ -45,6 +46,7 @@ const TrackList = ({ tracks, currentTrack, isPlaying, onTrackSelect, onTogglePla
                       onTogglePlay()
                     }
                   }}
+                  disabled={!track.canPlay}
                 >
                   {isPlaying ? <Pause size={14} /> : <Play size={14} />}
                 </button>
@@ -54,20 +56,43 @@ const TrackList = ({ tracks, currentTrack, isPlaying, onTrackSelect, onTogglePla
             </div>
 
             <div className="track-info">
-              <div className="track-name">{track.title}</div>
-              <div className="track-artist">{track.artist}</div>
+              <div className="track-name" style={{ opacity: track.canPlay ? 1 : 0.6 }}>
+                {track.title}
+                {!track.canPlay && (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
+                    (Not Available)
+                  </span>
+                )}
+              </div>
+              <div className="track-artist" style={{ opacity: track.canPlay ? 1 : 0.6 }}>
+                {track.artist}
+              </div>
             </div>
 
-            <div className="track-album">{track.album}</div>
-            <div className="track-duration">{formatDuration(track.duration)}</div>
+            <div className="track-album" style={{ opacity: track.canPlay ? 1 : 0.6 }}>
+              {track.album}
+            </div>
+
+            <div className="track-duration" style={{ opacity: track.canPlay ? 1 : 0.6 }}>
+              {formatDuration(track.duration)}
+            </div>
 
             <div className="track-actions">
-              <button className="action-btn" title="Like this song">
-                <Heart size={16} />
-              </button>
-              <button className="action-btn" title="More options">
-                <MoreHorizontal size={16} />
-              </button>
+              {track.canPlay ? (
+                <>
+                  <button className="action-btn" title="Like this song">
+                    <Heart size={16} />
+                  </button>
+                  <button className="action-btn" title="More options">
+                    <MoreHorizontal size={16} />
+                  </button>
+                </>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
+                  <AlertCircle size={16} />
+                  <span style={{ fontSize: '0.75rem' }}>Coming Soon</span>
+                </div>
+              )}
             </div>
           </div>
         ))}
