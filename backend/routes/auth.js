@@ -4,6 +4,7 @@ import passport from 'passport';
 import crypto from 'crypto';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
+import nodemailer from 'nodemailer';
 import {
   generateToken,
   generateRefreshToken,
@@ -19,6 +20,20 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
 const router = express.Router();
+
+// Email transporter setup (optional)
+let transporter = null;
+if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+  transporter = nodemailer.createTransporter({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT) || 587,
+    secure: false,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+}
 
 // Apply security headers to all routes
 router.use(securityHeaders);
@@ -153,41 +168,45 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
       firstName,
       lastName,
       phoneNumber,
-      emailVerificationToken
+      emailVerificationToken,
+      isVerified: !transporter // Auto-verify if no email service
     });
 
     await user.save();
 
-    // Send verification email
-    try {
-      const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${emailVerificationToken}`;
-      await transporter.sendMail({
-        from: process.env.FROM_EMAIL,
-        to: email,
-        subject: 'Verify Your Email - Listeners',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #8b5cf6;">Welcome to Listeners!</h2>
-            <p>Hi ${firstName || username},</p>
-            <p>Thank you for registering with Listeners. Please verify your email address by clicking the button below:</p>
-            <a href="${verificationUrl}" style="display: inline-block; background: #8b5cf6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">Verify Email</a>
-            <p>Or copy and paste this link in your browser:</p>
-            <p style="word-break: break-all; color: #666;">${verificationUrl}</p>
-            <p>This link will expire in 24 hours.</p>
-            <p>If you didn't create this account, please ignore this email.</p>
-            <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-            <p style="color: #666; font-size: 12px;">© 2024 Listeners. All rights reserved.</p>
-          </div>
-        `,
-      });
-    } catch (emailError) {
-      console.error('Failed to send verification email:', emailError);
-      // Don't fail registration if email fails
+    // Send verification email if transporter is configured
+    if (transporter) {
+      try {
+        const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${emailVerificationToken}`;
+        await transporter.sendMail({
+          from: process.env.FROM_EMAIL,
+          to: email,
+          subject: 'Verify Your Email - Listeners',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #8b5cf6;">Welcome to Listeners!</h2>
+              <p>Hi ${firstName || username},</p>
+              <p>Thank you for registering with Listeners. Please verify your email address by clicking the button below:</p>
+              <a href="${verificationUrl}" style="display: inline-block; background: #8b5cf6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">Verify Email</a>
+              <p>Or copy and paste this link in your browser:</p>
+              <p style="word-break: break-all; color: #666;">${verificationUrl}</p>
+              <p>This link will expire in 24 hours.</p>
+              <p>If you didn't create this account, please ignore this email.</p>
+              <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+              <p style="color: #666; font-size: 12px;">© 2024 Listeners. All rights reserved.</p>
+            </div>
+          `,
+        });
+      } catch (emailError) {
+        console.error('Failed to send verification email:', emailError);
+        // Don't fail registration if email fails
+      }
     }
 
     // Generate tokens
     const token = generateToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
+    
     // Store refresh token in Redis
     await redisClient.setEx(`refreshToken:${user._id}`, 7 * 24 * 60 * 60, refreshToken);
 
@@ -198,11 +217,11 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
     req.skipRateLimit = true;
 
     res.status(201).json({
-      message: 'Registration successful. Please check your email to verify your account.',
+      message: transporter ? 'Registration successful. Please check your email to verify your account.' : 'Registration successful.',
       token,
       refreshToken,
       user: user.toJSON(),
-      emailSent: true
+      emailSent: !!transporter
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -443,328 +462,27 @@ router.get('/verify-email', async (req, res) => {
   }
 });
 
-// Request password reset
-router.post('/forgot-password', [
-  body('email').isEmail().normalizeEmail()
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      message: 'Valid email is required',
-      code: 'VALIDATION_ERROR',
-      errors: errors.array()
-    });
-  }
+// Google OAuth routes (if configured)
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
-  try {
-    const { email } = req.body;
-    const user = await User.findOne({ email });
+  router.get('/google/callback',
+    passport.authenticate('google', { failureRedirect: '/login' }),
+    async (req, res) => {
+      try {
+        const token = generateToken(req.user._id);
+        const refreshToken = generateRefreshToken(req.user._id);
 
-    // Always return success to prevent email enumeration
-    if (!user) {
-      return res.json({
-        message: 'If an account with that email exists, a password reset link has been sent.',
-        code: 'RESET_EMAIL_SENT'
-      });
-    }
+        await redisClient.setEx(`refreshToken:${req.user._id}`, 7 * 24 * 60 * 60, refreshToken);
+        await req.user.addLoginHistory(req.ip, req.get('User-Agent'), true);
 
-    // Generate reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    user.passwordResetToken = resetToken;
-    user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-    await user.save();
-
-    // Send reset email
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
-    await transporter.sendMail({
-      from: process.env.FROM_EMAIL,
-      to: email,
-      subject: 'Password Reset - Listeners',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #8b5cf6;">Password Reset Request</h2>
-          <p>Hi ${user.firstName || user.username},</p>
-          <p>You requested a password reset for your Listeners account. Click the button below to reset your password:</p>
-          <a href="${resetUrl}" style="display: inline-block; background: #8b5cf6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">Reset Password</a>
-          <p>Or copy and paste this link in your browser:</p>
-          <p style="word-break: break-all; color: #666;">${resetUrl}</p>
-          <p>This link will expire in 1 hour.</p>
-          <p>If you didn't request this reset, please ignore this email and your password will remain unchanged.</p>
-          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-          <p style="color: #666; font-size: 12px;">© 2024 Listeners. All rights reserved.</p>
-        </div>
-      `,
-    });
-
-    res.json({
-      message: 'If an account with that email exists, a password reset link has been sent.',
-      code: 'RESET_EMAIL_SENT'
-    });
-  } catch (error) {
-    console.error('Password reset request error:', error);
-    res.status(500).json({
-      message: 'Password reset request failed',
-      code: 'RESET_REQUEST_FAILED',
-      error: error.message
-    });
-  }
-});
-
-// Reset password
-router.post('/reset-password', [
-  body('token').notEmpty().withMessage('Reset token is required'),
-  body('password')
-    .isLength({ min: 8 })
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
-    .withMessage('Password must be at least 8 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special character'),
-  body('confirmPassword')
-    .custom((value, { req }) => {
-      if (value !== req.body.password) {
-        throw new Error('Passwords do not match');
+        res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}&refreshToken=${refreshToken}`);
+      } catch (error) {
+        console.error('Google OAuth callback error:', error);
+        res.redirect(`${process.env.FRONTEND_URL}/login?error=oauth_failed`);
       }
-      return true;
-    }),
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      message: 'Validation failed',
-      code: 'VALIDATION_ERROR',
-      errors: errors.array()
-    });
-  }
-
-  try {
-    const { token, password } = req.body;
-
-    const user = await User.findOne({
-      passwordResetToken: token,
-      passwordResetExpires: { $gt: Date.now() }
-    });
-
-    if (!user) {
-      return res.status(400).json({
-        message: 'Invalid or expired reset token',
-        code: 'INVALID_RESET_TOKEN'
-      });
     }
-
-    // Update password
-    user.password = password;
-    user.passwordResetToken = null;
-    user.passwordResetExpires = null;
-    user.loginAttempts = 0;
-    user.lockUntil = null;
-    await user.save();
-
-    // Invalidate all existing sessions
-    await redisClient.del(`refreshToken:${user._id}`);
-
-    res.json({
-      message: 'Password reset successful',
-      code: 'PASSWORD_RESET_SUCCESS'
-    });
-  } catch (error) {
-    console.error('Password reset error:', error);
-    res.status(500).json({
-      message: 'Password reset failed',
-      code: 'PASSWORD_RESET_FAILED',
-      error: error.message
-    });
-  }
-});
-
-// Setup MFA
-router.post('/setup-mfa', authenticateToken, async (req, res) => {
-  try {
-    const user = req.user;
-
-    if (user.mfaEnabled) {
-      return res.status(400).json({
-        message: 'MFA is already enabled',
-        code: 'MFA_ALREADY_ENABLED'
-      });
-    }
-
-    // Generate secret
-    const secret = speakeasy.generateSecret({
-      name: `Listeners (${user.email})`,
-      issuer: 'Listeners',
-      length: 32
-    });
-
-    // Generate QR code
-    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
-
-    // Store secret temporarily (not saved until verified)
-    await redisClient.setEx(`mfa_setup:${user._id}`, 10 * 60, secret.base32); // 10 minutes
-
-    res.json({
-      message: 'MFA setup initiated',
-      secret: secret.base32,
-      qrCode: qrCodeUrl,
-      manualEntryKey: secret.base32
-    });
-  } catch (error) {
-    console.error('MFA setup error:', error);
-    res.status(500).json({
-      message: 'MFA setup failed',
-      code: 'MFA_SETUP_FAILED',
-      error: error.message
-    });
-  }
-});
-
-// Verify and enable MFA
-router.post('/verify-mfa', authenticateToken, [
-  body('code').isLength({ min: 6, max: 6 }).isNumeric()
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      message: 'Valid 6-digit code is required',
-      code: 'VALIDATION_ERROR',
-      errors: errors.array()
-    });
-  }
-
-  try {
-    const { code } = req.body;
-    const user = req.user;
-
-    // Get temporary secret
-    const secret = await redisClient.get(`mfa_setup:${user._id}`);
-    if (!secret) {
-      return res.status(400).json({
-        message: 'MFA setup session expired. Please start over.',
-        code: 'MFA_SETUP_EXPIRED'
-      });
-    }
-
-    // Verify code
-    const verified = speakeasy.totp.verify({
-      secret,
-      encoding: 'base32',
-      token: code,
-      window: 2
-    });
-
-    if (!verified) {
-      return res.status(400).json({
-        message: 'Invalid MFA code',
-        code: 'INVALID_MFA_CODE'
-      });
-    }
-
-    // Enable MFA
-    user.mfaEnabled = true;
-    user.mfaSecret = secret;
-    await user.save();
-
-    // Clean up temporary secret
-    await redisClient.del(`mfa_setup:${user._id}`);
-
-    res.json({
-      message: 'MFA enabled successfully',
-      code: 'MFA_ENABLED'
-    });
-  } catch (error) {
-    console.error('MFA verification error:', error);
-    res.status(500).json({
-      message: 'MFA verification failed',
-      code: 'MFA_VERIFICATION_FAILED',
-      error: error.message
-    });
-  }
-});
-
-// Disable MFA
-router.post('/disable-mfa', authenticateToken, [
-  body('password').notEmpty().withMessage('Password is required'),
-  body('code').isLength({ min: 6, max: 6 }).isNumeric().withMessage('Valid 6-digit code is required')
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      message: 'Validation failed',
-      code: 'VALIDATION_ERROR',
-      errors: errors.array()
-    });
-  }
-
-  try {
-    const { password, code } = req.body;
-    const user = req.user;
-
-    if (!user.mfaEnabled) {
-      return res.status(400).json({
-        message: 'MFA is not enabled',
-        code: 'MFA_NOT_ENABLED'
-      });
-    }
-
-    // Verify password
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        message: 'Invalid password',
-        code: 'INVALID_PASSWORD'
-      });
-    }
-
-    // Verify MFA code
-    const verified = speakeasy.totp.verify({
-      secret: user.mfaSecret,
-      encoding: 'base32',
-      token: code,
-      window: 2
-    });
-
-    if (!verified) {
-      return res.status(400).json({
-        message: 'Invalid MFA code',
-        code: 'INVALID_MFA_CODE'
-      });
-    }
-
-    // Disable MFA
-    user.mfaEnabled = false;
-    user.mfaSecret = null;
-    await user.save();
-
-    res.json({
-      message: 'MFA disabled successfully',
-      code: 'MFA_DISABLED'
-    });
-  } catch (error) {
-    console.error('MFA disable error:', error);
-    res.status(500).json({
-      message: 'MFA disable failed',
-      code: 'MFA_DISABLE_FAILED',
-      error: error.message
-    });
-  }
-});
-
-// Google OAuth routes
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-router.get('/google/callback',
-  passport.authenticate('google', { failureRedirect: '/login' }),
-  async (req, res) => {
-    try {
-      const token = generateToken(req.user._id);
-      const refreshToken = generateRefreshToken(req.user._id);
-
-      await redisClient.setEx(`refreshToken:${req.user._id}`, 7 * 24 * 60 * 60, refreshToken);
-      await req.user.addLoginHistory(req.ip, req.get('User-Agent'), true);
-
-      res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}&refreshToken=${refreshToken}`);
-    } catch (error) {
-      console.error('Google OAuth callback error:', error);
-      res.redirect(`${process.env.FRONTEND_URL}/login?error=oauth_failed`);
-    }
-  }
-);
+  );
+}
 
 export default router;

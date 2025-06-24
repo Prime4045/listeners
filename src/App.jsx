@@ -45,6 +45,7 @@ const AppContent = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [databaseSongs, setDatabaseSongs] = useState([]);
   const [trendingSongs, setTrendingSongs] = useState([]);
+  const [likedSongs, setLikedSongs] = useState([]);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [authModal, setAuthModal] = useState({ isOpen: false, mode: 'login' });
@@ -123,6 +124,17 @@ const AppContent = () => {
     }
   };
 
+  const loadLikedSongs = async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      const songs = await ApiService.getLikedSongs();
+      setLikedSongs(songs || []);
+    } catch (err) {
+      console.error('Failed to load liked songs:', err);
+    }
+  };
+
   const handleSearch = async () => {
     if (!searchQuery.trim() || searchQuery.length < 2) return;
 
@@ -166,8 +178,10 @@ const AppContent = () => {
     if (currentView === 'home') {
       loadDatabaseSongs();
       fetchTrendingSongs();
+    } else if (currentView === 'liked' && isAuthenticated) {
+      loadLikedSongs();
     }
-  }, [currentView]);
+  }, [currentView, isAuthenticated]);
 
   const handleTrackSelect = async (track) => {
     try {
@@ -184,7 +198,8 @@ const AppContent = () => {
       }
 
       const response = await ApiService.playTrack(track.spotifyId);
-      const tracks = currentView === 'search' ? searchResults : databaseSongs;
+      const tracks = currentView === 'search' ? searchResults : 
+                   currentView === 'liked' ? likedSongs : databaseSongs;
 
       const updatedTrack = {
         ...track,
@@ -234,6 +249,7 @@ const AppContent = () => {
     try {
       await logout();
       setShowUserMenu(false);
+      setCurrentView('home');
     } catch (error) {
       console.error('Logout failed:', error);
     }
@@ -351,13 +367,34 @@ const AppContent = () => {
               <Heart className="section-icon" />
               <h2>Liked Songs</h2>
             </div>
-            <TrackList
-              tracks={databaseSongs.slice(0, 4)}
-              currentTrack={currentTrack}
-              isPlaying={isPlaying}
-              onTrackSelect={handleTrackSelect}
-              onTogglePlay={togglePlayPause}
-            />
+            {isAuthenticated ? (
+              <TrackList
+                tracks={likedSongs}
+                currentTrack={currentTrack}
+                isPlaying={isPlaying}
+                onTrackSelect={handleTrackSelect}
+                onTogglePlay={togglePlayPause}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                <Heart size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
+                <p>Sign in to see your liked songs</p>
+                <button
+                  onClick={() => openAuthModal('login')}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: 'var(--accent-purple)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    marginTop: '1rem',
+                  }}
+                >
+                  Sign In
+                </button>
+              </div>
+            )}
           </div>
         );
       default:
@@ -620,13 +657,6 @@ const AppContent = () => {
                 >
                   <Home className="nav-icon" />
                   <span>Home</span>
-                </li>
-                <li
-                  className={`nav-item ${currentView === 'player' ? 'active' : ''}`}
-                  onClick={() => setCurrentView('player')}
-                >
-                  <Play className="nav-icon" />
-                  <span>Music Player</span>
                 </li>
                 <li
                   className={`nav-item ${currentView === 'library' ? 'active' : ''}`}

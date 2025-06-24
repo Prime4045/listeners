@@ -1,6 +1,7 @@
 import express from 'express';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import Song from '../models/Song.js';
+import UserLikes from '../models/UserLikes.js';
 import spotifyService from '../services/spotifyService.js';
 import s3Service from '../config/s3.js';
 import cacheService from '../services/cacheService.js';
@@ -40,7 +41,7 @@ router.get('/database/songs', optionalAuth, async (req, res) => {
         genre: song.genre,
         isInDatabase: true,
         canPlay: true,
-        spotifyData: song.spotifyData, // Include Spotify metadata
+        spotifyData: song.spotifyData,
       })),
       pagination: {
         currentPage: parseInt(page),
@@ -191,7 +192,7 @@ router.post('/:spotifyId/play', authenticateToken, async (req, res) => {
       releaseDate: spotifyTrack.releaseDate,
       popularity: spotifyTrack.popularity,
       explicit: spotifyTrack.explicit,
-      spotifyData: spotifyTrack.spotifyData, // Store full Spotify metadata
+      spotifyData: spotifyTrack.spotifyData,
       s3Key: `${spotifyId}.mp3`,
       audioMetadata: fileMetadata,
       playCount: 1,
@@ -244,7 +245,10 @@ router.get('/:spotifyId', optionalAuth, async (req, res) => {
     if (cachedSong) {
       let isLiked = false;
       if (req.user && cachedSong.isInDatabase) {
-        isLiked = !!(await UserLikes.isLikedByUser(req.user._id, cachedSong._id));
+        const song = await Song.findOne({ spotifyId });
+        if (song) {
+          isLiked = !!(await UserLikes.isLikedByUser(req.user._id, song._id));
+        }
       }
       return res.json({ ...cachedSong, isLiked });
     }
