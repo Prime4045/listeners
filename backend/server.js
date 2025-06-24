@@ -9,6 +9,8 @@ import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import passport from 'passport';
+import './config/passport.js'; // Initialize passport configuration
 import { authenticateToken, securityHeaders } from './middleware/auth.js';
 import { connectMongoDB, initializeRedis } from './config/database.js';
 import authRoutes from './routes/auth.js';
@@ -38,7 +40,7 @@ app.use(helmet({
       scriptSrc: ["'self'", 'https:'],
       imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
       mediaSrc: ["'self'", 'blob:', 'https:', 'https://storage.googleapis.com'],
-      connectSrc: ["'self'", 'wss:', 'ws:', 'https:'],
+      connectSrc: ["'self'", 'wss:', 'ws:', 'https:', 'http://localhost:12000'],
       fontSrc: ["'self'", 'https:', 'data:'],
       objectSrc: ["'none'"],
       frameSrc: ["'none'"],
@@ -46,7 +48,6 @@ app.use(helmet({
   },
 }));
 
-// Apply security headers
 app.use(securityHeaders);
 
 // Rate limiting
@@ -71,7 +72,6 @@ app.use(cors({
       'http://localhost:3000',
       'http://localhost:5173',
     ];
-
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -86,7 +86,7 @@ app.use(cors({
     'X-Requested-With',
     'X-CSRF-Token',
     'Accept',
-    'Origin'
+    'Origin',
   ],
 }));
 
@@ -98,6 +98,7 @@ app.use(session({
   store: MongoStore.create({
     mongoUrl: process.env.MONGODB_URI,
     touchAfter: 24 * 3600,
+    ttl: 24 * 60 * 60,
   }),
   cookie: {
     secure: process.env.NODE_ENV === 'production',
@@ -106,6 +107,10 @@ app.use(session({
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
   },
 }));
+
+// Passport initialization
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Body parsing middleware
 app.use(compression());
@@ -159,11 +164,15 @@ io.use((socket, next) => {
   if (socket.handshake.auth && socket.handshake.auth.token) {
     const token = socket.handshake.auth.token.split(' ')[1];
     authenticateToken({ headers: { authorization: socket.handshake.auth.token } }, {}, (err) => {
-      if (err) return next(new Error('Authentication error'));
+      if (err) {
+        console.error('Socket.IO auth error:', err);
+        return next(new Error('Authentication error'));
+      }
       socket.user = socket.request.user;
       next();
     });
   } else {
+    console.error('Socket.IO missing token');
     next(new Error('Authentication error'));
   }
 });
@@ -263,7 +272,7 @@ async function startServer() {
       console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
       console.log(`🔗 Frontend URL: ${process.env.FRONTEND_URL}`);
       console.log(`🔒 Security features enabled: Rate limiting, CORS, Helmet, CSRF protection`);
-      console.log(`🔐 Authentication: JWT with refresh tokens, MFA support`);
+      console.log(`🔐 Authentication: JWT with refresh tokens, MFA support, Google OAuth`);
       console.log(`📧 Email service: ${process.env.SMTP_HOST ? 'Configured' : 'Not configured'}`);
       console.log(`🎶 Music Player: Spotify API + Google Cloud Storage + MongoDB`);
       console.log(`☁️ Google Cloud Storage: ${process.env.GOOGLE_CLOUD_PROJECT_ID ? 'Configured' : 'Not configured'}`);
@@ -275,21 +284,6 @@ async function startServer() {
     process.exit(1);
   }
 }
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    console.log('Process terminated');
-  });
-});
-
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
-  server.close(() => {
-    console.log('Process terminated');
-  });
-});
 
 startServer();
 

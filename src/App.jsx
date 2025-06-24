@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  Shuffle,
-  Repeat,
-  Volume2,
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from 'react-router-dom';
+import {
   Search,
   Home,
   Library,
@@ -22,10 +22,10 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import TrackList from './components/TrackList';
-import MusicPlayer from './components/MusicPlayer/MusicPlayer';
 import AuthModal from './components/auth/AuthModal';
+import AuthCallback from './components/auth/AuthCallback';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { MusicProvider, useMusic } from './contexts/MusicContext';
+import { MusicProvider } from './contexts/MusicContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import ApiService from './services/api';
 import './App.css';
@@ -52,28 +52,16 @@ const AppContent = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMoreSongs, setHasMoreSongs] = useState(true);
-
-  const {
-    currentTrack,
-    isPlaying,
-    playTrack,
-    togglePlayPause,
-    toggleShuffle,
-    previousTrack,
-    nextTrack,
-    toggleRepeat,
-    seekTo,
-    setVolume,
-    formatTime,
-    currentTime,
-    duration,
-    progress,
-    volume,
-    isShuffled,
-    repeatMode,
-  } = useMusic();
+  const location = useLocation();
 
   const { user, isAuthenticated, logout, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    // Check for error in location state (from OAuth callback)
+    if (location.state?.error) {
+      setError(location.state.error);
+    }
+  }, [location]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -126,7 +114,7 @@ const AppContent = () => {
 
   const loadLikedSongs = async () => {
     if (!isAuthenticated) return;
-    
+
     try {
       const songs = await ApiService.getLikedSongs();
       setLikedSongs(songs || []);
@@ -198,8 +186,8 @@ const AppContent = () => {
       }
 
       const response = await ApiService.playTrack(track.spotifyId);
-      const tracks = currentView === 'search' ? searchResults : 
-                   currentView === 'liked' ? likedSongs : databaseSongs;
+      const tracks = currentView === 'search' ? searchResults :
+        currentView === 'liked' ? likedSongs : databaseSongs;
 
       const updatedTrack = {
         ...track,
@@ -267,10 +255,6 @@ const AppContent = () => {
   }, [showUserMenu]);
 
   const renderMainContent = () => {
-    if (currentView === 'player') {
-      return <MusicPlayer />;
-    }
-
     switch (currentView) {
       case 'search':
         return (
@@ -299,10 +283,11 @@ const AppContent = () => {
             {!isSearching && searchResults.length > 0 && (
               <TrackList
                 tracks={searchResults}
-                currentTrack={currentTrack}
-                isPlaying={isPlaying}
-                onTrackSelect={handleTrackSelect}
-                onTogglePlay={togglePlayPause}
+              // Removed currentTrack and isPlaying props
+              // currentTrack={currentTrack}
+              // isPlaying={isPlaying}
+              // onTrackSelect={handleTrackSelect}
+              // onTogglePlay={togglePlayPause}
               />
             )}
 
@@ -331,10 +316,11 @@ const AppContent = () => {
             </div>
             <TrackList
               tracks={databaseSongs}
-              currentTrack={currentTrack}
-              isPlaying={isPlaying}
-              onTrackSelect={handleTrackSelect}
-              onTogglePlay={togglePlayPause}
+            // Removed currentTrack and isPlaying props
+            // currentTrack={currentTrack}
+            // isPlaying={isPlaying}
+            // onTrackSelect={handleTrackSelect}
+            // onTogglePlay={togglePlayPause}
             />
             {hasMoreSongs && (
               <div style={{ textAlign: 'center', padding: '2rem' }}>
@@ -429,8 +415,9 @@ const AppContent = () => {
                   trendingSongs.slice(0, 8).map((track) => (
                     <div
                       key={track.spotifyId}
-                      className={`music-card ${currentTrack?.spotifyId === track.spotifyId ? 'playing' : ''}`}
-                      onClick={() => handleTrackSelect(track)}
+                      className="music-card"
+                    // Removed onClick handler
+                    // onClick={() => handleTrackSelect(track)}
                     >
                       <div className="card-image">
                         <img
@@ -440,13 +427,14 @@ const AppContent = () => {
                             e.target.src = 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300';
                           }}
                         />
-                        <button className="play-btn">
+                        {/* Removed play button */}
+                        {/* <button className="play-btn">
                           {currentTrack?.spotifyId === track.spotifyId && isPlaying ? (
                             <Pause size={16} />
                           ) : (
                             <Play size={16} />
                           )}
-                        </button>
+                        </button> */}
                       </div>
                       <h3>{track.title}</h3>
                       <p>{track.artist}</p>
@@ -471,8 +459,9 @@ const AppContent = () => {
                   databaseSongs.slice(0, 8).map((track) => (
                     <div
                       key={track.spotifyId}
-                      className={`music-card ${currentTrack?.spotifyId === track.spotifyId ? 'playing' : ''}`}
-                      onClick={() => handleTrackSelect(track)}
+                      className="music-card"
+                    // Removed onClick handler
+                    // onClick={() => handleTrackSelect(track)}
                     >
                       <div className="card-image">
                         <img
@@ -482,13 +471,14 @@ const AppContent = () => {
                             e.target.src = 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300';
                           }}
                         />
-                        <button className="play-btn">
+                        {/* Removed play button */}
+                        {/* <button className="play-btn">
                           {currentTrack?.spotifyId === track.spotifyId && isPlaying ? (
                             <Pause size={16} />
                           ) : (
                             <Play size={16} />
                           )}
-                        </button>
+                        </button> */}
                       </div>
                       <h3>{track.title}</h3>
                       <p>{track.artist}</p>
@@ -552,7 +542,7 @@ const AppContent = () => {
                     right: '1rem',
                     top: '50%',
                     transform: 'translateY(-50%)',
-                    animation: 'spin 1s linear infinite'
+                    animation: 'spin 1s linear infinite',
                   }}
                 />
               )}
@@ -588,8 +578,7 @@ const AppContent = () => {
                           <div className="user-name">
                             {user?.firstName && user?.lastName
                               ? `${user.firstName} ${user.lastName}`
-                              : user?.username
-                            }
+                              : user?.username}
                           </div>
                           <div className="user-email">{user?.email}</div>
                           <div className="user-subscription">
@@ -618,7 +607,10 @@ const AppContent = () => {
                           </button>
                         )}
                         <div className="dropdown-divider"></div>
-                        <button className="dropdown-item logout" onClick={handleLogout}>
+                        <button
+                          className="dropdown-item logout"
+                          onClick={handleLogout}
+                        >
                           <LogOut size={16} />
                           <span>Sign Out</span>
                         </button>
@@ -697,95 +689,6 @@ const AppContent = () => {
         </div>
       </div>
 
-      {currentView !== 'player' && (
-        <div className="player-bar">
-          <div className="player-track">
-            <div className="track-cover">
-              <img
-                src={currentTrack?.imageUrl || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=100'}
-                alt={currentTrack?.title || 'No track'}
-                style={{ width: '56px', height: '56px', borderRadius: '8px', objectFit: 'cover' }}
-                onError={(e) => {
-                  e.target.src = 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=100';
-                }}
-              />
-            </div>
-            <div className="track-info">
-              <div className="track-title">{currentTrack?.title || 'No track selected'}</div>
-              <div className="track-artist">
-                {currentTrack?.artist || ''} {currentTrack?.duration ? `• ${formatTime(currentTrack.duration / 1000)}` : ''}
-              </div>
-            </div>
-          </div>
-
-          <div className="player-controls">
-            <div className="control-buttons">
-              <button
-                className={`control-btn ${isShuffled ? 'active' : ''}`}
-                onClick={toggleShuffle}
-              >
-                <Shuffle size={16} />
-              </button>
-              <button className="control-btn" onClick={previousTrack}>
-                <SkipBack size={16} />
-              </button>
-              <button
-                className="play-pause-btn"
-                onClick={togglePlayPause}
-                aria-label={isPlaying ? 'Pause' : 'Play'}
-              >
-                {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-              </button>
-              <button className="control-btn" onClick={nextTrack}>
-                <SkipForward size={16} />
-              </button>
-              <button
-                className={`control-btn ${repeatMode !== 'none' ? 'active' : ''}`}
-                onClick={toggleRepeat}
-              >
-                <Repeat size={16} />
-              </button>
-            </div>
-
-            <div className="progress-bar">
-              <span className="time">{formatTime(currentTime)}</span>
-              <div
-                className="progress"
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const percent = (e.clientX - rect.left) / rect.width;
-                  seekTo(percent * 100);
-                }}
-              >
-                <div className="progress-fill" style={{ width: `${progress}%` }}></div>
-              </div>
-              <span className="time">{formatTime(duration)}</span>
-            </div>
-          </div>
-
-          <div className="volume-controls">
-            <Volume2 size={16} className="control-btn" />
-            <div className="volume-bar">
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={volume}
-                onChange={(e) => {
-                  const newVolume = parseFloat(e.target.value);
-                  setVolume(newVolume);
-                }}
-                className="volume-slider"
-                style={{
-                  background: `linear-gradient(to right, #8b5cf6 ${volume * 100}%, #535353 ${volume * 100}%)`,
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
       <AuthModal
         isOpen={authModal.isOpen}
         onClose={closeAuthModal}
@@ -797,13 +700,21 @@ const AppContent = () => {
 
 function App() {
   return (
-    <ErrorBoundary>
-      <AuthProvider>
-        <MusicProvider>
-          <AppContent />
-        </MusicProvider>
-      </AuthProvider>
-    </ErrorBoundary>
+    <Router>
+      <ErrorBoundary>
+        <AuthProvider>
+          <MusicProvider>
+            <Routes>
+              <Route path="/" element={<AppContent />} />
+              <Route path="/login" element={<AppContent />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/dashboard" element={<AppContent />} />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </MusicProvider>
+        </AuthProvider>
+      </ErrorBoundary>
+    </Router>
   );
 }
 

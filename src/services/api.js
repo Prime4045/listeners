@@ -1,176 +1,179 @@
-import axios from 'axios';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-class ApiService {
-  constructor() {
-    this.baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-    this.axiosInstance = axios.create({
-      baseURL: this.baseUrl,
-      timeout: 15000,
+const ApiService = {
+  async getCsrfToken() {
+    const response = await fetch(`${API_URL}/csrf-token`, {
+      credentials: 'include',
+    });
+    const data = await response.json();
+    return data.csrfToken;
+  },
+
+  async login(data) {
+    const csrfToken = await this.getCsrfToken();
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken,
       },
+      body: JSON.stringify(data),
+      credentials: 'include',
     });
 
-    // Add request interceptor to include auth token
-    this.axiosInstance.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
+    const result = await response.json();
+    if (!response.ok) {
+      throw result;
+    }
+    return result;
+  },
+
+  async register(formData) {
+    const csrfToken = await this.getCsrfToken();
+    const response = await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'X-CSRF-Token': csrfToken,
       },
-      (error) => {
-        return Promise.reject(error);
-      }
-    );
+      body: formData,
+      credentials: 'include',
+    });
 
-    // Add response interceptor for error handling and token refresh
-    this.axiosInstance.interceptors.response.use(
-      (response) => response,
-      async (error) => {
-        const originalRequest = error.config;
-
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          originalRequest._retry = true;
-
-          try {
-            const refreshToken = localStorage.getItem('refreshToken');
-            if (refreshToken) {
-              const response = await this.refreshToken(refreshToken);
-              localStorage.setItem('token', response.token);
-              localStorage.setItem('refreshToken', response.refreshToken);
-
-              // Retry original request with new token
-              originalRequest.headers.Authorization = `Bearer ${response.token}`;
-              return this.axiosInstance(originalRequest);
-            }
-          } catch (refreshError) {
-            // Refresh failed, redirect to login
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
-            window.location.href = '/login';
-          }
-        }
-
-        return Promise.reject(this.formatError(error));
-      }
-    );
-  }
-
-  formatError(error) {
-    if (error.response?.data) {
-      return {
-        message: error.response.data.message || 'Request failed',
-        code: error.response.data.code,
-        status: error.response.status,
-        errors: error.response.data.errors,
-      };
+    const result = await response.json();
+    if (!response.ok) {
+      throw result;
     }
-    return {
-      message: error.message || 'Network error',
-      code: 'NETWORK_ERROR',
-      status: 0,
-    };
-  }
+    return result;
+  },
 
-  async request(method, url, data = null, headers = {}) {
-    try {
-      const response = await this.axiosInstance({
-        method,
-        url,
-        data,
-        headers,
-      });
-      return response.data;
-    } catch (error) {
-      throw this.formatError(error);
+  async logout(refreshToken) {
+    const csrfToken = await this.getCsrfToken();
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/auth/logout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'X-CSRF-Token': csrfToken,
+      },
+      body: JSON.stringify({ refreshToken }),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw await response.json();
     }
-  }
+    return await response.json();
+  },
 
-  async get(url, params = {}) {
-    const queryString = new URLSearchParams(params).toString();
-    const fullUrl = queryString ? `${url}?${queryString}` : url;
-    return this.request('GET', fullUrl);
-  }
-
-  async post(url, data) {
-    return this.request('POST', url, data);
-  }
-
-  async put(url, data) {
-    return this.request('PUT', url, data);
-  }
-
-  async delete(url) {
-    return this.request('DELETE', url);
-  }
-
-  // Music-specific methods
-
-  // Get all songs from database (primary method)
-  async getDatabaseSongs(page = 1, limit = 50, search = '') {
-    const params = { page, limit };
-    if (search) params.search = search;
-    return this.get('/music/database/songs', params);
-  }
-
-  // Search music (database first, then Spotify)
-  async searchMusic(query, limit = 20) {
-    return this.get('/music/search', { query, limit });
-  }
-
-  // Get trending songs from database
-  async getTrendingSongs(limit = 20) {
-    return this.get('/music/database/trending', { limit });
-  }
-
-  // Play track (database first approach)
-  async playTrack(spotifyId) {
-    return this.post(`/music/${spotifyId}/play`);
-  }
-
-  // Get song details
-  async getSongDetails(spotifyId) {
-    return this.get(`/music/${spotifyId}`);
-  }
-
-  // Like/unlike track
-  async likeTrack(spotifyId) {
-    return this.post(`/music/${spotifyId}/like`);
-  }
-
-  // Get user's liked songs
-  async getLikedSongs(limit = 50, skip = 0) {
-    return this.get('/music/user/liked', { limit, skip });
-  }
-
-  // Auth methods
   async getCurrentUser() {
-    return this.get('/auth/me');
-  }
+    const token = localStorage.getItem('token');
+    const csrfToken = await this.getCsrfToken();
+    const response = await fetch(`${API_URL}/auth/me`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-CSRF-Token': csrfToken,
+      },
+      credentials: 'include',
+    });
 
-  async login(credentials) {
-    return this.post('/auth/login', credentials);
-  }
+    const result = await response.json();
+    if (!response.ok) {
+      throw result;
+    }
+    return result;
+  },
 
-  async register(userData) {
-    return this.post('/auth/register', userData);
-  }
+  async getDatabaseSongs(page, limit) {
+    const token = localStorage.getItem('token');
+    const csrfToken = await this.getCsrfToken();
+    const response = await fetch(`${API_URL}/songs?page=${page}&limit=${limit}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-CSRF-Token': csrfToken,
+      },
+      credentials: 'include',
+    });
 
-  async refreshToken(refreshToken) {
-    return this.post('/auth/refresh-token', { refreshToken });
-  }
+    const result = await response.json();
+    if (!response.ok) {
+      throw result;
+    }
+    return result;
+  },
 
-  async logout() {
-    const refreshToken = localStorage.getItem('refreshToken');
-    return this.post('/auth/logout', { refreshToken });
-  }
+  async getTrendingSongs(limit) {
+    const token = localStorage.getItem('token');
+    const csrfToken = await this.getCsrfToken();
+    const response = await fetch(`${API_URL}/songs/trending?limit=${limit}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-CSRF-Token': csrfToken,
+      },
+      credentials: 'include',
+    });
 
-  // Health check
-  async healthCheck() {
-    return this.get('/health');
-  }
-}
+    const result = await response.json();
+    if (!response.ok) {
+      throw result;
+    }
+    return result;
+  },
 
-export default new ApiService();
+  async getLikedSongs() {
+    const token = localStorage.getItem('token');
+    const csrfToken = await this.getCsrfToken();
+    const response = await fetch(`${API_URL}/songs/liked`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-CSRF-Token': csrfToken,
+      },
+      credentials: 'include',
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw result;
+    }
+    return result;
+  },
+
+  async playTrack(spotifyId) {
+    const token = localStorage.getItem('token');
+    const csrfToken = await this.getCsrfToken();
+    const response = await fetch(`${API_URL}/music/play/${spotifyId}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-CSRF-Token': csrfToken,
+      },
+      credentials: 'include',
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw result;
+    }
+    return result;
+  },
+
+  async searchMusic(query, limit) {
+    const token = localStorage.getItem('token');
+    const csrfToken = await this.getCsrfToken();
+    const response = await fetch(`${API_URL}/music/search?q=${encodeURIComponent(query)}&limit=${limit}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-CSRF-Token': csrfToken,
+      },
+      credentials: 'include',
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw result;
+    }
+    return result;
+  },
+};
+
+export default ApiService;

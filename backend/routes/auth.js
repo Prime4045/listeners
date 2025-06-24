@@ -1,6 +1,7 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
 import passport from 'passport';
+import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
@@ -13,11 +14,8 @@ import {
   blacklistToken,
   authLimiter,
   progressiveAuthLimiter,
-  securityHeaders
+  securityHeaders,
 } from '../middleware/auth.js';
-import { redisClient } from '../config/database.js';
-import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
 
 const router = express.Router();
 
@@ -103,7 +101,7 @@ router.get('/me', authenticateToken, async (req, res) => {
     if (!user) {
       return res.status(404).json({
         message: 'User not found',
-        code: 'USER_NOT_FOUND'
+        code: 'USER_NOT_FOUND',
       });
     }
     res.json({
@@ -112,14 +110,14 @@ router.get('/me', authenticateToken, async (req, res) => {
         canUpload: user.subscription.type === 'premium',
         canCreatePlaylists: true,
         maxPlaylists: user.subscription.type === 'premium' ? -1 : 10,
-      }
+      },
     });
   } catch (error) {
-    console.error('Get user error:', error.message);
+    console.error('Get user error:', error);
     res.status(500).json({
       message: 'Failed to get user',
       code: 'GET_USER_FAILED',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -131,36 +129,26 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
     return res.status(400).json({
       message: 'Validation failed',
       code: 'VALIDATION_ERROR',
-      errors: errors.array()
+      errors: errors.array(),
     });
   }
 
   try {
-    const {
-      username,
-      email,
-      password,
-      firstName,
-      lastName,
-      phoneNumber
-    } = req.body;
+    const { username, email, password, firstName, lastName, phoneNumber } = req.body;
 
-    // Check if user already exists
     const existingUser = await User.findOne({
-      $or: [{ email }, { username }]
+      $or: [{ email }, { username }],
     });
 
     if (existingUser) {
       return res.status(409).json({
         message: existingUser.email === email ? 'Email already registered' : 'Username already taken',
-        code: 'USER_EXISTS'
+        code: 'USER_EXISTS',
       });
     }
 
-    // Generate email verification token
     const emailVerificationToken = crypto.randomBytes(32).toString('hex');
 
-    // Create new user
     const user = new User({
       username,
       email,
@@ -203,17 +191,14 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
       }
     }
 
-    // Generate tokens
     const token = generateToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
-    
+
     // Store refresh token in Redis
     await redisClient.setEx(`refreshToken:${user._id}`, 7 * 24 * 60 * 60, refreshToken);
 
-    // Log registration
     await user.addLoginHistory(req.ip, req.get('User-Agent'), true);
 
-    // Skip rate limiting for successful registration
     req.skipRateLimit = true;
 
     res.status(201).json({
@@ -228,7 +213,7 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
     res.status(500).json({
       message: 'Registration failed',
       code: 'REGISTRATION_FAILED',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -240,38 +225,32 @@ router.post('/login', progressiveAuthLimiter, loginValidation, async (req, res) 
     return res.status(400).json({
       message: 'Validation failed',
       code: 'VALIDATION_ERROR',
-      errors: errors.array()
+      errors: errors.array(),
     });
   }
 
   try {
     const { emailOrUsername, password, rememberMe, mfaCode } = req.body;
 
-    // Find user by email or username
     const user = await User.findOne({
-      $or: [
-        { email: emailOrUsername.toLowerCase() },
-        { username: emailOrUsername }
-      ]
+      $or: [{ email: emailOrUsername.toLowerCase() }, { username: emailOrUsername }],
     });
 
     if (!user) {
       return res.status(401).json({
         message: 'Invalid credentials',
-        code: 'INVALID_CREDENTIALS'
+        code: 'INVALID_CREDENTIALS',
       });
     }
 
-    // Check if account is locked
     if (user.isLocked) {
       return res.status(423).json({
         message: 'Account is temporarily locked due to multiple failed login attempts',
         code: 'ACCOUNT_LOCKED',
-        lockUntil: user.lockUntil
+        lockUntil: user.lockUntil,
       });
     }
 
-    // Verify password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       await user.incLoginAttempts();
@@ -279,17 +258,16 @@ router.post('/login', progressiveAuthLimiter, loginValidation, async (req, res) 
 
       return res.status(401).json({
         message: 'Invalid credentials',
-        code: 'INVALID_CREDENTIALS'
+        code: 'INVALID_CREDENTIALS',
       });
     }
 
-    // Check MFA if enabled
     if (user.mfaEnabled) {
       if (!mfaCode) {
         return res.status(200).json({
           message: 'MFA code required',
           code: 'MFA_REQUIRED',
-          requiresMFA: true
+          requiresMFA: true,
         });
       }
 
@@ -297,7 +275,7 @@ router.post('/login', progressiveAuthLimiter, loginValidation, async (req, res) 
         secret: user.mfaSecret,
         encoding: 'base32',
         token: mfaCode,
-        window: 2
+        window: 2,
       });
 
       if (!verified) {
@@ -306,38 +284,32 @@ router.post('/login', progressiveAuthLimiter, loginValidation, async (req, res) 
 
         return res.status(401).json({
           message: 'Invalid MFA code',
-          code: 'INVALID_MFA_CODE'
+          code: 'INVALID_MFA_CODE',
         });
       }
     }
 
-    // Reset login attempts on successful login
     await user.resetLoginAttempts();
 
-    // Generate tokens
     const tokenExpiry = rememberMe ? '30d' : '15m';
     const token = generateToken(user._id, tokenExpiry);
     const refreshToken = generateRefreshToken(user._id);
 
-    // Store refresh token in Redis
     const refreshExpiry = rememberMe ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60;
     await redisClient.setEx(`refreshToken:${user._id}`, refreshExpiry, refreshToken);
 
-    // Update last login and add to history
     user.lastLogin = new Date();
     await user.save();
     await user.addLoginHistory(req.ip, req.get('User-Agent'), true);
 
-    // Skip rate limiting for successful login
     req.skipRateLimit = true;
 
-    // Set secure cookie if remember me is enabled
     if (rememberMe) {
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+        maxAge: 30 * 24 * 60 * 60 * 1000,
       });
     }
 
@@ -346,14 +318,14 @@ router.post('/login', progressiveAuthLimiter, loginValidation, async (req, res) 
       token,
       refreshToken,
       user: user.toJSON(),
-      expiresIn: tokenExpiry
+      expiresIn: tokenExpiry,
     });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({
       message: 'Login failed',
       code: 'LOGIN_FAILED',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -363,27 +335,23 @@ router.post('/refresh-token', validateRefreshToken, async (req, res) => {
   try {
     const { user, refreshToken: oldRefreshToken } = req;
 
-    // Generate new tokens
     const newToken = generateToken(user._id);
     const newRefreshToken = generateRefreshToken(user._id);
 
-    // Update refresh token in Redis
     await redisClient.setEx(`refreshToken:${user._id}`, 7 * 24 * 60 * 60, newRefreshToken);
-
-    // Blacklist old refresh token
     await blacklistToken(oldRefreshToken, 7 * 24 * 60 * 60);
 
     res.json({
       message: 'Token refreshed successfully',
       token: newToken,
-      refreshToken: newRefreshToken
+      refreshToken: newRefreshToken,
     });
   } catch (error) {
     console.error('Token refresh error:', error);
     res.status(500).json({
       message: 'Token refresh failed',
       code: 'TOKEN_REFRESH_FAILED',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -394,30 +362,36 @@ router.post('/logout', authenticateToken, async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const { refreshToken } = req.body;
 
-    // Blacklist access token
     if (token) {
-      await blacklistToken(token, 15 * 60); // 15 minutes
+      await blacklistToken(token, 15 * 60);
     }
-
-    // Remove refresh token from Redis and blacklist it
     if (refreshToken) {
       await redisClient.del(`refreshToken:${req.user._id}`);
-      await blacklistToken(refreshToken, 7 * 24 * 60 * 60); // 7 days
+      await blacklistToken(refreshToken, 7 * 24 * 60 * 60);
     }
 
-    // Clear cookie
-    res.clearCookie('refreshToken');
-
-    res.json({
-      message: 'Logout successful',
-      code: 'LOGOUT_SUCCESS'
+    req.logout((err) => {
+      if (err) {
+        console.error('Session logout error:', err);
+      }
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Session destroy error:', err);
+        }
+        res.clearCookie('refreshToken');
+        res.clearCookie('connect.sid');
+        res.json({
+          message: 'Logout successful',
+          code: 'LOGOUT_SUCCESS',
+        });
+      });
     });
   } catch (error) {
     console.error('Logout error:', error);
     res.status(500).json({
       message: 'Logout failed',
       code: 'LOGOUT_FAILED',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -430,7 +404,7 @@ router.get('/verify-email', async (req, res) => {
     if (!token) {
       return res.status(400).json({
         message: 'Verification token is required',
-        code: 'TOKEN_REQUIRED'
+        code: 'TOKEN_REQUIRED',
       });
     }
 
@@ -439,18 +413,17 @@ router.get('/verify-email', async (req, res) => {
     if (!user) {
       return res.status(400).json({
         message: 'Invalid or expired verification token',
-        code: 'INVALID_TOKEN'
+        code: 'INVALID_TOKEN',
       });
     }
 
-    // Mark email as verified
     user.isVerified = true;
     user.emailVerificationToken = null;
     await user.save();
 
     res.json({
       message: 'Email verified successfully',
-      code: 'EMAIL_VERIFIED'
+      code: 'EMAIL_VERIFIED',
     });
   } catch (error) {
     console.error('Email verification error:', error);

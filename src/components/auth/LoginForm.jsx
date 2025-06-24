@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, Shield, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import './AuthForms.css';
@@ -8,22 +9,31 @@ const LoginForm = ({ onSwitchToRegister, onClose }) => {
     emailOrUsername: '',
     password: '',
     rememberMe: false,
-    mfaCode: ''
+    mfaCode: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [requiresMFA, setRequiresMFA] = useState(false);
   const { login } = useAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const error = params.get('error');
+    const message = params.get('message');
+    if (error === 'oauth_failed' && message) {
+      setErrors({ general: decodeURIComponent(message) });
+    }
+  }, [location]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : value,
     }));
 
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -72,7 +82,7 @@ const LoginForm = ({ onSwitchToRegister, onClose }) => {
 
       if (error.code === 'ACCOUNT_LOCKED') {
         setErrors({
-          general: `Account is temporarily locked. Try again after ${new Date(error.lockUntil).toLocaleString()}`
+          general: `Account is temporarily locked. Try again after ${new Date(error.lockUntil).toLocaleString()}`,
         });
       } else if (error.code === 'INVALID_CREDENTIALS') {
         setErrors({ general: 'Invalid email/username or password' });
@@ -87,7 +97,7 @@ const LoginForm = ({ onSwitchToRegister, onClose }) => {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/auth/google`;
+    window.location.href = 'http://localhost:3001/api/auth/google';
   };
 
   return (
