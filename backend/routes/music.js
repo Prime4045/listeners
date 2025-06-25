@@ -381,6 +381,133 @@ router.get('/:spotifyId', optionalAuth, async (req, res) => {
   }
 });
 
+// Get Spotify featured playlists
+router.get('/spotify/featured-playlists', optionalAuth, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 10, 20);
+    const cacheKey = `api:featured_playlists:${limit}`;
+    const cachedPlaylists = await cacheService.get(cacheKey);
+
+    if (cachedPlaylists) {
+      console.log('Returning cached featured playlists:', { cacheKey });
+      return res.json(cachedPlaylists);
+    }
+
+    const playlists = await spotifyService.getFeaturedPlaylists(limit);
+    await cacheService.set(cacheKey, playlists, 60 * 60);
+    res.json(playlists);
+  } catch (error) {
+    console.error('Featured playlists error:', error.message);
+    res.status(500).json({
+      message: 'Failed to fetch featured playlists',
+      error: error.message
+    });
+  }
+});
+
+// Get Spotify playlist by ID
+router.get('/spotify/playlists/:playlistId', optionalAuth, async (req, res) => {
+  try {
+    const { playlistId } = req.params;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    
+    const cacheKey = `api:playlist:${playlistId}:${limit}`;
+    const cachedPlaylist = await cacheService.get(cacheKey);
+
+    if (cachedPlaylist) {
+      console.log('Returning cached playlist:', { cacheKey });
+      return res.json(cachedPlaylist);
+    }
+
+    const playlist = await spotifyService.getPlaylist(playlistId, limit);
+    
+    // Check S3 availability for each track
+    const tracksWithS3Check = await Promise.all(
+      playlist.tracks.map(async (track) => {
+        const s3CacheKey = `s3_check:${track.spotifyId}`;
+        let audioExists = await cacheService.getCachedS3Check(s3CacheKey);
+
+        if (audioExists === null) {
+          audioExists = await s3Service.audioExists(track.spotifyId);
+          await cacheService.cacheS3Check(s3CacheKey, audioExists, 60 * 60);
+        }
+
+        return {
+          ...track,
+          isInDatabase: false,
+          canPlay: audioExists,
+          message: audioExists ? null : 'Song not available for playback yet'
+        };
+      })
+    );
+
+    const playlistWithAvailability = {
+      ...playlist,
+      tracks: tracksWithS3Check,
+      availableCount: tracksWithS3Check.filter(t => t.canPlay).length
+    };
+    
+    await cacheService.set(cacheKey, playlistWithAvailability, 30 * 60);
+    res.json(playlistWithAvailability);
+  } catch (error) {
+    console.error('Get playlist error:', error.message);
+    res.status(500).json({
+      message: 'Failed to fetch playlist',
+      error: error.message
+    });
+  }
+});
+
+// Get Spotify categories
+router.get('/spotify/categories', optionalAuth, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const cacheKey = `api:categories:${limit}`;
+    const cachedCategories = await cacheService.get(cacheKey);
+
+    if (cachedCategories) {
+      console.log('Returning cached categories:', { cacheKey });
+      return res.json(cachedCategories);
+    }
+
+    const categories = await spotifyService.getCategories(limit);
+    await cacheService.set(cacheKey, categories, 24 * 60 * 60);
+    res.json(categories);
+  } catch (error) {
+    console.error('Categories error:', error.message);
+    res.status(500).json({
+      message: 'Failed to fetch categories',
+      error: error.message
+    });
+  }
+});
+
+// Get Spotify category playlists
+router.get('/spotify/categories/:categoryId/playlists', optionalAuth, async (req, res) => {
+  try {
+    const { categoryId } = req.params;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 20);
+    
+    const cacheKey = `api:category_playlists:${categoryId}:${limit}`;
+    const cachedPlaylists = await cacheService.get(cacheKey);
+
+    if (cachedPlaylists) {
+      console.log('Returning cached category playlists:', { cacheKey });
+      return res.json(cachedPlaylists);
+    }
+
+    const playlists = await spotifyService.getCategoryPlaylists(categoryId, limit);
+    await cacheService.set(cacheKey, playlists, 6 * 60 * 60);
+    res.json(playlists);
+  } catch (error) {
+    console.error('Category playlists error:', error.message);
+    res.status(500).json({
+      message: 'Failed to fetch category playlists',
+      error: error.message
+    });
+  }
+});
+
 // Get trending songs
 router.get('/database/trending', optionalAuth, async (req, res) => {
   try {

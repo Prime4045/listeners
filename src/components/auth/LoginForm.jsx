@@ -97,7 +97,8 @@ const LoginForm = ({ onSwitchToRegister, onClose }) => {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = 'http://localhost:3001/api/auth/google';
+    const apiUrl = import.meta.env.VITE_API_URL || 'https://work-2-kdvllvgyfifstacd.prod-runtime.all-hands.dev/api';
+    window.location.href = `${apiUrl}/auth/google`;
   };
 
   return (
