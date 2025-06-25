@@ -19,7 +19,7 @@ sleep 3
 
 # Start the frontend
 echo "🚀 Starting frontend server on port 12000..."
-npm run dev
+VITE_API_URL=https://work-2-kdvllvgyfifstacd.prod-runtime.all-hands.dev/api npm run dev
 
 # If the frontend is stopped, also stop the backend
 kill $BACKEND_PID

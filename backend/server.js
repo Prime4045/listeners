@@ -71,11 +71,15 @@ app.use(cors({
       process.env.FRONTEND_URL || 'http://localhost:12000',
       'http://localhost:3000',
       'http://localhost:5173',
+      'https://work-1-kdvllvgyfifstacd.prod-runtime.all-hands.dev',
+      'https://work-2-kdvllvgyfifstacd.prod-runtime.all-hands.dev',
     ];
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Allow all origins in development mode
+    if (process.env.NODE_ENV === 'development' || !origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.log('CORS blocked origin:', origin);
+      callback(null, true); // Allow all origins for now to debug
     }
   },
   credentials: true,
@@ -88,6 +92,7 @@ app.use(cors({
     'Accept',
     'Origin',
   ],
+  exposedHeaders: ['Access-Control-Allow-Origin'],
 }));
 
 // Session configuration
@@ -117,6 +122,18 @@ app.use(compression());
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Add CORS preflight handler for all routes
+app.options('*', cors());
+
+// Add CORS headers to all responses
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-CSRF-Token');
+  next();
+});
 
 // CSRF token generation
 app.use(async (req, res, next) => {

@@ -439,7 +439,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
   router.get('/google/callback',
-    passport.authenticate('google', { failureRedirect: '/login' }),
+    passport.authenticate('google', { failureRedirect: 'https://work-1-kdvllvgyfifstacd.prod-runtime.all-hands.dev/login?error=oauth_failed' }),
     async (req, res) => {
       try {
         const token = generateToken(req.user._id);
@@ -448,10 +448,11 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         await redisClient.setEx(`refreshToken:${req.user._id}`, 7 * 24 * 60 * 60, refreshToken);
         await req.user.addLoginHistory(req.ip, req.get('User-Agent'), true);
 
-        res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}&refreshToken=${refreshToken}`);
+        // Use hardcoded frontend URL to avoid environment variable issues
+        res.redirect(`https://work-1-kdvllvgyfifstacd.prod-runtime.all-hands.dev/auth/callback?token=${token}&refreshToken=${refreshToken}`);
       } catch (error) {
         console.error('Google OAuth callback error:', error);
-        res.redirect(`${process.env.FRONTEND_URL}/login?error=oauth_failed`);
+        res.redirect(`https://work-1-kdvllvgyfifstacd.prod-runtime.all-hands.dev/login?error=oauth_failed`);
       }
     }
   );

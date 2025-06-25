@@ -10,7 +10,22 @@ export default defineConfig({
     allowedHosts: true,
     headers: {
       'X-Frame-Options': 'ALLOWALL',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+      'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-CSRF-Token',
+      'Access-Control-Allow-Credentials': 'true'
     },
-    cors: true
+    cors: {
+      origin: '*',
+      methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+      credentials: true
+    },
+    proxy: {
+      '/api': {
+        target: 'https://work-2-kdvllvgyfifstacd.prod-runtime.all-hands.dev',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   }
 })

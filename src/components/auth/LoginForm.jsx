@@ -97,8 +97,8 @@ const LoginForm = ({ onSwitchToRegister, onClose }) => {
   };
 
   const handleGoogleLogin = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'https://work-2-kdvllvgyfifstacd.prod-runtime.all-hands.dev/api';
-    window.location.href = `${apiUrl}/auth/google`;
+    // Use the backend URL directly to avoid CORS issues with redirects
+    window.location.href = 'https://work-2-kdvllvgyfifstacd.prod-runtime.all-hands.dev/api/auth/google';
   };
 
   return (

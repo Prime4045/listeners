@@ -5,7 +5,8 @@ import User from '../models/User.js';
 passport.use(new GoogleStrategy.Strategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: `${process.env.FRONTEND_URL.replace('work-1', 'work-2')}/api/auth/google/callback`,
+    callbackURL: 'https://work-2-kdvllvgyfifstacd.prod-runtime.all-hands.dev/api/auth/google/callback',
+    proxy: true
 }, async (accessToken, refreshToken, profile, done) => {
     try {
         console.log('Google OAuth profile:', profile); // Debug log
