@@ -2,6 +2,7 @@ import express from 'express';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import Song from '../models/Song.js';
 import UserLikes from '../models/UserLikes.js';
+import PlayHistory from '../models/PlayHistory.js';
 import spotifyService from '../services/spotifyService.js';
 import s3Service from '../config/s3.js';
 import cacheService from '../services/cacheService.js';
@@ -14,7 +15,7 @@ router.get('/database/songs', optionalAuth, async (req, res) => {
     const { page = 1, limit = 50 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const cacheKey = `db_songs:${page}`;
+    const cacheKey = `db_songs:${page}:${limit}`;
     const cachedSongs = await cacheService.getCachedDatabaseSongs(cacheKey);
     if (cachedSongs) {
       console.log('Returning cached database songs:', { cacheKey });
@@ -63,10 +64,10 @@ router.get('/database/songs', optionalAuth, async (req, res) => {
   }
 });
 
-// Search music (Spotify only)
+// Search music (Spotify API with S3 availability check)
 router.get('/search', optionalAuth, async (req, res) => {
   try {
-    const { query, limit = 20 } = req.query;
+    const { q: query, limit = 20 } = req.query;
 
     if (!query || query.trim().length < 2) {
       return res.status(400).json({
@@ -75,17 +76,20 @@ router.get('/search', optionalAuth, async (req, res) => {
     }
 
     const searchLimit = Math.min(parseInt(limit) || 20, 50);
-    const cacheKey = `spotify_search:${query.trim()}`;
+    const cacheKey = `spotify_search:${query.trim()}:${searchLimit}`;
+    
+    // Check cache first
     let spotifyTracks = await cacheService.getCachedSpotifySearch(cacheKey);
 
     if (!spotifyTracks) {
+      console.log('Fetching from Spotify API:', { query, limit: searchLimit });
       spotifyTracks = await spotifyService.searchTracks(query.trim(), searchLimit);
-      console.log('Spotify tracks fetched:', { query, count: spotifyTracks.length });
       await cacheService.cacheSpotifySearch(cacheKey, spotifyTracks, 15 * 60);
     } else {
       console.log('Using cached Spotify search results:', { query, count: spotifyTracks.length });
     }
 
+    // Check S3 availability for each track
     const tracksWithS3Check = await Promise.all(
       spotifyTracks.map(async (track) => {
         const s3CacheKey = `s3_check:${track.spotifyId}`;
@@ -100,7 +104,7 @@ router.get('/search', optionalAuth, async (req, res) => {
           ...track,
           isInDatabase: false,
           canPlay: audioExists,
-          message: audioExists ? null : 'Song not added yet, will be available soon!'
+          message: audioExists ? null : 'Song not available for playback yet'
         };
       })
     );
@@ -108,9 +112,9 @@ router.get('/search', optionalAuth, async (req, res) => {
     res.json({
       songs: tracksWithS3Check,
       source: 'spotify',
-      spotifyCount: tracksWithS3Check.length,
-      databaseCount: 0,
-      total: tracksWithS3Check.length
+      query: query.trim(),
+      total: tracksWithS3Check.length,
+      availableCount: tracksWithS3Check.filter(t => t.canPlay).length,
     });
   } catch (error) {
     console.error('Search error:', {
@@ -124,42 +128,71 @@ router.get('/search', optionalAuth, async (req, res) => {
   }
 });
 
-// Play a song
+// Play a song (main endpoint for audio playback)
 router.post('/:spotifyId/play', authenticateToken, async (req, res) => {
   try {
     const { spotifyId } = req.params;
+    const { playDuration = 0, completedPercentage = 0 } = req.body;
 
+    console.log(`Play request for track: ${spotifyId}`);
+
+    // Check if song exists in database first
     let song = await Song.findOne({ spotifyId });
 
     if (song) {
-      const audioUrl = await s3Service.getAudioUrl(spotifyId);
-      song.audioUrl = audioUrl;
-      await song.incrementPlayCount();
-      await song.save();
+      // Song exists in database, generate fresh S3 URL
+      try {
+        const audioUrl = await s3Service.getAudioUrl(spotifyId);
+        song.audioUrl = audioUrl;
+        await song.incrementPlayCount();
+        await song.save();
 
-      const songData = {
-        spotifyId: song.spotifyId,
-        title: song.title,
-        artist: song.artist,
-        album: song.album,
-        duration: song.duration,
-        imageUrl: song.imageUrl,
-        audioUrl: song.audioUrl,
-        playCount: song.playCount,
-        likeCount: song.likeCount,
-        popularity: song.popularity,
-        explicit: song.explicit,
-        releaseDate: song.releaseDate,
-        genre: song.genre,
-        isInDatabase: true,
-        canPlay: true,
-        spotifyData: song.spotifyData,
-      };
+        // Record play history
+        const playHistory = new PlayHistory({
+          user: req.user._id,
+          song: song._id,
+          playDuration,
+          completedPercentage,
+          deviceInfo: {
+            userAgent: req.get('User-Agent'),
+            platform: req.get('Sec-Ch-Ua-Platform'),
+          },
+          sessionId: req.sessionID
+        });
+        await playHistory.save();
 
-      await cacheService.cacheSong(spotifyId, songData);
-      return res.json(songData);
+        const songData = {
+          spotifyId: song.spotifyId,
+          title: song.title,
+          artist: song.artist,
+          album: song.album,
+          duration: song.duration,
+          imageUrl: song.imageUrl,
+          audioUrl: song.audioUrl,
+          playCount: song.playCount,
+          likeCount: song.likeCount,
+          popularity: song.popularity,
+          explicit: song.explicit,
+          releaseDate: song.releaseDate,
+          genre: song.genre,
+          isInDatabase: true,
+          canPlay: true,
+          spotifyData: song.spotifyData,
+        };
+
+        await cacheService.cacheSong(spotifyId, songData);
+        return res.json(songData);
+      } catch (s3Error) {
+        console.error('S3 error for existing song:', s3Error.message);
+        return res.status(404).json({
+          message: 'Audio file not available',
+          code: 'AUDIO_NOT_FOUND',
+          spotifyId
+        });
+      }
     }
 
+    // Song not in database, check S3 availability
     const s3CacheKey = `s3_check:${spotifyId}`;
     let audioExists = await cacheService.getCachedS3Check(s3CacheKey);
 
@@ -176,10 +209,15 @@ router.post('/:spotifyId/play', authenticateToken, async (req, res) => {
       });
     }
 
+    // Fetch track metadata from Spotify
+    console.log('Fetching track metadata from Spotify:', spotifyId);
     const spotifyTrack = await spotifyService.getTrack(spotifyId);
+    
+    // Generate S3 signed URL
     const audioUrl = await s3Service.getAudioUrl(spotifyId);
     const fileMetadata = await s3Service.getFileMetadata(spotifyId);
 
+    // Create new song in database
     song = new Song({
       spotifyId: spotifyTrack.spotifyId,
       title: spotifyTrack.title,
@@ -193,12 +231,26 @@ router.post('/:spotifyId/play', authenticateToken, async (req, res) => {
       popularity: spotifyTrack.popularity,
       explicit: spotifyTrack.explicit,
       spotifyData: spotifyTrack.spotifyData,
-      s3Key: `${spotifyId}.mp3`,
+      s3Key: `audio/${spotifyId}.mp3`,
       audioMetadata: fileMetadata,
       playCount: 1,
     });
 
     await song.save();
+
+    // Record play history
+    const playHistory = new PlayHistory({
+      user: req.user._id,
+      song: song._id,
+      playDuration,
+      completedPercentage,
+      deviceInfo: {
+        userAgent: req.get('User-Agent'),
+        platform: req.get('Sec-Ch-Ua-Platform'),
+      },
+      sessionId: req.sessionID
+    });
+    await playHistory.save();
 
     const songData = {
       spotifyId: song.spotifyId,
@@ -223,9 +275,11 @@ router.post('/:spotifyId/play', authenticateToken, async (req, res) => {
     await cacheService.cacheSong(spotifyId, songData);
     await cacheService.invalidateSearchCaches();
 
+    console.log('Successfully created and played new song:', spotifyId);
     res.json(songData);
   } catch (error) {
     console.error('Play error:', {
+      spotifyId: req.params.spotifyId,
       message: error.message,
       stack: error.stack
     });
@@ -241,6 +295,7 @@ router.get('/:spotifyId', optionalAuth, async (req, res) => {
   try {
     const { spotifyId } = req.params;
 
+    // Check cache first
     const cachedSong = await cacheService.getCachedSong(spotifyId);
     if (cachedSong) {
       let isLiked = false;
@@ -253,6 +308,7 @@ router.get('/:spotifyId', optionalAuth, async (req, res) => {
       return res.json({ ...cachedSong, isLiked });
     }
 
+    // Check database first
     const song = await Song.findOne({ spotifyId });
 
     if (song) {
@@ -283,8 +339,10 @@ router.get('/:spotifyId', optionalAuth, async (req, res) => {
       await cacheService.cacheSong(spotifyId, songData);
       res.json({ ...songData, isLiked });
     } else {
+      // Fetch from Spotify
       const spotifyTrack = await spotifyService.getTrack(spotifyId);
 
+      // Check S3 availability
       const s3CacheKey = `s3_check:${spotifyId}`;
       let audioExists = await cacheService.getCachedS3Check(s3CacheKey);
 
@@ -309,7 +367,7 @@ router.get('/:spotifyId', optionalAuth, async (req, res) => {
         canPlay: audioExists,
         isLiked: false,
         spotifyData: spotifyTrack.spotifyData,
-        message: audioExists ? null : 'Song not added yet, will be available soon!'
+        message: audioExists ? null : 'Song not available for playback yet'
       };
 
       res.json(songData);
@@ -323,7 +381,7 @@ router.get('/:spotifyId', optionalAuth, async (req, res) => {
   }
 });
 
-// Get trending songs from Spotify
+// Get trending songs
 router.get('/database/trending', optionalAuth, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 20, 50);
@@ -335,9 +393,11 @@ router.get('/database/trending', optionalAuth, async (req, res) => {
       return res.json(cachedSongs.slice(0, limit));
     }
 
+    // Get trending from Spotify
     const spotifyTracks = await spotifyService.getTrendingTracks(limit);
     console.log('Trending tracks fetched from Spotify:', { count: spotifyTracks.length });
 
+    // Check S3 availability and database status
     const formattedSongs = await Promise.all(
       spotifyTracks.map(async (track) => {
         const s3CacheKey = `s3_check:${track.spotifyId}`;
@@ -366,7 +426,7 @@ router.get('/database/trending', optionalAuth, async (req, res) => {
           isInDatabase: !!song,
           canPlay: audioExists,
           spotifyData: track.spotifyData,
-          message: audioExists ? null : 'Song not added yet, will be available soon!'
+          message: audioExists ? null : 'Song not available for playback yet'
         };
       })
     );
@@ -399,6 +459,7 @@ router.post('/:spotifyId/like', authenticateToken, async (req, res) => {
 
     const result = await UserLikes.likeSong(req.user._id, song._id);
 
+    // Update song like count
     if (result.liked) {
       song.likeCount += 1;
     } else {
@@ -454,6 +515,69 @@ router.get('/user/liked', authenticateToken, async (req, res) => {
     res.status(500).json({
       message: 'Failed to get liked songs',
       error: error.message
+    });
+  }
+});
+
+// Get user's play history
+router.get('/user/history', authenticateToken, async (req, res) => {
+  try {
+    const { limit = 50 } = req.query;
+
+    const history = await PlayHistory.getUserHistory(req.user._id, parseInt(limit));
+
+    const formattedHistory = history.map(entry => ({
+      spotifyId: entry.song.spotifyId,
+      title: entry.song.title,
+      artist: entry.song.artist,
+      album: entry.song.album,
+      duration: entry.song.duration,
+      imageUrl: entry.song.imageUrl,
+      playedAt: entry.playedAt,
+      playDuration: entry.playDuration,
+      completedPercentage: entry.completedPercentage,
+      spotifyData: entry.song.spotifyData,
+    }));
+
+    res.json(formattedHistory);
+  } catch (error) {
+    console.error('Get play history error:', error.message);
+    res.status(500).json({
+      message: 'Failed to get play history',
+      error: error.message
+    });
+  }
+});
+
+// Health check endpoint
+router.get('/health', async (req, res) => {
+  try {
+    const [spotifyHealth, s3Health, cacheHealth] = await Promise.allSettled([
+      spotifyService.healthCheck(),
+      s3Service.healthCheck(),
+      cacheService.healthCheck(),
+    ]);
+
+    const health = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      services: {
+        spotify: spotifyHealth.status === 'fulfilled' ? spotifyHealth.value : { status: 'unhealthy', error: spotifyHealth.reason?.message },
+        s3: s3Health.status === 'fulfilled' ? s3Health.value : { status: 'unhealthy', error: s3Health.reason?.message },
+        cache: cacheHealth.status === 'fulfilled' ? cacheHealth.value : { status: 'unhealthy', error: cacheHealth.reason?.message },
+      }
+    };
+
+    // Overall health status
+    const allHealthy = Object.values(health.services).every(service => service.status === 'healthy');
+    health.status = allHealthy ? 'healthy' : 'degraded';
+
+    res.json(health);
+  } catch (error) {
+    res.status(500).json({
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString(),
     });
   }
 });

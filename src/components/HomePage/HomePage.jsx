@@ -13,7 +13,8 @@ import {
     Music,
     Clock,
     Star,
-    Loader2
+    Loader2,
+    AlertCircle
 } from 'lucide-react';
 import { useMusic } from '../../contexts/MusicContext';
 import ApiService from '../../services/api';
@@ -21,8 +22,7 @@ import './HomePage.css';
 
 const HomePage = () => {
     const [trendingSongs, setTrendingSongs] = useState([]);
-    const [bollywoodTracks, setBollywoodTracks] = useState([]);
-    const [newReleases, setNewReleases] = useState([]);
+    const [databaseSongs, setDatabaseSongs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -44,6 +44,8 @@ const HomePage = () => {
         volume,
         isShuffled,
         repeatMode,
+        isLoading: playerLoading,
+        error: playerError,
     } = useMusic();
 
     useEffect(() => {
@@ -55,26 +57,25 @@ const HomePage = () => {
             setLoading(true);
             setError(null);
 
-            const [trending, bollywood, releases] = await Promise.allSettled([
-                ApiService.get('/music/trending-songs', { limit: 10 }),
-                ApiService.get('/music/bollywood-tracks', { limit: 10 }),
-                ApiService.get('/music/new-releases', { limit: 10 })
+            const [trendingResponse, databaseResponse] = await Promise.allSettled([
+                ApiService.getTrendingSongs(12),
+                ApiService.getDatabaseSongs(1, 12)
             ]);
 
-            if (trending.status === 'fulfilled') {
-                setTrendingSongs(trending.value || []);
+            if (trendingResponse.status === 'fulfilled') {
+                setTrendingSongs(trendingResponse.value || []);
+            } else {
+                console.error('Failed to load trending songs:', trendingResponse.reason);
             }
 
-            if (bollywood.status === 'fulfilled') {
-                setBollywoodTracks(bollywood.value || []);
+            if (databaseResponse.status === 'fulfilled') {
+                setDatabaseSongs(databaseResponse.value?.songs || []);
+            } else {
+                console.error('Failed to load database songs:', databaseResponse.reason);
             }
 
-            if (releases.status === 'fulfilled') {
-                setNewReleases(releases.value || []);
-            }
-
-            // If all requests failed, show error
-            if (trending.status === 'rejected' && bollywood.status === 'rejected' && releases.status === 'rejected') {
+            // If both requests failed, show error
+            if (trendingResponse.status === 'rejected' && databaseResponse.status === 'rejected') {
                 setError('Failed to load music data. Please try again later.');
             }
         } catch (err) {
@@ -85,8 +86,14 @@ const HomePage = () => {
         }
     };
 
-    const handleTrackSelect = (track, trackList) => {
-        playTrack(track, trackList);
+    const handleTrackSelect = async (track, trackList) => {
+        try {
+            setError(null);
+            await playTrack(track, trackList);
+        } catch (err) {
+            console.error('Failed to play track:', err);
+            setError(err.message || 'Failed to play track');
+        }
     };
 
     const formatDuration = (ms) => {
@@ -100,7 +107,8 @@ const HomePage = () => {
     const MusicCard = ({ track, trackList, showPlayCount = false }) => (
         <div
             className={`music-card ${currentTrack?.spotifyId === track.spotifyId ? 'playing' : ''}`}
-            onClick={() => handleTrackSelect(track, trackList)}
+            onClick={() => track.canPlay && handleTrackSelect(track, trackList)}
+            style={{ cursor: track.canPlay ? 'pointer' : 'not-allowed', opacity: track.canPlay ? 1 : 0.6 }}
         >
             <div className="card-image">
                 <img
@@ -111,13 +119,19 @@ const HomePage = () => {
                     }}
                 />
                 <div className="card-overlay">
-                    <button className="play-btn">
-                        {currentTrack?.spotifyId === track.spotifyId && isPlaying ? (
-                            <Pause size={20} />
-                        ) : (
-                            <Play size={20} />
-                        )}
-                    </button>
+                    {track.canPlay ? (
+                        <button className="play-btn">
+                            {currentTrack?.spotifyId === track.spotifyId && isPlaying ? (
+                                <Pause size={20} />
+                            ) : (
+                                <Play size={20} />
+                            )}
+                        </button>
+                    ) : (
+                        <div className="unavailable-indicator">
+                            <AlertCircle size={20} />
+                        </div>
+                    )}
                 </div>
             </div>
             <div className="card-content">
@@ -129,6 +143,9 @@ const HomePage = () => {
                         <span className="play-count">{track.playCount.toLocaleString()} plays</span>
                     )}
                 </div>
+                {!track.canPlay && (
+                    <p className="unavailable-message">Coming Soon</p>
+                )}
             </div>
         </div>
     );
@@ -164,8 +181,19 @@ const HomePage = () => {
                     <button className="mini-control-btn" onClick={previousTrack} title="Previous">
                         <SkipBack size={16} />
                     </button>
-                    <button className="mini-play-btn" onClick={togglePlayPause} title={isPlaying ? 'Pause' : 'Play'}>
-                        {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+                    <button 
+                        className="mini-play-btn" 
+                        onClick={togglePlayPause} 
+                        title={isPlaying ? 'Pause' : 'Play'}
+                        disabled={playerLoading}
+                    >
+                        {playerLoading ? (
+                            <Loader2 className="animate-spin" size={18} />
+                        ) : isPlaying ? (
+                            <Pause size={18} />
+                        ) : (
+                            <Play size={18} />
+                        )}
                     </button>
                     <button className="mini-control-btn" onClick={nextTrack} title="Next">
                         <SkipForward size={16} />
@@ -238,7 +266,7 @@ const HomePage = () => {
                         <span className="gradient-text"> Favorite Song</span>
                     </h1>
                     <p className="hero-subtitle">
-                        Stream millions of songs, create playlists, and enjoy high-quality audio
+                        Stream millions of songs with high-quality audio from our curated library
                     </p>
                     {currentTrack && (
                         <div className="hero-player">
@@ -251,9 +279,11 @@ const HomePage = () => {
                 </div>
             </section>
 
-            {error && (
+            {/* Error Display */}
+            {(error || playerError) && (
                 <div className="error-banner">
-                    <p>{error}</p>
+                    <AlertCircle size={20} />
+                    <p>{error || playerError}</p>
                     <button onClick={loadHomePageData} className="retry-btn">
                         Try Again
                     </button>
@@ -269,7 +299,7 @@ const HomePage = () => {
                             <h2>Trending Now</h2>
                         </div>
                         <div className="section-subtitle">
-                            Most popular tracks right now
+                            Most popular tracks from Spotify
                         </div>
                     </div>
                     <div className="music-grid">
@@ -285,49 +315,25 @@ const HomePage = () => {
                 </section>
             )}
 
-            {/* Bollywood Hits Section */}
-            {bollywoodTracks.length > 0 && (
+            {/* Available Songs Section */}
+            {databaseSongs.length > 0 && (
                 <section className="music-section">
                     <div className="section-header">
                         <div className="section-title">
-                            <Star className="section-icon" />
-                            <h2>Bollywood Hits</h2>
+                            <Music className="section-icon" />
+                            <h2>Available Songs</h2>
                         </div>
                         <div className="section-subtitle">
-                            Top tracks from Bollywood
+                            Ready to play from our library
                         </div>
                     </div>
                     <div className="music-grid">
-                        {bollywoodTracks.map((track) => (
+                        {databaseSongs.map((track) => (
                             <MusicCard
                                 key={track.spotifyId}
                                 track={track}
-                                trackList={bollywoodTracks}
+                                trackList={databaseSongs}
                                 showPlayCount={true}
-                            />
-                        ))}
-                    </div>
-                </section>
-            )}
-
-            {/* New Releases Section */}
-            {newReleases.length > 0 && (
-                <section className="music-section">
-                    <div className="section-header">
-                        <div className="section-title">
-                            <Clock className="section-icon" />
-                            <h2>New Releases</h2>
-                        </div>
-                        <div className="section-subtitle">
-                            Fresh tracks just dropped
-                        </div>
-                    </div>
-                    <div className="music-grid">
-                        {newReleases.map((track) => (
-                            <MusicCard
-                                key={track.spotifyId}
-                                track={track}
-                                trackList={newReleases}
                             />
                         ))}
                     </div>
@@ -347,8 +353,18 @@ const HomePage = () => {
                                 }}
                             />
                             <div className="artwork-overlay">
-                                <button className="featured-play-btn" onClick={togglePlayPause}>
-                                    {isPlaying ? <Pause size={32} /> : <Play size={32} />}
+                                <button 
+                                    className="featured-play-btn" 
+                                    onClick={togglePlayPause}
+                                    disabled={playerLoading}
+                                >
+                                    {playerLoading ? (
+                                        <Loader2 className="animate-spin" size={32} />
+                                    ) : isPlaying ? (
+                                        <Pause size={32} />
+                                    ) : (
+                                        <Play size={32} />
+                                    )}
                                 </button>
                             </div>
                         </div>
@@ -371,8 +387,18 @@ const HomePage = () => {
                                     <button className="control-btn" onClick={previousTrack}>
                                         <SkipBack size={20} />
                                     </button>
-                                    <button className="main-play-btn" onClick={togglePlayPause}>
-                                        {isPlaying ? <Pause size={24} /> : <Play size={24} />}
+                                    <button 
+                                        className="main-play-btn" 
+                                        onClick={togglePlayPause}
+                                        disabled={playerLoading}
+                                    >
+                                        {playerLoading ? (
+                                            <Loader2 className="animate-spin" size={24} />
+                                        ) : isPlaying ? (
+                                            <Pause size={24} />
+                                        ) : (
+                                            <Play size={24} />
+                                        )}
                                     </button>
                                     <button className="control-btn" onClick={nextTrack}>
                                         <SkipForward size={20} />

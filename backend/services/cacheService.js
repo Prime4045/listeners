@@ -11,6 +11,7 @@ class CacheService {
             popular: 'popular:',
             trending: 'trending:',
             database_songs: 'db_songs:',
+            user_data: 'user:',
         };
     }
 
@@ -22,27 +23,40 @@ class CacheService {
     }
 
     /**
-     * Set cache with TTL
+     * Set cache with TTL and error handling
      */
     async set(key, value, ttl = this.defaultTTL) {
         try {
             const serializedValue = JSON.stringify(value);
-            return await redisClient.setEx(key, ttl, serializedValue);
+            const result = await redisClient.setEx(key, ttl, serializedValue);
+            console.log(`Cache set: ${key} (TTL: ${ttl}s)`);
+            return result;
         } catch (error) {
-            console.error('Cache set error:', error);
+            console.error('Cache set error:', {
+                key,
+                error: error.message,
+            });
             return false;
         }
     }
 
     /**
-     * Get cached value
+     * Get cached value with error handling
      */
     async get(key) {
         try {
             const value = await redisClient.get(key);
-            return value ? JSON.parse(value) : null;
+            if (value) {
+                console.log(`Cache hit: ${key}`);
+                return JSON.parse(value);
+            }
+            console.log(`Cache miss: ${key}`);
+            return null;
         } catch (error) {
-            console.error('Cache get error:', error);
+            console.error('Cache get error:', {
+                key,
+                error: error.message,
+            });
             return null;
         }
     }
@@ -52,19 +66,49 @@ class CacheService {
      */
     async del(key) {
         try {
-            return await redisClient.del(key);
+            const result = await redisClient.del(key);
+            console.log(`Cache deleted: ${key}`);
+            return result;
         } catch (error) {
-            console.error('Cache delete error:', error);
+            console.error('Cache delete error:', {
+                key,
+                error: error.message,
+            });
             return 0;
         }
     }
 
     /**
-     * Cache song data
+     * Delete multiple keys by pattern
+     */
+    async delByPattern(pattern) {
+        try {
+            const keys = await redisClient.keys(pattern);
+            if (keys.length > 0) {
+                const result = await redisClient.del(keys);
+                console.log(`Cache pattern deleted: ${pattern} (${keys.length} keys)`);
+                return result;
+            }
+            return 0;
+        } catch (error) {
+            console.error('Cache pattern delete error:', {
+                pattern,
+                error: error.message,
+            });
+            return 0;
+        }
+    }
+
+    /**
+     * Cache song data with metadata
      */
     async cacheSong(spotifyId, songData, ttl = 24 * 60 * 60) {
         const key = this.generateKey('song', spotifyId);
-        return await this.set(key, songData, ttl);
+        const dataWithTimestamp = {
+            ...songData,
+            cachedAt: new Date().toISOString(),
+        };
+        return await this.set(key, dataWithTimestamp, ttl);
     }
 
     /**
@@ -80,7 +124,13 @@ class CacheService {
      */
     async cacheSpotifySearch(query, results, ttl = 15 * 60) {
         const key = this.generateKey('spotify', `search:${query.toLowerCase()}`);
-        return await this.set(key, results, ttl);
+        const dataWithTimestamp = {
+            results,
+            query,
+            cachedAt: new Date().toISOString(),
+            count: results.length,
+        };
+        return await this.set(key, dataWithTimestamp, ttl);
     }
 
     /**
@@ -88,7 +138,8 @@ class CacheService {
      */
     async getCachedSpotifySearch(query) {
         const key = this.generateKey('spotify', `search:${query.toLowerCase()}`);
-        return await this.get(key);
+        const cached = await this.get(key);
+        return cached?.results || null;
     }
 
     /**
@@ -96,7 +147,12 @@ class CacheService {
      */
     async cacheS3Check(spotifyId, exists, ttl = 60 * 60) {
         const key = this.generateKey('s3_check', spotifyId);
-        return await this.set(key, { exists, timestamp: Date.now() }, ttl);
+        const data = {
+            exists,
+            checkedAt: new Date().toISOString(),
+            spotifyId,
+        };
+        return await this.set(key, data, ttl);
     }
 
     /**
@@ -104,7 +160,8 @@ class CacheService {
      */
     async getCachedS3Check(spotifyId) {
         const key = this.generateKey('s3_check', spotifyId);
-        return await this.get(key);
+        const cached = await this.get(key);
+        return cached?.exists ?? null;
     }
 
     /**
@@ -112,7 +169,13 @@ class CacheService {
      */
     async cacheDatabaseSearch(query, results, ttl = 30 * 60) {
         const key = this.generateKey('search', `db:${query.toLowerCase()}`);
-        return await this.set(key, results, ttl);
+        const dataWithTimestamp = {
+            results,
+            query,
+            cachedAt: new Date().toISOString(),
+            count: results.length,
+        };
+        return await this.set(key, dataWithTimestamp, ttl);
     }
 
     /**
@@ -120,38 +183,67 @@ class CacheService {
      */
     async getCachedDatabaseSearch(query) {
         const key = this.generateKey('search', `db:${query.toLowerCase()}`);
-        return await this.get(key);
+        const cached = await this.get(key);
+        return cached?.results || null;
     }
 
     /**
      * Cache popular songs
      */
-    async cachePopularSongs(songs, ttl = 60 * 60) {
-        const key = this.generateKey('popular', 'songs');
-        return await this.set(key, songs, ttl);
+    async cachePopularSongs(songs, cacheKey = null, ttl = 60 * 60) {
+        const key = cacheKey || this.generateKey('popular', 'songs');
+        const dataWithTimestamp = {
+            songs,
+            cachedAt: new Date().toISOString(),
+            count: songs.length,
+        };
+        return await this.set(key, dataWithTimestamp, ttl);
     }
 
     /**
      * Get cached popular songs
      */
-    async getCachedPopularSongs() {
-        const key = this.generateKey('popular', 'songs');
-        return await this.get(key);
+    async getCachedPopularSongs(cacheKey = null) {
+        const key = cacheKey || this.generateKey('popular', 'songs');
+        const cached = await this.get(key);
+        return cached?.songs || null;
     }
 
     /**
-     * Cache all database songs
+     * Cache all database songs with pagination
      */
-    async cacheDatabaseSongs(songs, page = 1, ttl = 30 * 60) {
-        const key = this.generateKey('database_songs', `page:${page}`);
-        return await this.set(key, songs, ttl);
+    async cacheDatabaseSongs(songs, cacheKey, ttl = 30 * 60) {
+        const dataWithTimestamp = {
+            ...songs,
+            cachedAt: new Date().toISOString(),
+        };
+        return await this.set(cacheKey, dataWithTimestamp, ttl);
     }
 
     /**
      * Get cached database songs
      */
-    async getCachedDatabaseSongs(page = 1) {
-        const key = this.generateKey('database_songs', `page:${page}`);
+    async getCachedDatabaseSongs(cacheKey) {
+        return await this.get(cacheKey);
+    }
+
+    /**
+     * Cache user data
+     */
+    async cacheUserData(userId, userData, ttl = 30 * 60) {
+        const key = this.generateKey('user_data', userId);
+        const dataWithTimestamp = {
+            ...userData,
+            cachedAt: new Date().toISOString(),
+        };
+        return await this.set(key, dataWithTimestamp, ttl);
+    }
+
+    /**
+     * Get cached user data
+     */
+    async getCachedUserData(userId) {
+        const key = this.generateKey('user_data', userId);
         return await this.get(key);
     }
 
@@ -165,7 +257,10 @@ class CacheService {
         ];
 
         const deletePromises = patterns.map(pattern => this.del(pattern));
-        return await Promise.all(deletePromises);
+        const results = await Promise.all(deletePromises);
+        
+        console.log(`Invalidated song caches for: ${spotifyId}`);
+        return results;
     }
 
     /**
@@ -173,19 +268,38 @@ class CacheService {
      */
     async invalidateSearchCaches() {
         try {
-            const searchKeys = await redisClient.keys(this.generateKey('search', '*'));
-            const dbSongKeys = await redisClient.keys(this.generateKey('database_songs', '*'));
-            const popularKeys = await redisClient.keys(this.generateKey('popular', '*'));
+            const patterns = [
+                this.generateKey('search', '*'),
+                this.generateKey('database_songs', '*'),
+                this.generateKey('popular', '*'),
+                this.generateKey('trending', '*'),
+            ];
 
-            const allKeys = [...searchKeys, ...dbSongKeys, ...popularKeys];
-            if (allKeys.length > 0) {
-                return await redisClient.del(allKeys);
-            }
-            return 0;
+            const deletePromises = patterns.map(pattern => this.delByPattern(pattern));
+            const results = await Promise.all(deletePromises);
+            
+            console.log('Invalidated search caches');
+            return results;
         } catch (error) {
-            console.error('Error invalidating search caches:', error);
-            return 0;
+            console.error('Error invalidating search caches:', error.message);
+            return [];
         }
+    }
+
+    /**
+     * Invalidate user-related caches
+     */
+    async invalidateUserCaches(userId) {
+        const patterns = [
+            this.generateKey('user_data', userId),
+            this.generateKey('user_data', `${userId}:*`),
+        ];
+
+        const deletePromises = patterns.map(pattern => this.delByPattern(pattern));
+        const results = await Promise.all(deletePromises);
+        
+        console.log(`Invalidated user caches for: ${userId}`);
+        return results;
     }
 
     /**
@@ -195,15 +309,94 @@ class CacheService {
         try {
             const info = await redisClient.info('memory');
             const keyspace = await redisClient.info('keyspace');
+            const stats = await redisClient.info('stats');
+
+            // Get key counts by prefix
+            const keyCounts = {};
+            for (const [name, prefix] of Object.entries(this.prefixes)) {
+                try {
+                    const keys = await redisClient.keys(`${prefix}*`);
+                    keyCounts[name] = keys.length;
+                } catch (err) {
+                    keyCounts[name] = 0;
+                }
+            }
 
             return {
-                memory: info,
-                keyspace: keyspace,
+                memory: this.parseRedisInfo(info),
+                keyspace: this.parseRedisInfo(keyspace),
+                stats: this.parseRedisInfo(stats),
+                keyCounts,
                 timestamp: new Date().toISOString(),
             };
         } catch (error) {
-            console.error('Cache stats error:', error);
-            return null;
+            console.error('Cache stats error:', error.message);
+            return {
+                error: error.message,
+                timestamp: new Date().toISOString(),
+            };
+        }
+    }
+
+    /**
+     * Parse Redis INFO command output
+     */
+    parseRedisInfo(infoString) {
+        const result = {};
+        const lines = infoString.split('\r\n');
+        
+        for (const line of lines) {
+            if (line && !line.startsWith('#')) {
+                const [key, value] = line.split(':');
+                if (key && value) {
+                    result[key] = isNaN(value) ? value : Number(value);
+                }
+            }
+        }
+        
+        return result;
+    }
+
+    /**
+     * Clear all caches (use with caution)
+     */
+    async clearAll() {
+        try {
+            await redisClient.flushDb();
+            console.log('All caches cleared');
+            return true;
+        } catch (error) {
+            console.error('Error clearing all caches:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Health check for cache service
+     */
+    async healthCheck() {
+        try {
+            const testKey = 'health_check_test';
+            const testValue = { timestamp: Date.now() };
+            
+            await this.set(testKey, testValue, 10);
+            const retrieved = await this.get(testKey);
+            await this.del(testKey);
+            
+            const isHealthy = retrieved && retrieved.timestamp === testValue.timestamp;
+            
+            return {
+                status: isHealthy ? 'healthy' : 'unhealthy',
+                service: 'redis_cache',
+                timestamp: new Date().toISOString(),
+            };
+        } catch (error) {
+            return {
+                status: 'unhealthy',
+                service: 'redis_cache',
+                error: error.message,
+                timestamp: new Date().toISOString(),
+            };
         }
     }
 }

@@ -52,6 +52,8 @@ export const MusicProvider = ({ children }) => {
       setError(null);
       setIsLoading(true);
 
+      console.log('Playing track:', track.title, 'by', track.artist);
+
       // If it's the same track, just toggle play/pause
       if (currentTrack?.spotifyId === track.spotifyId) {
         togglePlayPause();
@@ -65,8 +67,18 @@ export const MusicProvider = ({ children }) => {
         howlRef.current.unload();
       }
 
+      // Check if track can be played
+      if (!track.canPlay) {
+        throw new Error('This track is not available for playback yet');
+      }
+
       // Call API to play track (this stores it in database and gets audio URL)
-      const songData = await ApiService.playTrack(track.spotifyId);
+      const songData = await ApiService.playTrack(track.spotifyId, {
+        playDuration: 0,
+        completedPercentage: 0,
+      });
+
+      console.log('Track data received:', songData);
 
       // Set current track and playlist
       setCurrentTrack({
@@ -74,62 +86,73 @@ export const MusicProvider = ({ children }) => {
         audioUrl: songData.audioUrl,
         playCount: songData.playCount,
         likeCount: songData.likeCount,
+        isInDatabase: songData.isInDatabase,
       });
 
       if (trackList) {
         setPlaylist(trackList);
       }
 
-      // Create new Howl instance with the audio URL from Google Cloud Storage
+      // Create new Howl instance with the audio URL from S3
       howlRef.current = new Howl({
         src: [songData.audioUrl],
         html5: true,
         preload: true,
         volume: volume,
+        format: ['mp3'],
         onload: () => {
+          console.log('Audio loaded successfully');
           setIsLoading(false);
           setDuration(howlRef.current.duration());
           setError(null);
         },
         onplay: () => {
+          console.log('Audio playback started');
           setIsPlaying(true);
           setError(null);
         },
         onpause: () => {
+          console.log('Audio playback paused');
           setIsPlaying(false);
         },
         onstop: () => {
+          console.log('Audio playback stopped');
           setIsPlaying(false);
           setCurrentTime(0);
         },
         onend: () => {
+          console.log('Audio playback ended');
           setIsPlaying(false);
           setCurrentTime(0);
           handleTrackEnd();
         },
         onloaderror: (id, error) => {
-          setIsLoading(false);
-          setError('Failed to load audio file');
           console.error('Audio load error:', error);
+          setIsLoading(false);
+          setError('Failed to load audio file. Please try again.');
         },
         onplayerror: (id, error) => {
-          setIsLoading(false);
-          setError('Failed to play audio');
           console.error('Audio play error:', error);
+          setIsLoading(false);
+          setError('Failed to play audio. Please try again.');
+        },
+        onseek: () => {
+          console.log('Audio seek completed');
         }
       });
 
-      // Start playing
+      // Start playing after a short delay
       setTimeout(() => {
         if (howlRef.current) {
+          console.log('Starting audio playback...');
           howlRef.current.play();
         }
       }, 100);
 
     } catch (err) {
+      console.error('Play track error:', err);
       setIsLoading(false);
       setError(err.message || 'Failed to play track');
-      console.error('Play track error:', err);
     }
   }, [currentTrack, volume]);
 
@@ -182,7 +205,7 @@ export const MusicProvider = ({ children }) => {
     }
 
     const previousTrack = playlist[previousIndex];
-    if (previousTrack) {
+    if (previousTrack && previousTrack.canPlay) {
       playTrack(previousTrack, playlist);
     }
   }, [playlist, currentTrack, currentTime, isShuffled, playTrack]);
@@ -197,21 +220,30 @@ export const MusicProvider = ({ children }) => {
     let nextIndex;
     if (isShuffled) {
       // Random next track
+      const playableTracks = playlist.filter(track => track.canPlay);
+      if (playableTracks.length === 0) return;
+      
       do {
         nextIndex = Math.floor(Math.random() * playlist.length);
-      } while (nextIndex === currentIndex && playlist.length > 1);
+      } while ((!playlist[nextIndex].canPlay || nextIndex === currentIndex) && playlist.length > 1);
     } else {
+      // Find next playable track
       nextIndex = (currentIndex + 1) % playlist.length;
+      let attempts = 0;
+      while (!playlist[nextIndex].canPlay && attempts < playlist.length) {
+        nextIndex = (nextIndex + 1) % playlist.length;
+        attempts++;
+      }
 
-      // If repeat mode is 'none' and we're at the end, stop
-      if (repeatMode === 'none' && currentIndex === playlist.length - 1) {
+      // If repeat mode is 'none' and we've cycled through all tracks, stop
+      if (repeatMode === 'none' && attempts >= playlist.length) {
         setIsPlaying(false);
         return;
       }
     }
 
     const nextTrack = playlist[nextIndex];
-    if (nextTrack) {
+    if (nextTrack && nextTrack.canPlay) {
       playTrack(nextTrack, playlist);
     }
   }, [playlist, currentTrack, isShuffled, repeatMode, playTrack]);
@@ -237,6 +269,7 @@ export const MusicProvider = ({ children }) => {
   // Toggle shuffle
   const toggleShuffle = useCallback(() => {
     setIsShuffled(!isShuffled);
+    console.log('Shuffle toggled:', !isShuffled);
   }, [isShuffled]);
 
   // Toggle repeat
@@ -245,6 +278,7 @@ export const MusicProvider = ({ children }) => {
     const currentIndex = modes.indexOf(repeatMode);
     const nextIndex = (currentIndex + 1) % modes.length;
     setRepeatMode(modes[nextIndex]);
+    console.log('Repeat mode changed to:', modes[nextIndex]);
   }, [repeatMode]);
 
   // Format time helper
@@ -255,6 +289,16 @@ export const MusicProvider = ({ children }) => {
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }, []);
+
+  // Clear error after some time
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   // Cleanup on unmount
   useEffect(() => {
