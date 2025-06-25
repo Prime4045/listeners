@@ -399,6 +399,32 @@ class CacheService {
             };
         }
     }
+
+    /**
+     * Generic get method for cache
+     */
+    async get(key) {
+        try {
+            const cached = await redisClient.get(key);
+            return cached ? JSON.parse(cached) : null;
+        } catch (error) {
+            console.error('Cache get error:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Generic set method for cache
+     */
+    async set(key, data, ttlSeconds = 3600) {
+        try {
+            await redisClient.setEx(key, ttlSeconds, JSON.stringify(data));
+            return true;
+        } catch (error) {
+            console.error('Cache set error:', error);
+            return false;
+        }
+    }
 }
 
 export default new CacheService();

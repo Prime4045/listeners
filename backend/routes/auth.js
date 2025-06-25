@@ -5,7 +5,6 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
-import nodemailer from 'nodemailer';
 import {
   generateToken,
   generateRefreshToken,
@@ -22,7 +21,7 @@ const router = express.Router();
 // Email transporter setup (optional)
 let transporter = null;
 if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-  transporter = nodemailer.createTransporter({
+  transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT) || 587,
     secure: false,
