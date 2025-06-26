@@ -9,15 +9,31 @@ const ApiService = {
       ...options.headers,
     };
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers,
-      credentials: 'include',
-    });
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        ...options,
+        headers,
+        credentials: 'include',
+      });
 
-    const result = await response.json();
-    if (!response.ok) throw result;
-    return result;
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw result;
+      }
+      
+      return result;
+    } catch (error) {
+      // Handle network errors
+      if (!error.message) {
+        throw {
+          message: 'Network error occurred',
+          code: 'NETWORK_ERROR',
+          status: 0
+        };
+      }
+      throw error;
+    }
   },
 
   // Authentication endpoints
@@ -33,7 +49,13 @@ const ApiService = {
       method: 'POST',
       body: formData,
       credentials: 'include',
+      headers: {
+        ...(localStorage.getItem('token') && { 
+          Authorization: `Bearer ${localStorage.getItem('token')}` 
+        }),
+      },
     });
+    
     const result = await response.json();
     if (!response.ok) throw result;
     return result;
@@ -48,6 +70,60 @@ const ApiService = {
 
   async getCurrentUser() {
     return this.makeRequest('/auth/me');
+  },
+
+  async refreshToken(refreshToken) {
+    return this.makeRequest('/auth/refresh-token', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    });
+  },
+
+  // User profile endpoints
+  async getUserProfile() {
+    return this.makeRequest('/users/profile');
+  },
+
+  async updateUserProfile(formData) {
+    const response = await fetch(`${API_URL}/users/profile`, {
+      method: 'PUT',
+      body: formData,
+      credentials: 'include',
+      headers: {
+        ...(localStorage.getItem('token') && { 
+          Authorization: `Bearer ${localStorage.getItem('token')}` 
+        }),
+      },
+    });
+    
+    const result = await response.json();
+    if (!response.ok) throw result;
+    return result;
+  },
+
+  async changePassword(data) {
+    return this.makeRequest('/users/change-password', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async changeEmail(data) {
+    return this.makeRequest('/users/change-email', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getUserDashboard() {
+    return this.makeRequest('/users/dashboard');
+  },
+
+  async deleteAccount(password) {
+    return this.makeRequest('/users/account', {
+      method: 'DELETE',
+      body: JSON.stringify({ password }),
+    });
   },
 
   // Music endpoints
@@ -88,36 +164,18 @@ const ApiService = {
     return this.makeRequest(`/music/user/history?limit=${limit}`);
   },
 
-  // Spotify Playlists
-  async getFeaturedPlaylists(limit = 10) {
-    return this.makeRequest(`/music/spotify/featured-playlists?limit=${limit}`);
-  },
-
-  async getPlaylistById(playlistId, limit = 50) {
-    return this.makeRequest(`/music/spotify/playlists/${playlistId}?limit=${limit}`);
-  },
-
-  async getCategories(limit = 20) {
-    return this.makeRequest(`/music/spotify/categories?limit=${limit}`);
-  },
-
-  async getCategoryPlaylists(categoryId, limit = 10) {
-    return this.makeRequest(`/music/spotify/categories/${categoryId}/playlists?limit=${limit}`);
-  },
-
   // Health check
   async healthCheck() {
     return this.makeRequest('/music/health');
   },
 
-  // Generic GET request
+  // Generic methods
   async get(endpoint, params = {}) {
     const queryString = new URLSearchParams(params).toString();
     const url = queryString ? `${endpoint}?${queryString}` : endpoint;
     return this.makeRequest(url);
   },
 
-  // Generic POST request
   async post(endpoint, data = {}) {
     return this.makeRequest(endpoint, {
       method: 'POST',
@@ -125,7 +183,6 @@ const ApiService = {
     });
   },
 
-  // Generic PUT request
   async put(endpoint, data = {}) {
     return this.makeRequest(endpoint, {
       method: 'PUT',
@@ -133,7 +190,6 @@ const ApiService = {
     });
   },
 
-  // Generic DELETE request
   async delete(endpoint) {
     return this.makeRequest(endpoint, {
       method: 'DELETE',

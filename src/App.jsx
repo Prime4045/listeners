@@ -24,6 +24,8 @@ import {
 import TrackList from './components/TrackList';
 import AuthModal from './components/auth/AuthModal';
 import AuthCallback from './components/auth/AuthCallback';
+import Dashboard from './components/Dashboard/Dashboard';
+import Profile from './components/Profile/Profile';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { MusicProvider } from './contexts/MusicContext';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -256,6 +258,10 @@ const AppContent = () => {
 
   const renderMainContent = () => {
     switch (currentView) {
+      case 'dashboard':
+        return <Dashboard />;
+      case 'profile':
+        return <Profile />;
       case 'search':
         return (
           <div className="library-view">
@@ -281,14 +287,7 @@ const AppContent = () => {
             )}
 
             {!isSearching && searchResults.length > 0 && (
-              <TrackList
-                tracks={searchResults}
-              // Removed currentTrack and isPlaying props
-              // currentTrack={currentTrack}
-              // isPlaying={isPlaying}
-              // onTrackSelect={handleTrackSelect}
-              // onTogglePlay={togglePlayPause}
-              />
+              <TrackList tracks={searchResults} />
             )}
 
             {!isSearching && searchQuery && searchResults.length === 0 && (
@@ -314,14 +313,7 @@ const AppContent = () => {
               <Library className="section-icon" />
               <h2>Music Library</h2>
             </div>
-            <TrackList
-              tracks={databaseSongs}
-            // Removed currentTrack and isPlaying props
-            // currentTrack={currentTrack}
-            // isPlaying={isPlaying}
-            // onTrackSelect={handleTrackSelect}
-            // onTogglePlay={togglePlayPause}
-            />
+            <TrackList tracks={databaseSongs} />
             {hasMoreSongs && (
               <div style={{ textAlign: 'center', padding: '2rem' }}>
                 <button
@@ -354,13 +346,7 @@ const AppContent = () => {
               <h2>Liked Songs</h2>
             </div>
             {isAuthenticated ? (
-              <TrackList
-                tracks={likedSongs}
-                currentTrack={currentTrack}
-                isPlaying={isPlaying}
-                onTrackSelect={handleTrackSelect}
-                onTogglePlay={togglePlayPause}
-              />
+              <TrackList tracks={likedSongs} />
             ) : (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
                 <Heart size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
@@ -416,8 +402,6 @@ const AppContent = () => {
                     <div
                       key={track.spotifyId}
                       className="music-card"
-                    // Removed onClick handler
-                    // onClick={() => handleTrackSelect(track)}
                     >
                       <div className="card-image">
                         <img
@@ -427,14 +411,6 @@ const AppContent = () => {
                             e.target.src = 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300';
                           }}
                         />
-                        {/* Removed play button */}
-                        {/* <button className="play-btn">
-                          {currentTrack?.spotifyId === track.spotifyId && isPlaying ? (
-                            <Pause size={16} />
-                          ) : (
-                            <Play size={16} />
-                          )}
-                        </button> */}
                       </div>
                       <h3>{track.title}</h3>
                       <p>{track.artist}</p>
@@ -460,8 +436,6 @@ const AppContent = () => {
                     <div
                       key={track.spotifyId}
                       className="music-card"
-                    // Removed onClick handler
-                    // onClick={() => handleTrackSelect(track)}
                     >
                       <div className="card-image">
                         <img
@@ -471,14 +445,6 @@ const AppContent = () => {
                             e.target.src = 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300';
                           }}
                         />
-                        {/* Removed play button */}
-                        {/* <button className="play-btn">
-                          {currentTrack?.spotifyId === track.spotifyId && isPlaying ? (
-                            <Pause size={16} />
-                          ) : (
-                            <Play size={16} />
-                          )}
-                        </button> */}
                       </div>
                       <h3>{track.title}</h3>
                       <p>{track.artist}</p>
@@ -592,7 +558,23 @@ const AppContent = () => {
                       </div>
 
                       <div className="dropdown-menu">
-                        <button className="dropdown-item">
+                        <button 
+                          className="dropdown-item"
+                          onClick={() => {
+                            setCurrentView('dashboard');
+                            setShowUserMenu(false);
+                          }}
+                        >
+                          <Home size={16} />
+                          <span>Dashboard</span>
+                        </button>
+                        <button 
+                          className="dropdown-item"
+                          onClick={() => {
+                            setCurrentView('profile');
+                            setShowUserMenu(false);
+                          }}
+                        >
                           <User size={16} />
                           <span>Profile</span>
                         </button>
@@ -650,6 +632,15 @@ const AppContent = () => {
                   <Home className="nav-icon" />
                   <span>Home</span>
                 </li>
+                {isAuthenticated && (
+                  <li
+                    className={`nav-item ${currentView === 'dashboard' ? 'active' : ''}`}
+                    onClick={() => setCurrentView('dashboard')}
+                  >
+                    <TrendingUp className="nav-icon" />
+                    <span>Dashboard</span>
+                  </li>
+                )}
                 <li
                   className={`nav-item ${currentView === 'library' ? 'active' : ''}`}
                   onClick={() => setCurrentView('library')}
@@ -707,8 +698,9 @@ function App() {
             <Routes>
               <Route path="/" element={<AppContent />} />
               <Route path="/login" element={<AppContent />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/dashboard" element={<AppContent />} />
+              <Route path="/profile" element={<AppContent />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </MusicProvider>

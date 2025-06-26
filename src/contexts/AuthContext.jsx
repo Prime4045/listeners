@@ -8,18 +8,45 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const login = async () => {
+  const login = async (loginData) => {
     try {
-      const userData = await ApiService.getCurrentUser();
-      setUser(userData);
+      const response = await ApiService.login(loginData);
+      
+      if (response.requiresMFA) {
+        return response; // Return MFA requirement
+      }
+
+      // Store tokens
+      localStorage.setItem('token', response.token);
+      localStorage.setItem('refreshToken', response.refreshToken);
+
+      // Set user data
+      setUser(response.user);
       setIsAuthenticated(true);
+
+      return response;
     } catch (error) {
-      console.error('Auth login error:', error);
-      setUser(null);
-      setIsAuthenticated(false);
-      localStorage.removeItem('token');
-    } finally {
-      setLoading(false);
+      console.error('Login error:', error);
+      throw error;
+    }
+  };
+
+  const register = async (registerData) => {
+    try {
+      const response = await ApiService.register(registerData);
+
+      // Store tokens
+      localStorage.setItem('token', response.token);
+      localStorage.setItem('refreshToken', response.refreshToken);
+
+      // Set user data
+      setUser(response.user);
+      setIsAuthenticated(true);
+
+      return response;
+    } catch (error) {
+      console.error('Register error:', error);
+      throw error;
     }
   };
 
@@ -27,29 +54,68 @@ export const AuthProvider = ({ children }) => {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
       await ApiService.logout(refreshToken);
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clear local storage and state regardless of API call success
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       setUser(null);
       setIsAuthenticated(false);
+    }
+  };
+
+  const updateUser = (userData) => {
+    setUser(userData);
+  };
+
+  const checkAuth = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      const response = await ApiService.getCurrentUser();
+      setUser(response.user);
+      setIsAuthenticated(true);
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Auth check error:', error);
+      // Clear invalid tokens
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      setUser(null);
+      setIsAuthenticated(false);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      login();
-    } else {
-      setLoading(false);
-    }
+    checkAuth();
   }, []);
 
-  return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value = {
+    user,
+    isAuthenticated,
+    loading,
+    login,
+    register,
+    logout,
+    updateUser,
+    checkAuth,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};

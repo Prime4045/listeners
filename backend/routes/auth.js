@@ -6,6 +6,7 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
+import User from '../models/User.js'; // Fixed: Added missing import
 import {
   generateToken,
   generateRefreshToken,
@@ -22,7 +23,7 @@ const router = express.Router();
 // Email transporter setup (optional)
 let transporter = null;
 if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-  transporter = nodemailer.createTransport({
+  transporter = nodemailer.createTransporter({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT) || 587,
     secure: false,
@@ -104,6 +105,7 @@ router.get('/me', authenticateToken, async (req, res) => {
         code: 'USER_NOT_FOUND',
       });
     }
+
     res.json({
       user,
       permissions: {
