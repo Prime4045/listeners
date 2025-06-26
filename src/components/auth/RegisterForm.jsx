@@ -10,7 +10,7 @@ import {
   Check,
   X,
   Loader2,
-  AlertCircle
+  AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import './AuthForms.css';
@@ -24,7 +24,7 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
     firstName: '',
     lastName: '',
     phoneNumber: '',
-    profilePicture: null
+    profilePicture: null,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -32,7 +32,7 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState({
     score: 0,
-    feedback: []
+    feedback: [],
   });
   const [profilePreview, setProfilePreview] = useState(null);
   const { register } = useAuth();
@@ -43,34 +43,33 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
     if (type === 'file') {
       const file = files[0];
       if (file) {
-        // Validate file
-        if (file.size > 5 * 1024 * 1024) { // 5MB
-          setErrors(prev => ({ ...prev, profilePicture: 'File size must be less than 5MB' }));
+        if (file.size > 5 * 1024 * 1024) {
+          setErrors((prev) => ({ ...prev, profilePicture: 'File size must be less than 5MB' }));
           return;
         }
 
         if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
-          setErrors(prev => ({ ...prev, profilePicture: 'Only JPG, JPEG, and PNG files are allowed' }));
+          setErrors((prev) => ({
+            ...prev,
+            profilePicture: 'Only JPG, JPEG, and PNG files are allowed',
+          }));
           return;
         }
 
-        setFormData(prev => ({ ...prev, [name]: file }));
+        setFormData((prev) => ({ ...prev, [name]: file }));
 
-        // Create preview
         const reader = new FileReader();
         reader.onload = (e) => setProfilePreview(e.target.result);
         reader.readAsDataURL(file);
       }
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
 
-    // Clear error when user starts typing
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: '' }));
     }
 
-    // Check password strength
     if (name === 'password') {
       checkPasswordStrength(value);
     }
@@ -82,25 +81,24 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
       { test: /[a-z]/, message: 'One lowercase letter' },
       { test: /[A-Z]/, message: 'One uppercase letter' },
       { test: /\d/, message: 'One number' },
-      { test: /[@$!%*?&]/, message: 'One special character' }
+      { test: /[@$!%*?&]/, message: 'One special character' },
     ];
 
-    const passed = checks.filter(check => check.test.test(password));
-    const feedback = checks.map(check => ({
+    const passed = checks.filter((check) => check.test.test(password));
+    const feedback = checks.map((check) => ({
       ...check,
-      passed: check.test.test(password)
+      passed: check.test.test(password),
     }));
 
     setPasswordStrength({
       score: passed.length,
-      feedback
+      feedback,
     });
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    // Username validation
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required';
     } else if (formData.username.length < 3 || formData.username.length > 20) {
@@ -109,28 +107,24 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
       newErrors.username = 'Username can only contain letters, numbers, and underscores';
     }
 
-    // Email validation
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
 
-    // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (passwordStrength.score < 5) {
       newErrors.password = 'Password does not meet security requirements';
     }
 
-    // Confirm password validation
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password';
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
 
-    // Optional field validations
     if (formData.firstName && (formData.firstName.length < 2 || formData.firstName.length > 30)) {
       newErrors.firstName = 'First name must be 2-30 characters';
     }
@@ -157,26 +151,24 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
 
     try {
       const formDataToSend = new FormData();
-      Object.keys(formData).forEach(key => {
+      Object.keys(formData).forEach((key) => {
         if (formData[key] !== null && formData[key] !== '') {
           formDataToSend.append(key, formData[key]);
         }
       });
 
       await register(formDataToSend);
-      onClose?.();
+      onClose();
     } catch (error) {
       console.error('Registration error:', error);
 
-      if (error.code === 'USER_EXISTS') {
-        if (error.message.includes('email')) {
-          setErrors({ email: 'This email is already registered' });
-        } else {
-          setErrors({ username: 'This username is already taken' });
-        }
+      if (error.code === 'DUPLICATE_ENTRY') {
+        setErrors({
+          [error.field]: error.message,
+        });
       } else if (error.code === 'VALIDATION_ERROR' && error.errors) {
         const validationErrors = {};
-        error.errors.forEach(err => {
+        error.errors.forEach((err) => {
           validationErrors[err.path || err.param] = err.msg || err.message;
         });
         setErrors(validationErrors);
@@ -186,6 +178,12 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleGoogleLogin = () => {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const redirect = encodeURIComponent('/dashboard');
+    window.location.href = `${apiUrl}/api/auth/google?redirect=${redirect}`;
   };
 
   const getPasswordStrengthColor = () => {
@@ -216,8 +214,38 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
         </div>
       )}
 
+      <button
+        type="button"
+        className="google-auth-btn"
+        onClick={handleGoogleLogin}
+        disabled={isLoading}
+      >
+        <svg width="18" height="18" viewBox="0 0 18 18">
+          <path
+            fill="#4285F4"
+            d="M17.64 9.2c0-.63-.06-1.23-.16-1.8H9v3.41h4.84c-.21 1.1-.83 2.03-1.77 2.65v2.2h2.86c1.67-1.54 2.67-3.8 2.67-6.46z"
+          />
+          <path
+            fill="#34A853"
+            d="M9 18c2.43 0 4.47-.8 5.96-2.17l-2.86-2.2c-.8.54-1.83.86-3.1.86-2.37 0-4.39-1.6-5.11-3.77H.96v2.34C2.43 16.2 5.37 18 9 18z"
+          />
+          <path
+            fill="#FBBC05"
+            d="M3.89 10.8c-.3-.55-.44-1.14-.45-1.85v-.01c.01-.7.15-1.3.45-1.85l-.05-.02H.96C.35 6.2 0 7.57 0 9s.35 2.8.96 4.14l2.93-2.34z"
+          />
+          <path
+            fill="#EA4335"
+            d="M9 3.6c1.3 0 2.47.45 3.39 1.33l2.54-2.54C13.47.95 11.43 0 9 0 5.37 0 2.43 1.8.96 4.86l2.93 2.34C4.61 5.4 6.63 3.6 9 3.6z"
+          />
+        </svg>
+        Sign up with Google
+      </button>
+
+      <div className="auth-divider">
+        <span>or</span>
+      </div>
+
       <form onSubmit={handleSubmit} className="auth-form-content">
-        {/* Profile Picture Upload */}
         <div className="form-group">
           <label>Profile Picture (Optional)</label>
           <div className="profile-upload">
@@ -250,7 +278,6 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
           )}
         </div>
 
-        {/* Name Fields */}
         <div className="form-row">
           <div className="form-group">
             <label htmlFor="firstName">First Name (Optional)</label>
@@ -295,7 +322,6 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
           </div>
         </div>
 
-        {/* Username */}
         <div className="form-group">
           <label htmlFor="username">Username *</label>
           <div className="input-wrapper">
@@ -318,11 +344,10 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
           <span className="field-hint">3-20 characters, letters, numbers, and underscores only</span>
         </div>
 
-        {/* Email */}
         <div className="form-group">
           <label htmlFor="email">Email Address *</label>
           <div className="input-wrapper">
-            <Mail className="input-icon" size={18} />
+            <Mail className="input-icon" size={17} />
             <input
               type="email"
               id="email"
@@ -340,7 +365,6 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
           )}
         </div>
 
-        {/* Phone Number */}
         <div className="form-group">
           <label htmlFor="phoneNumber">Phone Number (Optional)</label>
           <div className="input-wrapper">
@@ -363,7 +387,6 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
           <span className="field-hint">Include country code (e.g., +1 for US)</span>
         </div>
 
-        {/* Password */}
         <div className="form-group">
           <label htmlFor="password">Password *</label>
           <div className="input-wrapper">
@@ -392,7 +415,6 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
             <span className="error-text">{errors.password}</span>
           )}
 
-          {/* Password Strength Indicator */}
           {formData.password && (
             <div className="password-strength">
               <div className="strength-bar">
@@ -400,7 +422,7 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
                   className="strength-fill"
                   style={{
                     width: `${(passwordStrength.score / 5) * 100}%`,
-                    backgroundColor: getPasswordStrengthColor()
+                    backgroundColor: getPasswordStrengthColor(),
                   }}
                 />
               </div>
@@ -422,11 +444,10 @@ const RegisterForm = ({ onSwitchToLogin, onClose }) => {
           )}
         </div>
 
-        {/* Confirm Password */}
         <div className="form-group">
           <label htmlFor="confirmPassword">Confirm Password *</label>
           <div className="input-wrapper">
-            <Lock className="input-icon" size={18} />
+            <Lock className="input-icon" size={17} />
             <input
               type={showConfirmPassword ? 'text' : 'password'}
               id="confirmPassword"

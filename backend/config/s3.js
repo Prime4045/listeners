@@ -45,7 +45,6 @@ class S3Service {
     async getAudioUrl(spotifyId) {
         try {
             const key = `audio/${spotifyId}.mp3`;
-            
             // First check if file exists
             const exists = await this.audioExists(spotifyId);
             if (!exists) {
@@ -117,7 +116,6 @@ class S3Service {
             })) || [];
 
             console.log(`Listed ${files.length} audio files from S3`);
-            
             return {
                 files,
                 isTruncated: data.IsTruncated,
@@ -186,7 +184,6 @@ class S3Service {
                 location: result.Location,
                 etag: result.ETag,
             });
-            
             return result;
         } catch (error) {
             console.error('Error uploading audio file:', {
@@ -255,15 +252,15 @@ class S3Service {
     async healthCheck() {
         try {
             await this.s3.headBucket({ Bucket: this.bucketName }).promise();
-            return { 
-                status: 'healthy', 
+            return {
+                status: 'healthy',
                 service: 's3',
                 bucket: this.bucketName,
             };
         } catch (error) {
-            return { 
-                status: 'unhealthy', 
-                service: 's3', 
+            return {
+                status: 'unhealthy',
+                service: 's3',
                 bucket: this.bucketName,
                 error: error.message,
             };
@@ -277,7 +274,6 @@ class S3Service {
         try {
             const listResult = await this.listAudioFiles(1000);
             const totalSize = listResult.files.reduce((sum, file) => sum + file.size, 0);
-            
             return {
                 totalFiles: listResult.files.length,
                 totalSize,
@@ -296,13 +292,13 @@ class S3Service {
      */
     formatBytes(bytes, decimals = 2) {
         if (bytes === 0) return '0 Bytes';
-        
+
         const k = 1024;
         const dm = decimals < 0 ? 0 : decimals;
         const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-        
+
         const i = Math.floor(Math.log(bytes) / Math.log(k));
-        
+
         return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
     }
 }

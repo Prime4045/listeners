@@ -1,45 +1,50 @@
-import React, { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext.jsx';
 
 const AuthCallback = () => {
     const navigate = useNavigate();
-    const location = useLocation();
+    const [searchParams] = useSearchParams();
     const { login } = useAuth();
 
     useEffect(() => {
-        const params = new URLSearchParams(location.search);
-        const token = params.get('token');
-        const refreshToken = params.get('refreshToken');
-        const error = params.get('error');
-        const message = params.get('message');
+        const handleCallback = async () => {
+            const token = searchParams.get('token');
+            const refreshToken = searchParams.get('refreshToken');
+            const error = searchParams.get('error');
+            const redirect = searchParams.get('redirect') || '/dashboard';
 
-        if (error) {
-            console.error('OAuth error:', message);
-            navigate('/login', { state: { error: message || 'Authentication failed' } });
-            return;
-        }
+            if (error) {
+                console.error('Auth callback error:', error);
+                navigate('/login', { state: { error: `Authentication failed: ${error}` } });
+                return;
+            }
 
-        if (token && refreshToken) {
-            // Store tokens and fetch user
-            login({ token, refreshToken })
-                .then(() => navigate('/dashboard'))
-                .catch((err) => {
-                    console.error('Callback login error:', err);
+            if (token && refreshToken) {
+                try {
+                    localStorage.setItem('token', token);
+                    localStorage.setItem('refreshToken', refreshToken);
+
+                    await login();
+
+                    navigate(decodeURIComponent(redirect));
+                } catch (err) {
+                    console.error('Login error:', err);
                     navigate('/login', { state: { error: 'Failed to authenticate. Please try again.' } });
-                });
-        } else {
-            navigate('/login', { state: { error: 'Invalid authentication response' } });
-        }
-    }, [location, navigate, login]);
+                }
+            } else {
+                navigate('/login', { state: { error: 'Missing authentication tokens.' } });
+            }
+        };
+
+        handleCallback();
+    }, [searchParams, navigate, login]);
 
     return (
         <div className="loading-screen">
-            <div className="loading-content">
-                <Loader2 className="animate-spin" size={24} />
-                <p>Authenticating...</p>
-            </div>
+            <Loader2 className="animate-spin" size={24} />
+            <p>Processing authentication...</p>
         </div>
     );
 };

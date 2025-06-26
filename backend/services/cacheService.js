@@ -258,7 +258,6 @@ class CacheService {
 
         const deletePromises = patterns.map(pattern => this.del(pattern));
         const results = await Promise.all(deletePromises);
-        
         console.log(`Invalidated song caches for: ${spotifyId}`);
         return results;
     }
@@ -277,7 +276,6 @@ class CacheService {
 
             const deletePromises = patterns.map(pattern => this.delByPattern(pattern));
             const results = await Promise.all(deletePromises);
-            
             console.log('Invalidated search caches');
             return results;
         } catch (error) {
@@ -297,7 +295,6 @@ class CacheService {
 
         const deletePromises = patterns.map(pattern => this.delByPattern(pattern));
         const results = await Promise.all(deletePromises);
-        
         console.log(`Invalidated user caches for: ${userId}`);
         return results;
     }
@@ -344,7 +341,6 @@ class CacheService {
     parseRedisInfo(infoString) {
         const result = {};
         const lines = infoString.split('\r\n');
-        
         for (const line of lines) {
             if (line && !line.startsWith('#')) {
                 const [key, value] = line.split(':');
@@ -353,7 +349,6 @@ class CacheService {
                 }
             }
         }
-        
         return result;
     }
 
@@ -378,13 +373,13 @@ class CacheService {
         try {
             const testKey = 'health_check_test';
             const testValue = { timestamp: Date.now() };
-            
+
             await this.set(testKey, testValue, 10);
             const retrieved = await this.get(testKey);
             await this.del(testKey);
-            
+
             const isHealthy = retrieved && retrieved.timestamp === testValue.timestamp;
-            
+
             return {
                 status: isHealthy ? 'healthy' : 'unhealthy',
                 service: 'redis_cache',
@@ -397,32 +392,6 @@ class CacheService {
                 error: error.message,
                 timestamp: new Date().toISOString(),
             };
-        }
-    }
-
-    /**
-     * Generic get method for cache
-     */
-    async get(key) {
-        try {
-            const cached = await redisClient.get(key);
-            return cached ? JSON.parse(cached) : null;
-        } catch (error) {
-            console.error('Cache get error:', error);
-            return null;
-        }
-    }
-
-    /**
-     * Generic set method for cache
-     */
-    async set(key, data, ttlSeconds = 3600) {
-        try {
-            await redisClient.setEx(key, ttlSeconds, JSON.stringify(data));
-            return true;
-        } catch (error) {
-            console.error('Cache set error:', error);
-            return false;
         }
     }
 }

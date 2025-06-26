@@ -1,6 +1,7 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
 import passport from 'passport';
+import { redisClient } from '../config/database.js';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import speakeasy from 'speakeasy';
@@ -136,13 +137,14 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
     const { username, email, password, firstName, lastName, phoneNumber } = req.body;
 
     const existingUser = await User.findOne({
-      $or: [{ email }, { username }],
+      $or: [{ email: email.toLowerCase() }, { username }],
     });
 
     if (existingUser) {
       return res.status(409).json({
-        message: existingUser.email === email ? 'Email already registered' : 'Username already taken',
-        code: 'USER_EXISTS',
+        message: existingUser.email === email.toLowerCase() ? 'Email already registered' : 'Username already taken',
+        code: 'DUPLICATE_ENTRY',
+        field: existingUser.email === email.toLowerCase() ? 'email' : 'username',
       });
     }
 
@@ -150,18 +152,17 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
 
     const user = new User({
       username,
-      email,
+      email: email.toLowerCase(),
       password,
       firstName,
       lastName,
       phoneNumber,
       emailVerificationToken,
-      isVerified: !transporter // Auto-verify if no email service
+      isVerified: !transporter,
     });
 
     await user.save();
 
-    // Send verification email if transporter is configured
     if (transporter) {
       try {
         const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${emailVerificationToken}`;
@@ -186,14 +187,12 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
         });
       } catch (emailError) {
         console.error('Failed to send verification email:', emailError);
-        // Don't fail registration if email fails
       }
     }
 
     const token = generateToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
-    // Store refresh token in Redis
     await redisClient.setEx(`refreshToken:${user._id}`, 7 * 24 * 60 * 60, refreshToken);
 
     await user.addLoginHistory(req.ip, req.get('User-Agent'), true);
@@ -205,10 +204,18 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
       token,
       refreshToken,
       user: user.toJSON(),
-      emailSent: !!transporter
+      emailSent: !!transporter,
     });
   } catch (error) {
     console.error('Registration error:', error);
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyValue)[0];
+      return res.status(409).json({
+        message: `${field.charAt(0).toUpperCase() + field.slice(1)} already exists`,
+        code: 'DUPLICATE_ENTRY',
+        field,
+      });
+    }
     res.status(500).json({
       message: 'Registration failed',
       code: 'REGISTRATION_FAILED',
@@ -429,32 +436,59 @@ router.get('/verify-email', async (req, res) => {
     res.status(500).json({
       message: 'Email verification failed',
       code: 'VERIFICATION_FAILED',
-      error: error.message
+      error: error.message,
     });
   }
 });
 
-// Google OAuth routes (if configured)
+// Google OAuth routes
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-  router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+  router.get('/google', (req, res, next) => {
+    req.session.redirectTo = req.query.redirect || '/dashboard';
+    passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+  });
 
-  router.get('/google/callback',
-    passport.authenticate('google', { failureRedirect: '/login' }),
+  router.get(
+    '/google/callback',
+    passport.authenticate('google', {
+      failureRedirect: `${process.env.FRONTEND_URL}/login?error=Oauth_failed&message=${encodeURIComponent('Authentication failed')}`,
+      failureMessage: true,
+    }),
     async (req, res) => {
       try {
-        const token = generateToken(req.user._id);
-        const refreshToken = generateRefreshToken(req.user._id);
+        const user = req.user;
+        if (!user) {
+          console.error('Google callback: No user returned');
+          return res.redirect(
+            `${process.env.FRONTEND_URL}/login?error=Oauth_failed&message=${encodeURIComponent('No user found')}`
+          );
+        }
 
-        await redisClient.setEx(`refreshToken:${req.user._id}`, 7 * 24 * 60 * 60, refreshToken);
-        await req.user.addLoginHistory(req.ip, req.get('User-Agent'), true);
+        const token = generateToken(user._id);
+        const refreshToken = generateRefreshToken(user._id);
 
-        res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}&refreshToken=${refreshToken}`);
+        await redisClient.setEx(`refreshToken:${user._id}`, 7 * 24 * 60 * 60, refreshToken);
+
+        await user.addLoginHistory(req.ip, req.get('User-Agent'), true);
+
+        const redirectTo = req.session.redirectTo || '/dashboard';
+        delete req.session.redirectTo;
+
+        res.redirect(
+          `${process.env.FRONTEND_URL}/auth/callback?token=${token}&refreshToken=${refreshToken}&redirect=${encodeURIComponent(
+            redirectTo
+          )}`
+        );
       } catch (error) {
         console.error('Google OAuth callback error:', error);
-        res.redirect(`${process.env.FRONTEND_URL}/login?error=oauth_failed`);
+        res.redirect(
+          `${process.env.FRONTEND_URL}/login?error=Oauth_failed&message=${encodeURIComponent(error.message || 'OAuth failed')}`
+        );
       }
     }
   );
+} else {
+  console.warn('Google OAuth not configured: Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
 }
 
 export default router;

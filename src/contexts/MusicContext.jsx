@@ -222,7 +222,6 @@ export const MusicProvider = ({ children }) => {
       // Random next track
       const playableTracks = playlist.filter(track => track.canPlay);
       if (playableTracks.length === 0) return;
-      
       do {
         nextIndex = Math.floor(Math.random() * playlist.length);
       } while ((!playlist[nextIndex].canPlay || nextIndex === currentIndex) && playlist.length > 1);

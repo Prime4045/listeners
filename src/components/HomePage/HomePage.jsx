@@ -181,9 +181,9 @@ const HomePage = () => {
                     <button className="mini-control-btn" onClick={previousTrack} title="Previous">
                         <SkipBack size={16} />
                     </button>
-                    <button 
-                        className="mini-play-btn" 
-                        onClick={togglePlayPause} 
+                    <button
+                        className="mini-play-btn"
+                        onClick={togglePlayPause}
                         title={isPlaying ? 'Pause' : 'Play'}
                         disabled={playerLoading}
                     >
@@ -353,8 +353,8 @@ const HomePage = () => {
                                 }}
                             />
                             <div className="artwork-overlay">
-                                <button 
-                                    className="featured-play-btn" 
+                                <button
+                                    className="featured-play-btn"
                                     onClick={togglePlayPause}
                                     disabled={playerLoading}
                                 >
@@ -387,8 +387,8 @@ const HomePage = () => {
                                     <button className="control-btn" onClick={previousTrack}>
                                         <SkipBack size={20} />
                                     </button>
-                                    <button 
-                                        className="main-play-btn" 
+                                    <button
+                                        className="main-play-btn"
                                         onClick={togglePlayPause}
                                         disabled={playerLoading}
                                     >

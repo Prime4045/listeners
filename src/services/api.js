@@ -1,45 +1,22 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://work-2-kdvllvgyfifstacd.prod-runtime.all-hands.dev/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 const ApiService = {
-  async getCsrfToken() {
-    try {
-      const response = await fetch(`${API_URL}/csrf-token`, {
-        credentials: 'include',
-      });
-      const data = await response.json();
-      return data.csrfToken;
-    } catch (error) {
-      console.error('Failed to get CSRF token:', error);
-      return null;
-    }
-  },
-
-  async makeRequest(url, options = {}) {
+  async makeRequest(endpoint, options = {}) {
     const token = localStorage.getItem('token');
-    const csrfToken = await this.getCsrfToken();
-    
-    const defaultHeaders = {
+    const headers = {
       'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-      ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...options.headers,
     };
 
-    const config = {
-      credentials: 'include',
-      headers: {
-        ...defaultHeaders,
-        ...options.headers,
-      },
+    const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
-    };
+      headers,
+      credentials: 'include',
+    });
 
-    const response = await fetch(`${API_URL}${url}`, config);
     const result = await response.json();
-
-    if (!response.ok) {
-      throw result;
-    }
-
+    if (!response.ok) throw result;
     return result;
   },
 
@@ -52,23 +29,13 @@ const ApiService = {
   },
 
   async register(formData) {
-    const token = localStorage.getItem('token');
-    const csrfToken = await this.getCsrfToken();
-    
     const response = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
-      headers: {
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
-      },
       body: formData,
       credentials: 'include',
     });
-
     const result = await response.json();
-    if (!response.ok) {
-      throw result;
-    }
+    if (!response.ok) throw result;
     return result;
   },
 

@@ -10,6 +10,7 @@ class SpotifyService {
         this.tokenExpiresAt = 0;
         this.baseURL = 'https://api.spotify.com/v1';
         this.authURL = 'https://accounts.spotify.com/api/token';
+        this.defaultMarket = 'IN'; // Changed default market to India
     }
 
     /**
@@ -42,7 +43,7 @@ class SpotifyService {
             );
 
             this.accessToken = response.data.access_token;
-            this.tokenExpiresAt = Date.now() + (response.data.expires_in * 1000) - 60000; // 1 min buffer
+            this.tokenExpiresAt = Date.now() + (response.data.expires_in * 1000) - 60000;
 
             console.log('Spotify access token obtained successfully');
             return this.accessToken;
@@ -56,9 +57,6 @@ class SpotifyService {
         }
     }
 
-    /**
-     * Make authenticated request to Spotify API with retry logic
-     */
     async makeRequest(endpoint, params = {}, retries = 3) {
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
@@ -68,13 +66,13 @@ class SpotifyService {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json',
                     },
-                    params,
+                    params: { ...params, market: params.market || this.defaultMarket },
                     timeout: 15000,
                 });
 
-                console.log(`Spotify API request successful: ${endpoint}`, { 
-                    params, 
-                    status: response.status 
+                console.log(`Spotify API request successful: ${endpoint}`, {
+                    params,
+                    status: response.status
                 });
                 return response.data;
             } catch (error) {
@@ -86,7 +84,6 @@ class SpotifyService {
                     data: error.response?.data,
                 });
 
-                // Handle rate limiting
                 if (error.response?.status === 429) {
                     const retryAfter = parseInt(error.response.headers['retry-after']) || 1;
                     console.log(`Rate limited, waiting ${retryAfter} seconds...`);
@@ -94,7 +91,6 @@ class SpotifyService {
                     continue;
                 }
 
-                // Handle token expiration
                 if (error.response?.status === 401) {
                     console.log('Token expired, refreshing...');
                     this.accessToken = null;
@@ -102,109 +98,42 @@ class SpotifyService {
                     continue;
                 }
 
-                // If it's the last attempt, throw the error
                 if (attempt === retries) {
                     throw error;
                 }
 
-                // Wait before retry
                 await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
             }
         }
     }
 
-    /**
-     * Search for tracks with caching
-     */
-    async searchTracks(query, limit = 20, market = 'IN,US,GB') {
+    async searchTracks(query, limit = 20, market = this.defaultMarket) {
         try {
             const cacheKey = `spotify:search:${query.toLowerCase()}:${limit}:${market}`;
-            
-            // Check cache first
+
             const cached = await redisClient.get(cacheKey);
             if (cached) {
                 console.log('Returning cached Spotify search results');
                 return JSON.parse(cached);
             }
 
-            // Try to search with specific market first
-            let data;
-            try {
-                data = await this.makeRequest('/search', {
-                    q: query,
-                    type: 'track',
-                    limit,
-                    market: 'IN',
-                    include_external: 'audio'
-                });
-            } catch (err) {
-                console.error('Error searching with IN market:', err.message);
-                // Fallback to global search
-                data = await this.makeRequest('/search', {
-                    q: query,
-                    type: 'track',
-                    limit,
-                    market: 'US',
-                    include_external: 'audio'
-                });
-            }
-
-            // If no results, try with a broader search
-            if (!data.tracks?.items?.length) {
-                console.log('No results found, trying broader search');
-                data = await this.makeRequest('/search', {
-                    q: query,
-                    type: 'track',
-                    limit: limit * 2, // Get more results to filter
-                    include_external: 'audio'
-                });
-            }
-
-            // If still no results and query might be a playlist URL, try to extract playlist ID
-            if (!data.tracks?.items?.length && query.includes('spotify.com/playlist/')) {
-                try {
-                    const playlistIdMatch = query.match(/playlist\/([a-zA-Z0-9]+)/);
-                    if (playlistIdMatch && playlistIdMatch[1]) {
-                        const playlistId = playlistIdMatch[1];
-                        console.log(`Detected playlist ID: ${playlistId}, fetching tracks`);
-                        
-                        const playlistData = await this.makeRequest(`/playlists/${playlistId}/tracks`, {
-                            limit,
-                            market: 'IN,US'
-                        });
-                        
-                        const playlistTracks = playlistData.items
-                            ?.map(item => item.track)
-                            .filter(track => track && track.id) || [];
-                            
-                        const tracks = this.formatTracks(playlistTracks);
-                        
-                        // Cache results for 15 minutes
-                        await redisClient.setEx(cacheKey, 900, JSON.stringify(tracks));
-                        
-                        console.log('Playlist tracks fetched:', { 
-                            playlistId, 
-                            total: tracks.length
-                        });
-                        
-                        return tracks;
-                    }
-                } catch (err) {
-                    console.error('Error fetching playlist tracks:', err.message);
-                }
-            }
+            const data = await this.makeRequest('/search', {
+                q: query,
+                type: 'track',
+                limit,
+                market,
+            });
 
             const tracks = this.formatTracks(data.tracks?.items || []);
-            
-            // Cache results for 15 minutes
+
             await redisClient.setEx(cacheKey, 900, JSON.stringify(tracks));
-            
-            console.log('Spotify search results:', { 
-                query, 
+
+            console.log('Spotify search results:', {
+                query,
                 total: tracks.length,
-                market 
+                market
             });
-            
+
             return tracks;
         } catch (error) {
             console.error('Search tracks error:', error.message);
@@ -212,14 +141,10 @@ class SpotifyService {
         }
     }
 
-    /**
-     * Get track by ID with caching
-     */
-    async getTrack(trackId, market = 'US') {
+    async getTrack(trackId, market = this.defaultMarket) {
         try {
             const cacheKey = `spotify:track:${trackId}:${market}`;
-            
-            // Check cache first
+
             const cached = await redisClient.get(cacheKey);
             if (cached) {
                 console.log('Returning cached Spotify track');
@@ -228,10 +153,9 @@ class SpotifyService {
 
             const data = await this.makeRequest(`/tracks/${trackId}`, { market });
             const track = this.formatTrack(data);
-            
-            // Cache for 24 hours
+
             await redisClient.setEx(cacheKey, 86400, JSON.stringify(track));
-            
+
             console.log('Spotify track fetched:', { trackId, market });
             return track;
         } catch (error) {
@@ -240,107 +164,60 @@ class SpotifyService {
         }
     }
 
-    /**
-     * Get trending tracks from featured playlists
-     */
-    async getTrendingTracks(limit = 20, market = 'IN,US,GB') {
+    async getTrendingTracks(limit = 20, market = this.defaultMarket) {
         try {
             const cacheKey = `spotify:trending:${limit}:${market}`;
-            
-            // Check cache first
+
             const cached = await redisClient.get(cacheKey);
             if (cached) {
                 console.log('Returning cached trending tracks');
                 return JSON.parse(cached);
             }
 
-            // Get multiple playlists to ensure diversity
             const playlistsData = await this.makeRequest('/browse/featured-playlists', {
-                limit: 10,
-                market: 'IN',
-                locale: 'en_IN'
+                limit: 5,
+                market,
             });
 
             if (!playlistsData.playlists?.items?.length) {
                 return [];
             }
 
-            // Get tracks from multiple playlists for diversity
-            let allTracks = [];
-            const playlistsToFetch = Math.min(3, playlistsData.playlists.items.length);
-            
-            for (let i = 0; i < playlistsToFetch; i++) {
-                const playlist = playlistsData.playlists.items[i];
-                console.log(`Fetching tracks from playlist: ${playlist.name} (${playlist.id})`);
-                
-                try {
-                    const tracksData = await this.makeRequest(`/playlists/${playlist.id}/tracks`, {
-                        limit: Math.ceil(limit / playlistsToFetch),
-                        market: 'IN'
-                    });
-                    
-                    const playlistTracks = tracksData.items
-                        ?.map(item => item.track)
-                        .filter(track => track && track.id) || [];
-                        
-                    allTracks = [...allTracks, ...playlistTracks];
-                } catch (err) {
-                    console.error(`Error fetching tracks from playlist ${playlist.id}:`, err.message);
-                    // Continue with other playlists if one fails
-                }
-            }
-            
-            // If we couldn't get tracks from playlists, try global top tracks
-            if (allTracks.length === 0) {
-                console.log('Falling back to global top tracks');
-                const topTracksData = await this.makeRequest('/playlists/37i9dQZEVXbMDoHDwVN2tF/tracks', {
-                    limit,
-                    market: 'US'
-                });
-                
-                allTracks = topTracksData.items
-                    ?.map(item => item.track)
-                    .filter(track => track && track.id) || [];
-            }
-            
-            // Deduplicate tracks
-            const uniqueTracks = Array.from(new Map(
-                allTracks.map(track => [track.id, track])
-            ).values());
-            
-            const tracks = this.formatTracks(uniqueTracks.slice(0, limit));
-            
-            // Cache for 1 hour
+            const firstPlaylist = playlistsData.playlists.items[0];
+            const tracksData = await this.makeRequest(`/playlists/${firstPlaylist.id}/tracks`, {
+                limit,
+                market,
+            });
+
+            const tracks = this.formatTracks(
+                tracksData.items?.map(item => item.track).filter(track => track && track.id) || []
+            );
+
             await redisClient.setEx(cacheKey, 3600, JSON.stringify(tracks));
-            
+
             console.log('Trending tracks fetched:', { total: tracks.length, market });
             return tracks;
         } catch (error) {
             console.error('Get trending tracks error:', error.message);
-            throw new Error(`Failed to get trending tracks: ${error.message}`);
+            throw new Error(`Failed to load trending songs: ${error.message}`);
         }
     }
 
-    /**
-     * Get new releases
-     */
-    async getNewReleases(limit = 20, market = 'US') {
+    async getNewReleases(limit = 20, market = this.defaultMarket) {
         try {
             const cacheKey = `spotify:new_releases:${limit}:${market}`;
-            
-            // Check cache first
             const cached = await redisClient.get(cacheKey);
+
             if (cached) {
                 console.log('Returning cached new releases');
                 return JSON.parse(cached);
             }
 
-            const data = await this.makeRequest('/browse/new-releases', {
+            const data = await this.makeRequest(`/browse/new-releases`, {
                 limit,
                 market,
             });
 
-            // Get tracks from albums
             const albums = data.albums?.items || [];
             const tracks = [];
 
@@ -365,15 +242,24 @@ class SpotifyService {
             }
 
             const limitedTracks = tracks.slice(0, limit);
-            
-            // Cache for 2 hours
+
             await redisClient.setEx(cacheKey, 7200, JSON.stringify(limitedTracks));
-            
+
             console.log('New releases fetched:', { total: limitedTracks.length, market });
             return limitedTracks;
         } catch (error) {
             console.error('Get new releases error:', error.message);
             throw new Error(`Failed to get new releases: ${error.message}`);
+        }
+    }
+
+    async searchBollywoodTracks(query = 'Bollywood', limit = 20, market = this.defaultMarket) {
+        try {
+            const enhancedQuery = `${query} genre:Bollywood`;
+            return await this.searchTracks(enhancedQuery, limit, market);
+        } catch (error) {
+            console.error('Search Bollywood tracks error:', error.message);
+            throw new Error(`Failed to search Bollywood tracks: ${error.message}`);
         }
     }
 
@@ -419,9 +305,6 @@ class SpotifyService {
             .filter(track => track !== null);
     }
 
-    /**
-     * Get user's OAuth authorization URL
-     */
     getAuthorizationUrl(state = null) {
         const scopes = [
             'user-read-private',
@@ -444,9 +327,6 @@ class SpotifyService {
         return `https://accounts.spotify.com/authorize?${params.toString()}`;
     }
 
-    /**
-     * Exchange authorization code for access token
-     */
     async exchangeCodeForToken(code) {
         try {
             const response = await axios.post(
@@ -472,236 +352,16 @@ class SpotifyService {
         }
     }
 
-    /**
-     * Health check for Spotify API
-     */
     async healthCheck() {
         try {
             await this.getAccessToken();
             return { status: 'healthy', service: 'spotify' };
         } catch (error) {
-            return { 
-                status: 'unhealthy', 
-                service: 'spotify', 
-                error: error.message 
+            return {
+                status: 'unhealthy',
+                service: 'spotify',
+                error: error.message
             };
-        }
-    }
-}
-
-    /**
-     * Get featured playlists
-     */
-    async getFeaturedPlaylists(limit = 10, market = 'IN,US,GB') {
-        try {
-            const cacheKey = `spotify:featured_playlists:${limit}:${market}`;
-            
-            // Check cache first
-            const cached = await redisClient.get(cacheKey);
-            if (cached) {
-                console.log('Returning cached featured playlists');
-                return JSON.parse(cached);
-            }
-
-            // Try to get featured playlists with specific market first
-            let playlistsData;
-            try {
-                playlistsData = await this.makeRequest('/browse/featured-playlists', {
-                    limit,
-                    market: 'IN',
-                    locale: 'en_IN'
-                });
-            } catch (err) {
-                console.error('Error fetching IN featured playlists:', err.message);
-                // Fallback to global playlists
-                playlistsData = await this.makeRequest('/browse/featured-playlists', {
-                    limit,
-                    market: 'US'
-                });
-            }
-
-            if (!playlistsData.playlists?.items?.length) {
-                return [];
-            }
-
-            const playlists = playlistsData.playlists.items.map(playlist => ({
-                id: playlist.id,
-                name: playlist.name,
-                description: playlist.description,
-                imageUrl: playlist.images?.[0]?.url,
-                tracksTotal: playlist.tracks?.total || 0,
-                owner: playlist.owner?.display_name,
-                externalUrl: playlist.external_urls?.spotify,
-                uri: playlist.uri
-            }));
-            
-            // Cache for 2 hours
-            await redisClient.setEx(cacheKey, 7200, JSON.stringify(playlists));
-            
-            console.log('Featured playlists fetched:', { total: playlists.length });
-            return playlists;
-        } catch (error) {
-            console.error('Get featured playlists error:', error.message);
-            throw new Error(`Failed to get featured playlists: ${error.message}`);
-        }
-    }
-
-    /**
-     * Get playlist by ID
-     */
-    async getPlaylist(playlistId, limit = 50, market = 'IN,US') {
-        try {
-            const cacheKey = `spotify:playlist:${playlistId}:${limit}:${market}`;
-            
-            // Check cache first
-            const cached = await redisClient.get(cacheKey);
-            if (cached) {
-                console.log('Returning cached playlist');
-                return JSON.parse(cached);
-            }
-
-            const playlistData = await this.makeRequest(`/playlists/${playlistId}`, {
-                market: 'IN,US'
-            });
-
-            if (!playlistData) {
-                throw new Error('Playlist not found');
-            }
-
-            // Get tracks with pagination if needed
-            let allTracks = playlistData.tracks?.items || [];
-            let nextUrl = playlistData.tracks?.next;
-            
-            while (nextUrl && allTracks.length < limit) {
-                const nextUrlPath = nextUrl.replace('https://api.spotify.com/v1', '');
-                const moreTracksData = await this.makeRequest(nextUrlPath);
-                allTracks = [...allTracks, ...(moreTracksData.items || [])];
-                nextUrl = moreTracksData.next;
-            }
-
-            // Format tracks
-            const tracks = this.formatTracks(
-                allTracks
-                    .map(item => item.track)
-                    .filter(track => track && track.id)
-                    .slice(0, limit)
-            );
-
-            const playlist = {
-                id: playlistData.id,
-                name: playlistData.name,
-                description: playlistData.description,
-                imageUrl: playlistData.images?.[0]?.url,
-                tracksTotal: playlistData.tracks?.total || 0,
-                owner: playlistData.owner?.display_name,
-                externalUrl: playlistData.external_urls?.spotify,
-                uri: playlistData.uri,
-                tracks
-            };
-            
-            // Cache for 1 hour
-            await redisClient.setEx(cacheKey, 3600, JSON.stringify(playlist));
-            
-            console.log('Playlist fetched:', { 
-                playlistId, 
-                name: playlist.name,
-                trackCount: tracks.length 
-            });
-            
-            return playlist;
-        } catch (error) {
-            console.error('Get playlist error:', error.message);
-            throw new Error(`Failed to get playlist: ${error.message}`);
-        }
-    }
-
-    /**
-     * Get categories
-     */
-    async getCategories(limit = 20, market = 'IN,US') {
-        try {
-            const cacheKey = `spotify:categories:${limit}:${market}`;
-            
-            // Check cache first
-            const cached = await redisClient.get(cacheKey);
-            if (cached) {
-                console.log('Returning cached categories');
-                return JSON.parse(cached);
-            }
-
-            const data = await this.makeRequest('/browse/categories', {
-                limit,
-                country: 'IN',
-                locale: 'en_IN'
-            });
-
-            if (!data.categories?.items?.length) {
-                return [];
-            }
-
-            const categories = data.categories.items.map(category => ({
-                id: category.id,
-                name: category.name,
-                imageUrl: category.icons?.[0]?.url
-            }));
-            
-            // Cache for 24 hours
-            await redisClient.setEx(cacheKey, 86400, JSON.stringify(categories));
-            
-            console.log('Categories fetched:', { total: categories.length });
-            return categories;
-        } catch (error) {
-            console.error('Get categories error:', error.message);
-            throw new Error(`Failed to get categories: ${error.message}`);
-        }
-    }
-
-    /**
-     * Get category playlists
-     */
-    async getCategoryPlaylists(categoryId, limit = 10, market = 'IN,US') {
-        try {
-            const cacheKey = `spotify:category_playlists:${categoryId}:${limit}:${market}`;
-            
-            // Check cache first
-            const cached = await redisClient.get(cacheKey);
-            if (cached) {
-                console.log('Returning cached category playlists');
-                return JSON.parse(cached);
-            }
-
-            const data = await this.makeRequest(`/browse/categories/${categoryId}/playlists`, {
-                limit,
-                country: 'IN'
-            });
-
-            if (!data.playlists?.items?.length) {
-                return [];
-            }
-
-            const playlists = data.playlists.items.map(playlist => ({
-                id: playlist.id,
-                name: playlist.name,
-                description: playlist.description,
-                imageUrl: playlist.images?.[0]?.url,
-                tracksTotal: playlist.tracks?.total || 0,
-                owner: playlist.owner?.display_name,
-                externalUrl: playlist.external_urls?.spotify,
-                uri: playlist.uri
-            }));
-            
-            // Cache for 6 hours
-            await redisClient.setEx(cacheKey, 21600, JSON.stringify(playlists));
-            
-            console.log('Category playlists fetched:', { 
-                categoryId, 
-                total: playlists.length 
-            });
-            
-            return playlists;
-        } catch (error) {
-            console.error('Get category playlists error:', error.message);
-            throw new Error(`Failed to get category playlists: ${error.message}`);
         }
     }
 }

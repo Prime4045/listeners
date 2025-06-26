@@ -1,17 +1,6 @@
-.auth-form {
-  background: var(--secondary-bg);
-  border-radius: 16px;
-  padding: 2rem;
-  width: 100%;
-  max-width: 500px;
-  margin: 0 auto;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-}
-
 .auth-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .auth-header h2 {
@@ -29,7 +18,7 @@
 .auth-form-content {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 
 .form-group {
@@ -146,7 +135,6 @@
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
-/* Profile Upload Styles */
 .profile-upload {
   display: flex;
   align-items: center;
@@ -205,7 +193,6 @@
   font-size: 0.75rem;
 }
 
-/* Password Strength Indicator */
 .password-strength {
   margin-top: 0.5rem;
 }
@@ -253,12 +240,11 @@
   color: var(--text-muted);
 }
 
-/* Form Options */
 .form-options {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 0.5rem 0;
+  margin: 0.75rem 0;
 }
 
 .checkbox-label {
@@ -270,7 +256,7 @@
   cursor: pointer;
 }
 
-.checkbox-label input[type="checkbox"] {
+.checkbox-label input[type='checkbox'] {
   display: none;
 }
 
@@ -283,12 +269,12 @@
   transition: all 0.2s ease;
 }
 
-.checkbox-label input[type="checkbox"]:checked+.checkbox-custom {
+.checkbox-label input[type='checkbox']:checked+.checkbox-custom {
   background: var(--accent-purple);
   border-color: var(--accent-purple);
 }
 
-.checkbox-label input[type="checkbox"]:checked+.checkbox-custom::after {
+.checkbox-label input[type='checkbox']:checked+.checkbox-custom::after {
   content: '✓';
   position: absolute;
   top: 50%;
@@ -309,7 +295,7 @@
   transition: color 0.2s ease;
 }
 
-.link-button:hover {
+.link-button:hover:not(:disabled) {
   color: var(--accent-pink);
   text-decoration: underline;
 }
@@ -319,7 +305,6 @@
   cursor: not-allowed;
 }
 
-/* Submit Button */
 .auth-submit-btn {
   width: 100%;
   padding: 0.875rem 1rem;
@@ -350,12 +335,11 @@
   box-shadow: none;
 }
 
-/* Google Auth Button */
 .google-auth-btn {
   width: 100%;
   padding: 0.875rem 1rem;
   background: white;
-  color: #374151;
+  color: #1f2a44;
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 0.875rem;
@@ -366,23 +350,25 @@
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .google-auth-btn:hover:not(:disabled) {
   background: #f9fafb;
   border-color: #9ca3af;
+  transform: translateY(-1px);
 }
 
 .google-auth-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
 }
 
-/* Auth Divider */
 .auth-divider {
   position: relative;
   text-align: center;
-  margin: 1.5rem 0;
+  margin: 1.25rem 0;
 }
 
 .auth-divider::before {
@@ -400,13 +386,13 @@
   color: var(--text-muted);
   padding: 0 1rem;
   font-size: 0.875rem;
+  position: relative;
 }
 
-/* Auth Footer */
 .auth-footer {
   text-align: center;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
   border-top: 1px solid var(--border-color);
 }
 
@@ -415,13 +401,7 @@
   font-size: 0.875rem;
 }
 
-/* Responsive Design */
 @media (max-width: 640px) {
-  .auth-form {
-    padding: 1.5rem;
-    margin: 1rem;
-  }
-
   .form-row {
     grid-template-columns: 1fr;
   }
@@ -437,9 +417,20 @@
     align-items: flex-start;
     gap: 0.75rem;
   }
+
+  .auth-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .auth-divider {
+    margin: 1rem 0;
+  }
+
+  .auth-footer {
+    margin-top: 1rem;
+  }
 }
 
-/* Animation Classes */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -452,11 +443,6 @@
   }
 }
 
-.auth-form {
-  animation: fadeIn 0.3s ease-out;
-}
-
-/* Loading Animation */
 @keyframes spin {
   from {
     transform: rotate(0deg);
