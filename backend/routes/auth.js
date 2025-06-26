@@ -34,6 +34,7 @@ if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
   });
 }
 
+
 // Apply security headers to all routes
 router.use(securityHeaders);
 
