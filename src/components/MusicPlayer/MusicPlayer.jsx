@@ -1,299 +1,319 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import AudioPlayer from '../AudioPlayer/AudioPlayer';
-import PlaylistView from '../PlaylistView/PlaylistView';
-import SongList from '../SongList/SongList';
-import ApiService from '../../services/api';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  Volume2,
+  VolumeX,
+  Shuffle,
+  Repeat,
+  Heart,
+  MoreHorizontal,
+  Loader2,
+  AlertCircle,
+  Minimize2,
+  Maximize2
+} from 'lucide-react';
+import { useMusic } from '../../contexts/MusicContext';
+import { useAuth } from '../../contexts/AuthContext';
 import './MusicPlayer.css';
 
-const MusicPlayer = () => {
-    const [currentSong, setCurrentSong] = useState(null);
-    const [playlist, setPlaylist] = useState([]);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [currentIndex, setCurrentIndex] = useState(-1);
-    const [songs, setSongs] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [playHistory, setPlayHistory] = useState([]);
+const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
+  const { isAuthenticated } = useAuth();
+  const {
+    currentTrack,
+    isPlaying,
+    currentTime,
+    duration,
+    volume,
+    isShuffled,
+    repeatMode,
+    isLoading,
+    error,
+    togglePlayPause,
+    previousTrack,
+    nextTrack,
+    seekTo,
+    setVolume,
+    toggleShuffle,
+    toggleRepeat,
+    formatTime,
+    progress
+  } = useMusic();
 
-    // Load songs on component mount
-    useEffect(() => {
-        loadSongs();
-    }, []);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const progressRef = useRef(null);
 
-    const loadSongs = async () => {
-        try {
-            setLoading(true);
-            setError(null);
+  const handleVolumeChange = (e) => {
+    const newVolume = parseFloat(e.target.value);
+    setVolume(newVolume);
+    setIsMuted(newVolume === 0);
+  };
 
-            // For demo purposes, create sample songs
-            const sampleSongs = [
-                {
-                    _id: '1',
-                    title: 'Midnight Dreams',
-                    artist: 'Luna Echo',
-                    album: 'Nocturnal Vibes',
-                    duration: 208,
-                    songUrl: '/audio/sample1.mp3',
-                    albumArt: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300',
-                    genre: 'Electronic',
-                    playCount: 1250
-                },
-                {
-                    _id: '2',
-                    title: 'Electric Pulse',
-                    artist: 'Neon Waves',
-                    album: 'Synthwave Collection',
-                    duration: 252,
-                    songUrl: '/audio/sample2.mp3',
-                    albumArt: 'https://images.pexels.com/photos/1105666/pexels-photo-1105666.jpeg?auto=compress&cs=tinysrgb&w=300',
-                    genre: 'Synthwave',
-                    playCount: 890
-                },
-                {
-                    _id: '3',
-                    title: 'Ocean Breeze',
-                    artist: 'Coastal Sounds',
-                    album: 'Natural Elements',
-                    duration: 195,
-                    songUrl: '/audio/sample3.mp3',
-                    albumArt: 'https://images.pexels.com/photos/1190297/pexels-photo-1190297.jpeg?auto=compress&cs=tinysrgb&w=300',
-                    genre: 'Ambient',
-                    playCount: 2100
-                },
-                {
-                    _id: '4',
-                    title: 'Urban Rhythm',
-                    artist: 'City Beats',
-                    album: 'Metropolitan',
-                    duration: 180,
-                    songUrl: '/audio/sample4.mp3',
-                    albumArt: 'https://images.pexels.com/photos/1644888/pexels-photo-1644888.jpeg?auto=compress&cs=tinysrgb&w=300',
-                    genre: 'Hip Hop',
-                    playCount: 3200
-                },
-                {
-                    _id: '5',
-                    title: 'Starlight Serenade',
-                    artist: 'Cosmic Orchestra',
-                    album: 'Celestial Harmonies',
-                    duration: 240,
-                    songUrl: '/audio/sample5.mp3',
-                    albumArt: 'https://images.pexels.com/photos/1629236/pexels-photo-1629236.jpeg?auto=compress&cs=tinysrgb&w=300',
-                    genre: 'Classical',
-                    playCount: 1800
-                }
-            ];
-
-            setSongs(sampleSongs);
-            setPlaylist(sampleSongs);
-        } catch (err) {
-            console.error('Failed to load songs:', err);
-            setError('Failed to load songs. Please try again.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const playSong = useCallback(async (song, songList = null) => {
-        try {
-            setError(null);
-
-            // Set the current song and playlist
-            setCurrentSong(song);
-            const activePlaylist = songList || playlist;
-            setPlaylist(activePlaylist);
-
-            // Find the index of the song in the playlist
-            const index = activePlaylist.findIndex(s => s._id === song._id);
-            setCurrentIndex(index);
-
-            // Start playing
-            setIsPlaying(true);
-
-            // Record play in history (simulate API call)
-            recordPlay(song);
-
-        } catch (err) {
-            console.error('Failed to play song:', err);
-            setError('Failed to play song. Please try again.');
-        }
-    }, [playlist]);
-
-    const recordPlay = async (song) => {
-        try {
-            // Add to local play history
-            setPlayHistory(prev => {
-                const newHistory = [
-                    { ...song, playedAt: new Date() },
-                    ...prev.filter(item => item._id !== song._id)
-                ].slice(0, 10); // Keep only last 10 plays
-
-                // Store in localStorage
-                localStorage.setItem('playHistory', JSON.stringify(newHistory));
-                return newHistory;
-            });
-
-            // In a real app, you would call the API here
-            // await ApiService.post(`/songs/${song._id}/play`);
-
-        } catch (err) {
-            console.error('Failed to record play:', err);
-        }
-    };
-
-    const handlePlayPause = () => {
-        setIsPlaying(!isPlaying);
-    };
-
-    const handleNext = useCallback((specificSong = null) => {
-        if (specificSong) {
-            playSong(specificSong);
-            return;
-        }
-
-        if (playlist.length === 0 || currentIndex === -1) return;
-
-        const nextIndex = (currentIndex + 1) % playlist.length;
-        const nextSong = playlist[nextIndex];
-
-        if (nextSong) {
-            playSong(nextSong);
-        }
-    }, [playlist, currentIndex, playSong]);
-
-    const handlePrevious = useCallback(() => {
-        if (playlist.length === 0 || currentIndex === -1) return;
-
-        const prevIndex = currentIndex === 0 ? playlist.length - 1 : currentIndex - 1;
-        const prevSong = playlist[prevIndex];
-
-        if (prevSong) {
-            playSong(prevSong);
-        }
-    }, [playlist, currentIndex, playSong]);
-
-    const handleSongEnd = () => {
-        // Auto-play next song
-        handleNext();
-    };
-
-    const handleError = (errorMessage) => {
-        setError(errorMessage);
-        setIsPlaying(false);
-    };
-
-    const handleTimeUpdate = (currentTime, duration) => {
-        // You can use this to update progress, save listening position, etc.
-        // console.log('Time update:', currentTime, duration);
-    };
-
-    // Load play history from localStorage on mount
-    useEffect(() => {
-        const savedHistory = localStorage.getItem('playHistory');
-        if (savedHistory) {
-            try {
-                setPlayHistory(JSON.parse(savedHistory));
-            } catch (err) {
-                console.error('Failed to parse play history:', err);
-            }
-        }
-    }, []);
-
-    // Keyboard controls
-    useEffect(() => {
-        const handleKeyPress = (e) => {
-            // Only handle if not typing in an input
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                return;
-            }
-
-            switch (e.code) {
-                case 'Space':
-                    e.preventDefault();
-                    handlePlayPause();
-                    break;
-                case 'ArrowRight':
-                    e.preventDefault();
-                    handleNext();
-                    break;
-                case 'ArrowLeft':
-                    e.preventDefault();
-                    handlePrevious();
-                    break;
-                default:
-                    break;
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyPress);
-        return () => window.removeEventListener('keydown', handleKeyPress);
-    }, [handlePlayPause, handleNext, handlePrevious]);
-
-    if (loading) {
-        return (
-            <div className="music-player-loading">
-                <div className="loading-spinner"></div>
-                <p>Loading music library...</p>
-            </div>
-        );
+  const toggleMute = () => {
+    if (isMuted) {
+      setVolume(0.5);
+      setIsMuted(false);
+    } else {
+      setVolume(0);
+      setIsMuted(true);
     }
+  };
 
-    return (
-        <div className="music-player-container">
-            <div className="music-player-content">
-                <div className="player-main">
-                    <SongList
-                        songs={songs}
-                        currentSong={currentSong}
-                        isPlaying={isPlaying}
-                        onSongSelect={playSong}
-                        playHistory={playHistory}
-                    />
-                </div>
+  const handleProgressClick = (e) => {
+    if (!progressRef.current || !duration) return;
 
-                <div className="player-sidebar">
-                    <PlaylistView
-                        playlist={playlist}
-                        currentSong={currentSong}
-                        isPlaying={isPlaying}
-                        onSongSelect={playSong}
-                        onReorder={(fromIndex, toIndex) => {
-                            const newPlaylist = [...playlist];
-                            const [movedSong] = newPlaylist.splice(fromIndex, 1);
-                            newPlaylist.splice(toIndex, 0, movedSong);
-                            setPlaylist(newPlaylist);
+    const rect = progressRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = (clickX / rect.width) * 100;
+    seekTo(percentage);
+  };
 
-                            // Update current index if needed
-                            if (currentSong) {
-                                const newIndex = newPlaylist.findIndex(s => s._id === currentSong._id);
-                                setCurrentIndex(newIndex);
-                            }
-                        }}
-                    />
-                </div>
-            </div>
+  const handleLikeToggle = () => {
+    if (!isAuthenticated) {
+      // Show auth modal or redirect to login
+      return;
+    }
+    setIsLiked(!isLiked);
+    // TODO: Implement API call to like/unlike track
+  };
 
-            <AudioPlayer
-                currentSong={currentSong}
-                playlist={playlist}
-                isPlaying={isPlaying}
-                onPlayPause={handlePlayPause}
-                onNext={handleNext}
-                onPrevious={handlePrevious}
-                onSongEnd={handleSongEnd}
-                onError={handleError}
-                onTimeUpdate={handleTimeUpdate}
-                className="main-audio-player"
-            />
-
-            {error && (
-                <div className="player-error">
-                    <p>{error}</p>
-                    <button onClick={() => setError(null)}>Dismiss</button>
-                </div>
-            )}
+  const getRepeatIcon = () => {
+    if (repeatMode === 'one') {
+      return (
+        <div className="repeat-one">
+          <Repeat size={16} />
+          <span className="repeat-indicator">1</span>
         </div>
+      );
+    }
+    return <Repeat size={16} />;
+  };
+
+  if (!currentTrack) {
+    return (
+      <div className={`music-player no-track ${isMinimized ? 'minimized' : ''}`}>
+        <div className="no-track-content">
+          <div className="no-track-icon">
+            <Play size={24} />
+          </div>
+          <div className="no-track-text">
+            <h3>No song selected</h3>
+            <p>Choose a song to start playing</p>
+          </div>
+        </div>
+      </div>
     );
+  }
+
+  if (isMinimized) {
+    return (
+      <div className="music-player minimized">
+        <div className="minimized-content">
+          <div className="minimized-track">
+            <img
+              src={currentTrack.imageUrl || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=60'}
+              alt={currentTrack.title}
+              className="minimized-artwork"
+              onError={(e) => {
+                e.target.src = 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=60';
+              }}
+            />
+            <div className="minimized-info">
+              <div className="minimized-title">{currentTrack.title}</div>
+              <div className="minimized-artist">{currentTrack.artist}</div>
+            </div>
+          </div>
+
+          <div className="minimized-controls">
+            <button className="control-btn" onClick={previousTrack}>
+              <SkipBack size={16} />
+            </button>
+            <button
+              className="play-pause-btn"
+              onClick={togglePlayPause}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="animate-spin" size={16} />
+              ) : isPlaying ? (
+                <Pause size={16} />
+              ) : (
+                <Play size={16} />
+              )}
+            </button>
+            <button className="control-btn" onClick={nextTrack}>
+              <SkipForward size={16} />
+            </button>
+          </div>
+
+          <button className="expand-btn" onClick={onToggleMinimize}>
+            <Maximize2 size={16} />
+          </button>
+        </div>
+
+        <div className="minimized-progress">
+          <div
+            className="progress-bar"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="music-player">
+      {error && (
+        <div className="player-error">
+          <AlertCircle size={16} />
+          <span>{error}</span>
+          <button onClick={() => window.location.reload()}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      <div className="player-content">
+        {/* Track Info */}
+        <div className="player-section track-info">
+          <div className="track-artwork">
+            <img
+              src={currentTrack.imageUrl || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300'}
+              alt={currentTrack.title}
+              onError={(e) => {
+                e.target.src = 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300';
+              }}
+            />
+            {isLoading && (
+              <div className="artwork-overlay">
+                <Loader2 className="animate-spin" size={24} />
+              </div>
+            )}
+          </div>
+
+          <div className="track-details">
+            <h3 className="track-title">{currentTrack.title}</h3>
+            <p className="track-artist">{currentTrack.artist}</p>
+            {currentTrack.album && (
+              <p className="track-album">{currentTrack.album}</p>
+            )}
+          </div>
+
+          <div className="track-actions">
+            <button
+              className={`action-btn like-btn ${isLiked ? 'liked' : ''}`}
+              onClick={handleLikeToggle}
+              title={isAuthenticated ? 'Like song' : 'Sign in to like songs'}
+            >
+              <Heart size={16} />
+            </button>
+            <button className="action-btn" title="More options">
+              <MoreHorizontal size={16} />
+            </button>
+            <button className="action-btn minimize-btn" onClick={onToggleMinimize}>
+              <Minimize2 size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="player-section controls">
+          <div className="control-buttons">
+            <button
+              className={`control-btn ${isShuffled ? 'active' : ''}`}
+              onClick={toggleShuffle}
+              title="Shuffle"
+            >
+              <Shuffle size={16} />
+            </button>
+
+            <button className="control-btn" onClick={previousTrack} title="Previous">
+              <SkipBack size={20} />
+            </button>
+
+            <button
+              className="play-pause-btn"
+              onClick={togglePlayPause}
+              disabled={isLoading}
+              title={isPlaying ? 'Pause' : 'Play'}
+            >
+              {isLoading ? (
+                <Loader2 className="animate-spin" size={24} />
+              ) : isPlaying ? (
+                <Pause size={24} />
+              ) : (
+                <Play size={24} />
+              )}
+            </button>
+
+            <button className="control-btn" onClick={nextTrack} title="Next">
+              <SkipForward size={20} />
+            </button>
+
+            <button
+              className={`control-btn ${repeatMode !== 'none' ? 'active' : ''}`}
+              onClick={toggleRepeat}
+              title={`Repeat: ${repeatMode}`}
+            >
+              {getRepeatIcon()}
+            </button>
+          </div>
+
+          <div className="progress-section">
+            <span className="time-display">{formatTime(currentTime)}</span>
+            <div
+              className="progress-container"
+              ref={progressRef}
+              onClick={handleProgressClick}
+            >
+              <div className="progress-track">
+                <div
+                  className="progress-fill"
+                  style={{ width: `${progress}%` }}
+                />
+                <div
+                  className="progress-handle"
+                  style={{ left: `${progress}%` }}
+                />
+              </div>
+            </div>
+            <span className="time-display">{formatTime(duration)}</span>
+          </div>
+        </div>
+
+        {/* Volume */}
+        <div className="player-section volume-section">
+          <button
+            className="volume-btn"
+            onClick={toggleMute}
+            title={isMuted ? 'Unmute' : 'Mute'}
+          >
+            {isMuted || volume === 0 ? (
+              <VolumeX size={16} />
+            ) : (
+              <Volume2 size={16} />
+            )}
+          </button>
+
+          <div className="volume-slider-container">
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={isMuted ? 0 : volume}
+              onChange={handleVolumeChange}
+              className="volume-slider"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default MusicPlayer;

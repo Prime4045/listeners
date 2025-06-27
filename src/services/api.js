@@ -135,8 +135,13 @@ const ApiService = {
     return this.makeRequest(`/music/database/trending?limit=${limit}`);
   },
 
-  async searchMusic(query, limit = 20) {
-    return this.makeRequest(`/music/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  async searchMusic(query, limit = 20, offset = 0) {
+    const params = new URLSearchParams({
+      q: query,
+      limit: limit.toString(),
+      offset: offset.toString()
+    });
+    return this.makeRequest(`/music/search?${params}`);
   },
 
   async playTrack(spotifyId, playData = {}) {

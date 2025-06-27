@@ -26,6 +26,7 @@ import AuthModal from './components/auth/AuthModal';
 import AuthCallback from './components/auth/AuthCallback';
 import Dashboard from './components/Dashboard/Dashboard';
 import Profile from './components/Profile/Profile';
+import MusicPlayer from './components/MusicPlayer/MusicPlayer';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { MusicProvider } from './contexts/MusicContext';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -52,14 +53,25 @@ const AppContent = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [authModal, setAuthModal] = useState({ isOpen: false, mode: 'login' });
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMoreSongs, setHasMoreSongs] = useState(true);
-  const location = useLocation();
+  const [isPlayerMinimized, setIsPlayerMinimized] = useState(false);
+  
+  // Search pagination
+  const [searchPagination, setSearchPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalResults: 0
+  });
+  
+  // Database songs pagination
+  const [dbPagination, setDbPagination] = useState({
+    currentPage: 1,
+    hasMore: true
+  });
 
+  const location = useLocation();
   const { user, isAuthenticated, logout, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    // Check for error in location state (from OAuth callback)
     if (location.state?.error) {
       setError(location.state.error);
     }
@@ -68,9 +80,10 @@ const AppContent = () => {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchQuery.trim() && searchQuery.length >= 2) {
-        handleSearch();
+        handleSearch(1); // Reset to page 1 for new search
       } else if (searchQuery.trim() === '') {
         setSearchResults([]);
+        setSearchPagination({ currentPage: 1, totalPages: 1, totalResults: 0 });
         if (currentView === 'search') {
           setCurrentView('home');
         }
@@ -83,7 +96,7 @@ const AppContent = () => {
   const loadDatabaseSongs = async (page = 1) => {
     try {
       setIsLoading(true);
-      const response = await ApiService.getDatabaseSongs(page, 50);
+      const response = await ApiService.getDatabaseSongs(page, 20);
 
       if (page === 1) {
         setDatabaseSongs(response.songs || []);
@@ -91,7 +104,10 @@ const AppContent = () => {
         setDatabaseSongs(prev => [...prev, ...(response.songs || [])]);
       }
 
-      setHasMoreSongs(response.pagination?.hasNext || false);
+      setDbPagination({
+        currentPage: page,
+        hasMore: response.pagination?.hasNext || false
+      });
       setError(null);
     } catch (err) {
       console.error('Failed to load database songs:', err);
@@ -125,20 +141,36 @@ const AppContent = () => {
     }
   };
 
-  const handleSearch = async () => {
+  const handleSearch = async (page = 1) => {
     if (!searchQuery.trim() || searchQuery.length < 2) return;
 
     try {
       setIsSearching(true);
       setError(null);
 
-      const results = await ApiService.searchMusic(searchQuery.trim(), 20);
+      const limit = 20;
+      const offset = (page - 1) * limit;
+      const results = await ApiService.searchMusic(searchQuery.trim(), limit, offset);
+      
       console.log('Search results:', {
         query: searchQuery,
+        page,
         total: results.songs?.length,
-        spotifyCount: results.spotifyCount,
+        totalResults: results.total
       });
-      setSearchResults(results.songs || []);
+
+      if (page === 1) {
+        setSearchResults(results.songs || []);
+      } else {
+        setSearchResults(prev => [...prev, ...(results.songs || [])]);
+      }
+
+      setSearchPagination({
+        currentPage: page,
+        totalPages: Math.ceil((results.total || 0) / limit),
+        totalResults: results.total || 0
+      });
+
       setCurrentView('search');
     } catch (error) {
       console.error('Search failed:', error);
@@ -147,6 +179,10 @@ const AppContent = () => {
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleSearchPageChange = (page) => {
+    handleSearch(page);
   };
 
   const handleSearchInputChange = (e) => {
@@ -160,8 +196,12 @@ const AppContent = () => {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      handleSearch();
+      handleSearch(1);
     }
+  };
+
+  const handleAuthRequired = () => {
+    setAuthModal({ isOpen: true, mode: 'login' });
   };
 
   useEffect(() => {
@@ -172,49 +212,6 @@ const AppContent = () => {
       loadLikedSongs();
     }
   }, [currentView, isAuthenticated]);
-
-  const handleTrackSelect = async (track) => {
-    try {
-      setError(null);
-
-      if (!track.canPlay) {
-        setError(track.message || 'This song is not available for playback yet.');
-        return;
-      }
-
-      if (!isAuthenticated) {
-        setAuthModal({ isOpen: true, mode: 'login' });
-        return;
-      }
-
-      const response = await ApiService.playTrack(track.spotifyId);
-      const tracks = currentView === 'search' ? searchResults :
-        currentView === 'liked' ? likedSongs : databaseSongs;
-
-      const updatedTrack = {
-        ...track,
-        audioUrl: response.audioUrl,
-        isInDatabase: response.isInDatabase,
-        canPlay: true,
-        spotifyData: response.spotifyData,
-      };
-
-      if (response.isNewlyAdded && currentView === 'search') {
-        setSearchResults(prev =>
-          prev.map(t =>
-            t.spotifyId === track.spotifyId ? { ...t, isInDatabase: true } : t
-          )
-        );
-        // Refresh available songs to include newly added song
-        await loadDatabaseSongs(1);
-      }
-
-      await playTrack(updatedTrack, tracks);
-    } catch (err) {
-      console.error('Failed to play track:', err);
-      setError(err.message || 'Failed to play track. Please try again.');
-    }
-  };
 
   useEffect(() => {
     if (user?.preferences?.theme) {
@@ -270,6 +267,11 @@ const AppContent = () => {
               <h2>
                 {isSearching ? 'Searching...' : searchQuery ? `Results for "${searchQuery}"` : 'Search Music'}
               </h2>
+              {searchPagination.totalResults > 0 && (
+                <span className="results-count">
+                  {searchPagination.totalResults} results found
+                </span>
+              )}
             </div>
 
             {error && (
@@ -279,16 +281,16 @@ const AppContent = () => {
               </div>
             )}
 
-            {isSearching && (
-              <div className="loading-indicator">
-                <Loader2 className="animate-spin" size={20} />
-                <span>Searching for music...</span>
-              </div>
-            )}
-
-            {!isSearching && searchResults.length > 0 && (
-              <TrackList tracks={searchResults} />
-            )}
+            <TrackList 
+              tracks={searchResults}
+              onAuthRequired={handleAuthRequired}
+              showPagination={true}
+              currentPage={searchPagination.currentPage}
+              totalPages={searchPagination.totalPages}
+              onPageChange={handleSearchPageChange}
+              isLoading={isSearching}
+              searchQuery={searchQuery}
+            />
 
             {!isSearching && searchQuery && searchResults.length === 0 && (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
@@ -313,15 +315,15 @@ const AppContent = () => {
               <Library className="section-icon" />
               <h2>Music Library</h2>
             </div>
-            <TrackList tracks={databaseSongs} />
-            {hasMoreSongs && (
+            <TrackList 
+              tracks={databaseSongs}
+              onAuthRequired={handleAuthRequired}
+              isLoading={isLoading}
+            />
+            {dbPagination.hasMore && (
               <div style={{ textAlign: 'center', padding: '2rem' }}>
                 <button
-                  onClick={() => {
-                    const nextPage = currentPage + 1;
-                    setCurrentPage(nextPage);
-                    loadDatabaseSongs(nextPage);
-                  }}
+                  onClick={() => loadDatabaseSongs(dbPagination.currentPage + 1)}
                   disabled={isLoading}
                   style={{
                     padding: '0.75rem 1.5rem',
@@ -346,7 +348,10 @@ const AppContent = () => {
               <h2>Liked Songs</h2>
             </div>
             {isAuthenticated ? (
-              <TrackList tracks={likedSongs} />
+              <TrackList 
+                tracks={likedSongs}
+                onAuthRequired={handleAuthRequired}
+              />
             ) : (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
                 <Heart size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
@@ -679,6 +684,12 @@ const AppContent = () => {
           <main className="main-content">{renderMainContent()}</main>
         </div>
       </div>
+
+      {/* Music Player */}
+      <MusicPlayer 
+        isMinimized={isPlayerMinimized}
+        onToggleMinimize={() => setIsPlayerMinimized(!isPlayerMinimized)}
+      />
 
       <AuthModal
         isOpen={authModal.isOpen}
