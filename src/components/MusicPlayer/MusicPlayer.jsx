@@ -14,7 +14,6 @@ import {
     Minimize2,
     Maximize2,
     PictureInPicture2,
-    Mic2,
     ListMusic,
     Monitor
 } from 'lucide-react';
@@ -49,11 +48,20 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
     const [isLiked, setIsLiked] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const progressRef = useRef(null);
+    const volumeSliderRef = useRef(null);
 
     // Update muted state when volume changes
     useEffect(() => {
         setIsMuted(volume === 0);
     }, [volume]);
+
+    // Update volume slider fill
+    useEffect(() => {
+        if (volumeSliderRef.current) {
+            const percentage = (isMuted ? 0 : volume) * 100;
+            volumeSliderRef.current.style.setProperty('--volume-percentage', `${percentage}%`);
+        }
+    }, [volume, isMuted]);
 
     const handleVolumeChange = (e) => {
         const newVolume = parseFloat(e.target.value);
@@ -346,6 +354,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
 
                     <div className="volume-slider-container">
                         <input
+                            ref={volumeSliderRef}
                             type="range"
                             min="0"
                             max="1"
