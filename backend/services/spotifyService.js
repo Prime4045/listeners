@@ -18,7 +18,6 @@ class SpotifyService {
      */
     async getAccessToken() {
         if (this.accessToken && this.tokenExpiresAt > Date.now()) {
-            console.log('Using cached Spotify access token');
             return this.accessToken;
         }
 
@@ -28,7 +27,6 @@ class SpotifyService {
             }
 
             const authString = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
-            console.log('Requesting new Spotify access token');
 
             const response = await axios.post(
                 this.authURL,
@@ -45,7 +43,6 @@ class SpotifyService {
             this.accessToken = response.data.access_token;
             this.tokenExpiresAt = Date.now() + (response.data.expires_in * 1000) - 60000;
 
-            console.log('Spotify access token obtained successfully');
             return this.accessToken;
         } catch (error) {
             console.error('Spotify token error:', {
@@ -68,11 +65,6 @@ class SpotifyService {
                     },
                     params: { ...params, market: params.market || this.defaultMarket },
                     timeout: 15000,
-                });
-
-                console.log(`Spotify API request successful: ${endpoint}`, {
-                    params,
-                    status: response.status
                 });
                 return response.data;
             } catch (error) {
@@ -113,7 +105,6 @@ class SpotifyService {
 
             const cached = await redisClient.get(cacheKey);
             if (cached) {
-                console.log('Returning cached Spotify search results');
                 return JSON.parse(cached);
             }
 
@@ -155,8 +146,6 @@ class SpotifyService {
             const track = this.formatTrack(data);
 
             await redisClient.setEx(cacheKey, 86400, JSON.stringify(track));
-
-            console.log('Spotify track fetched:', { trackId, market });
             return track;
         } catch (error) {
             console.error('Get track error:', error.message);
@@ -167,24 +156,14 @@ class SpotifyService {
     async getTrendingTracks(limit = 20, market = this.defaultMarket) {
         try {
             const cacheKey = `spotify:trending:${limit}:${market}`;
-
             const cached = await redisClient.get(cacheKey);
             if (cached) {
-                console.log('Returning cached trending tracks');
                 return JSON.parse(cached);
             }
 
-            const playlistsData = await this.makeRequest('/browse/featured-playlists', {
-                limit: 5,
-                market,
-            });
-
-            if (!playlistsData.playlists?.items?.length) {
-                return [];
-            }
-
-            const firstPlaylist = playlistsData.playlists.items[0];
-            const tracksData = await this.makeRequest(`/playlists/${firstPlaylist.id}/tracks`, {
+            // Use a specific playlist ID for trending tracks (e.g., Today's Top Hits)
+            const playlistId = process.env.TODAYS_TOP_HITS_PLAYLIST_ID || '4nqbYFYZOCospBb4miwHWy'; // Default to Today's Top Hits
+            const tracksData = await this.makeRequest(`/playlists/${playlistId}/tracks`, {
                 limit,
                 market,
             });
@@ -195,11 +174,10 @@ class SpotifyService {
 
             await redisClient.setEx(cacheKey, 3600, JSON.stringify(tracks));
 
-            console.log('Trending tracks fetched:', { total: tracks.length, market });
             return tracks;
         } catch (error) {
             console.error('Get trending tracks error:', error.message);
-            throw new Error(`Failed to load trending songs: ${error.message}`);
+            throw new Error(`Failed to load trending tracks: ${error.message}`);
         }
     }
 
@@ -213,40 +191,20 @@ class SpotifyService {
                 return JSON.parse(cached);
             }
 
-            const data = await this.makeRequest(`/browse/new-releases`, {
+            // Use a specific playlist ID for new releases (e.g., New Music Friday India)
+            const playlistId = process.env.NEW_MUSIC_FRIDAY_PLAYLIST_ID || '61ouNCQI2mMIikGAMJxskf'; // Default to New Music Friday India
+            const tracksData = await this.makeRequest(`/playlists/${playlistId}/tracks`, {
                 limit,
                 market,
             });
 
-            const albums = data.albums?.items || [];
-            const tracks = [];
+            const tracks = this.formatTracks(
+                tracksData.items?.map(item => item.track).filter(track => track && track.id) || []
+            );
 
-            for (const album of albums.slice(0, Math.ceil(limit / 2))) {
-                try {
-                    const albumTracks = await this.makeRequest(`/albums/${album.id}/tracks`, {
-                        limit: 2,
-                        market,
-                    });
+            await redisClient.setEx(cacheKey, 7200, JSON.stringify(tracks));
 
-                    const formattedTracks = albumTracks.items?.map(track => ({
-                        ...this.formatTrack(track),
-                        album: album.name,
-                        imageUrl: album.images?.[0]?.url,
-                        releaseDate: album.release_date,
-                    })) || [];
-
-                    tracks.push(...formattedTracks);
-                } catch (err) {
-                    console.error(`Error fetching album tracks for ${album.id}:`, err.message);
-                }
-            }
-
-            const limitedTracks = tracks.slice(0, limit);
-
-            await redisClient.setEx(cacheKey, 7200, JSON.stringify(limitedTracks));
-
-            console.log('New releases fetched:', { total: limitedTracks.length, market });
-            return limitedTracks;
+            return tracks;
         } catch (error) {
             console.error('Get new releases error:', error.message);
             throw new Error(`Failed to get new releases: ${error.message}`);
@@ -258,7 +216,6 @@ class SpotifyService {
             const enhancedQuery = `${query} genre:Bollywood`;
             return await this.searchTracks(enhancedQuery, limit, market);
         } catch (error) {
-            console.error('Search Bollywood tracks error:', error.message);
             throw new Error(`Failed to search Bollywood tracks: ${error.message}`);
         }
     }

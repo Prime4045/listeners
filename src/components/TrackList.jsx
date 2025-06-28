@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { 
-  Play, 
-  Pause, 
-  Heart, 
-  Plus, 
-  MoreHorizontal, 
-  Clock, 
+import {
+  Play,
+  Pause,
+  Heart,
+  Plus,
+  MoreHorizontal,
+  Clock,
   Music,
   AlertCircle,
   Loader2
@@ -14,8 +14,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useMusic } from '../contexts/MusicContext';
 import './TrackList.css';
 
-const TrackList = ({ 
-  tracks = [], 
+const TrackList = ({
+  tracks = [],
   onAuthRequired,
   showPagination = false,
   currentPage = 1,
@@ -50,7 +50,7 @@ const TrackList = ({
       onAuthRequired?.();
       return;
     }
-    
+
     // Toggle like status
     const newLikedTracks = new Set(likedTracks);
     if (likedTracks.has(track.spotifyId)) {
@@ -80,7 +80,7 @@ const TrackList = ({
         <Music size={48} />
         <h3>No tracks found</h3>
         <p>
-          {searchQuery 
+          {searchQuery
             ? `No results found for "${searchQuery}". Try different keywords.`
             : 'No tracks available at the moment.'
           }
@@ -199,11 +199,11 @@ const TrackList = ({
               >
                 Previous
               </button>
-              
+
               <div className="pagination-info">
                 <span>Page {currentPage} of {totalPages}</span>
               </div>
-              
+
               <div className="pagination-numbers">
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   let pageNum;

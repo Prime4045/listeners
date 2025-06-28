@@ -54,14 +54,14 @@ const AppContent = () => {
   const [authModal, setAuthModal] = useState({ isOpen: false, mode: 'login' });
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isPlayerMinimized, setIsPlayerMinimized] = useState(false);
-  
+
   // Search pagination
   const [searchPagination, setSearchPagination] = useState({
     currentPage: 1,
     totalPages: 1,
     totalResults: 0
   });
-  
+
   // Database songs pagination
   const [dbPagination, setDbPagination] = useState({
     currentPage: 1,
@@ -151,7 +151,7 @@ const AppContent = () => {
       const limit = 20;
       const offset = (page - 1) * limit;
       const results = await ApiService.searchMusic(searchQuery.trim(), limit, offset);
-      
+
       console.log('Search results:', {
         query: searchQuery,
         page,
@@ -281,7 +281,7 @@ const AppContent = () => {
               </div>
             )}
 
-            <TrackList 
+            <TrackList
               tracks={searchResults}
               onAuthRequired={handleAuthRequired}
               showPagination={true}
@@ -315,7 +315,7 @@ const AppContent = () => {
               <Library className="section-icon" />
               <h2>Music Library</h2>
             </div>
-            <TrackList 
+            <TrackList
               tracks={databaseSongs}
               onAuthRequired={handleAuthRequired}
               isLoading={isLoading}
@@ -348,7 +348,7 @@ const AppContent = () => {
               <h2>Liked Songs</h2>
             </div>
             {isAuthenticated ? (
-              <TrackList 
+              <TrackList
                 tracks={likedSongs}
                 onAuthRequired={handleAuthRequired}
               />
@@ -563,7 +563,7 @@ const AppContent = () => {
                       </div>
 
                       <div className="dropdown-menu">
-                        <button 
+                        <button
                           className="dropdown-item"
                           onClick={() => {
                             setCurrentView('dashboard');
@@ -573,7 +573,7 @@ const AppContent = () => {
                           <Home size={16} />
                           <span>Dashboard</span>
                         </button>
-                        <button 
+                        <button
                           className="dropdown-item"
                           onClick={() => {
                             setCurrentView('profile');
@@ -686,7 +686,7 @@ const AppContent = () => {
       </div>
 
       {/* Music Player */}
-      <MusicPlayer 
+      <MusicPlayer
         isMinimized={isPlayerMinimized}
         onToggleMinimize={() => setIsPlayerMinimized(!isPlayerMinimized)}
       />

@@ -22,7 +22,8 @@ body.light {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding-bottom: 100px; /* Space for music player */
+  padding-bottom: 100px;
+  /* Space for music player */
 }
 
 /* Loading Screen */
@@ -853,7 +854,7 @@ body.light {
   }
 
   .app-container {
-    padding-bottom: 120px; /* More space for mobile player */
+    padding-bottom: 120px;
   }
 }
 
@@ -897,7 +898,7 @@ body.light {
   }
 
   .app-container {
-    padding-bottom: 140px; /* Even more space for mobile player */
+    padding-bottom: 140px;
   }
 }
 

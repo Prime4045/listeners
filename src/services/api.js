@@ -17,11 +17,11 @@ const ApiService = {
       });
 
       const result = await response.json();
-      
+
       if (!response.ok) {
         throw result;
       }
-      
+
       return result;
     } catch (error) {
       // Handle network errors
@@ -50,12 +50,12 @@ const ApiService = {
       body: formData,
       credentials: 'include',
       headers: {
-        ...(localStorage.getItem('token') && { 
-          Authorization: `Bearer ${localStorage.getItem('token')}` 
+        ...(localStorage.getItem('token') && {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
         }),
       },
     });
-    
+
     const result = await response.json();
     if (!response.ok) throw result;
     return result;
@@ -90,12 +90,12 @@ const ApiService = {
       body: formData,
       credentials: 'include',
       headers: {
-        ...(localStorage.getItem('token') && { 
-          Authorization: `Bearer ${localStorage.getItem('token')}` 
+        ...(localStorage.getItem('token') && {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
         }),
       },
     });
-    
+
     const result = await response.json();
     if (!response.ok) throw result;
     return result;

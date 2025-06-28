@@ -8,7 +8,7 @@ class S3Service {
             region: process.env.AWS_REGION || 'us-east-1',
             signatureVersion: 'v4',
         });
-        this.bucketName = process.env.AWS_S3_BUCKET_NAME || 'listeners-audio-files';
+        this.bucketName = process.env.AWS_S3_BUCKET_NAME || 'listeners101';
         this.urlExpiration = 3600; // 1 hour
     }
 
@@ -19,7 +19,7 @@ class S3Service {
         try {
             const params = {
                 Bucket: this.bucketName,
-                Key: `audio/${spotifyId}.mp3`,
+                Key: `${spotifyId}`,
             };
 
             await this.s3.headObject(params).promise();
@@ -44,7 +44,7 @@ class S3Service {
      */
     async getAudioUrl(spotifyId) {
         try {
-            const key = `audio/${spotifyId}.mp3`;
+            const key = `${spotifyId}`;
             // First check if file exists
             const exists = await this.audioExists(spotifyId);
             if (!exists) {
@@ -79,7 +79,7 @@ class S3Service {
         try {
             const params = {
                 Bucket: this.bucketName,
-                Key: `audio/${spotifyId}.mp3`,
+                Key: `${spotifyId}`,
             };
 
             const stream = this.s3.getObject(params).createReadStream();
@@ -135,7 +135,7 @@ class S3Service {
         try {
             const params = {
                 Bucket: this.bucketName,
-                Key: `audio/${spotifyId}.mp3`,
+                Key: `${spotifyId}`,
             };
 
             const data = await this.s3.headObject(params).promise();
@@ -168,7 +168,7 @@ class S3Service {
         try {
             const params = {
                 Bucket: this.bucketName,
-                Key: `audio/${spotifyId}.mp3`,
+                Key: `${spotifyId}`,
                 Body: audioBuffer,
                 ContentType: 'audio/mpeg',
                 CacheControl: 'max-age=31536000', // 1 year
@@ -201,7 +201,7 @@ class S3Service {
         try {
             const params = {
                 Bucket: this.bucketName,
-                Key: `audio/${spotifyId}.mp3`,
+                Key: `${spotifyId}`,
             };
 
             await this.s3.deleteObject(params).promise();
@@ -224,7 +224,7 @@ class S3Service {
             const params = {
                 Bucket: this.bucketName,
                 Fields: {
-                    key: `audio/${spotifyId}.mp3`,
+                    key: `${spotifyId}`,
                     'Content-Type': 'audio/mpeg',
                 },
                 Expires: expiresIn,

@@ -81,7 +81,6 @@ router.get('/search', optionalAuth, async (req, res) => {
     let spotifyTracks = await cacheService.getCachedSpotifySearch(cacheKey);
 
     if (!spotifyTracks) {
-      console.log('Fetching from Spotify API:', { query, limit: searchLimit });
       spotifyTracks = await spotifyService.searchTracks(query.trim(), searchLimit);
       await cacheService.cacheSpotifySearch(cacheKey, spotifyTracks, 15 * 60);
     } else {
@@ -132,8 +131,6 @@ router.post('/:spotifyId/play', authenticateToken, async (req, res) => {
   try {
     const { spotifyId } = req.params;
     const { playDuration = 0, completedPercentage = 0 } = req.body;
-
-    console.log(`Play request for track: ${spotifyId}`);
 
     // Check if song exists in database first
     let song = await Song.findOne({ spotifyId });
@@ -209,7 +206,6 @@ router.post('/:spotifyId/play', authenticateToken, async (req, res) => {
     }
 
     // Fetch track metadata from Spotify
-    console.log('Fetching track metadata from Spotify:', spotifyId);
     const spotifyTrack = await spotifyService.getTrack(spotifyId);
     // Generate S3 signed URL
     const audioUrl = await s3Service.getAudioUrl(spotifyId);
@@ -273,7 +269,6 @@ router.post('/:spotifyId/play', authenticateToken, async (req, res) => {
     await cacheService.cacheSong(spotifyId, songData);
     await cacheService.invalidateSearchCaches();
 
-    console.log('Successfully created and played new song:', spotifyId);
     res.json(songData);
   } catch (error) {
     console.error('Play error:', {
@@ -393,7 +388,6 @@ router.get('/database/trending', optionalAuth, async (req, res) => {
 
     // Get trending from Spotify
     const spotifyTracks = await spotifyService.getTrendingTracks(limit);
-    console.log('Trending tracks fetched from Spotify:', { count: spotifyTracks.length });
 
     // Check S3 availability and database status
     const formattedSongs = await Promise.all(
