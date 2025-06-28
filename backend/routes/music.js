@@ -217,26 +217,32 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
     const audioUrl = await s3Service.getAudioUrl(spotifyId);
     const fileMetadata = await s3Service.getFileMetadata(spotifyId);
 
-    // Create new song in database
-    song = new Song({
-      spotifyId: spotifyTrack.spotifyId,
-      title: spotifyTrack.title,
-      artist: spotifyTrack.artist,
-      album: spotifyTrack.album,
-      duration: spotifyTrack.duration,
-      imageUrl: spotifyTrack.imageUrl,
-      audioUrl: audioUrl,
-      genre: spotifyTrack.genre || null,
-      releaseDate: spotifyTrack.releaseDate,
-      popularity: spotifyTrack.popularity,
-      explicit: spotifyTrack.explicit,
-      spotifyData: spotifyTrack.spotifyData,
-      s3Key: spotifyId,
-      audioMetadata: fileMetadata,
-      playCount: 1,
-    });
-
-    await song.save();
+    // Create new song in database with upsert to handle duplicates
+    song = await Song.findOneAndUpdate(
+      { spotifyId: spotifyTrack.spotifyId },
+      {
+        spotifyId: spotifyTrack.spotifyId,
+        title: spotifyTrack.title,
+        artist: spotifyTrack.artist,
+        album: spotifyTrack.album,
+        duration: spotifyTrack.duration,
+        imageUrl: spotifyTrack.imageUrl,
+        audioUrl: audioUrl,
+        genre: spotifyTrack.genre || null,
+        releaseDate: spotifyTrack.releaseDate,
+        popularity: spotifyTrack.popularity,
+        explicit: spotifyTrack.explicit,
+        spotifyData: spotifyTrack.spotifyData,
+        s3Key: spotifyId,
+        audioMetadata: fileMetadata,
+        $inc: { playCount: 1 },
+      },
+      { 
+        upsert: true, 
+        new: true,
+        setDefaultsOnInsert: true
+      }
+    );
 
     // Record play history only if user is authenticated
     if (req.user) {
