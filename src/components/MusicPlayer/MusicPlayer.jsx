@@ -43,23 +43,24 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
     } = useMusic();
 
     const [isMuted, setIsMuted] = useState(false);
-    const [isDragging, setIsDragging] = useState(false);
     const [isLiked, setIsLiked] = useState(false);
     const progressRef = useRef(null);
+
+    // Update muted state when volume changes
+    useEffect(() => {
+        setIsMuted(volume === 0);
+    }, [volume]);
 
     const handleVolumeChange = (e) => {
         const newVolume = parseFloat(e.target.value);
         setVolume(newVolume);
-        setIsMuted(newVolume === 0);
     };
 
     const toggleMute = () => {
-        if (isMuted) {
+        if (isMuted || volume === 0) {
             setVolume(0.5);
-            setIsMuted(false);
         } else {
             setVolume(0);
-            setIsMuted(true);
         }
     };
 
@@ -150,9 +151,11 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                         </button>
                     </div>
 
-                    <button className="expand-btn" onClick={onToggleMinimize}>
-                        <Maximize2 size={16} />
-                    </button>
+                    {onToggleMinimize && (
+                        <button className="expand-btn" onClick={onToggleMinimize}>
+                            <Maximize2 size={16} />
+                        </button>
+                    )}
                 </div>
 
                 <div className="minimized-progress">
@@ -214,9 +217,11 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                         <button className="action-btn" title="More options">
                             <MoreHorizontal size={16} />
                         </button>
-                        <button className="action-btn minimize-btn" onClick={onToggleMinimize}>
-                            <Minimize2 size={16} />
-                        </button>
+                        {onToggleMinimize && (
+                            <button className="action-btn minimize-btn" onClick={onToggleMinimize}>
+                                <Minimize2 size={16} />
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -316,4 +321,5 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
     );
 };
 
+// Export as default
 export default MusicPlayer;
