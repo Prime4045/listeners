@@ -126,11 +126,13 @@ router.get('/search', optionalAuth, async (req, res) => {
   }
 });
 
-// Play a song (main endpoint for audio playback)
-router.post('/:spotifyId/play', authenticateToken, async (req, res) => {
+// Play a song (main endpoint for audio playback) - Allow guest access
+router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
   try {
     const { spotifyId } = req.params;
     const { playDuration = 0, completedPercentage = 0 } = req.body;
+
+    console.log(`Play request for track: ${spotifyId}`);
 
     // Check if song exists in database first
     let song = await Song.findOne({ spotifyId });
@@ -143,19 +145,21 @@ router.post('/:spotifyId/play', authenticateToken, async (req, res) => {
         await song.incrementPlayCount();
         await song.save();
 
-        // Record play history
-        const playHistory = new PlayHistory({
-          user: req.user._id,
-          song: song._id,
-          playDuration,
-          completedPercentage,
-          deviceInfo: {
-            userAgent: req.get('User-Agent'),
-            platform: req.get('Sec-Ch-Ua-Platform'),
-          },
-          sessionId: req.sessionID
-        });
-        await playHistory.save();
+        // Record play history only if user is authenticated
+        if (req.user) {
+          const playHistory = new PlayHistory({
+            user: req.user._id,
+            song: song._id,
+            playDuration,
+            completedPercentage,
+            deviceInfo: {
+              userAgent: req.get('User-Agent'),
+              platform: req.get('Sec-Ch-Ua-Platform'),
+            },
+            sessionId: req.sessionID
+          });
+          await playHistory.save();
+        }
 
         const songData = {
           spotifyId: song.spotifyId,
@@ -206,7 +210,9 @@ router.post('/:spotifyId/play', authenticateToken, async (req, res) => {
     }
 
     // Fetch track metadata from Spotify
+    console.log('Fetching track metadata from Spotify:', spotifyId);
     const spotifyTrack = await spotifyService.getTrack(spotifyId);
+    
     // Generate S3 signed URL
     const audioUrl = await s3Service.getAudioUrl(spotifyId);
     const fileMetadata = await s3Service.getFileMetadata(spotifyId);
@@ -225,26 +231,28 @@ router.post('/:spotifyId/play', authenticateToken, async (req, res) => {
       popularity: spotifyTrack.popularity,
       explicit: spotifyTrack.explicit,
       spotifyData: spotifyTrack.spotifyData,
-      s3Key: `audio/${spotifyId}.mp3`,
+      s3Key: spotifyId,
       audioMetadata: fileMetadata,
       playCount: 1,
     });
 
     await song.save();
 
-    // Record play history
-    const playHistory = new PlayHistory({
-      user: req.user._id,
-      song: song._id,
-      playDuration,
-      completedPercentage,
-      deviceInfo: {
-        userAgent: req.get('User-Agent'),
-        platform: req.get('Sec-Ch-Ua-Platform'),
-      },
-      sessionId: req.sessionID
-    });
-    await playHistory.save();
+    // Record play history only if user is authenticated
+    if (req.user) {
+      const playHistory = new PlayHistory({
+        user: req.user._id,
+        song: song._id,
+        playDuration,
+        completedPercentage,
+        deviceInfo: {
+          userAgent: req.get('User-Agent'),
+          platform: req.get('Sec-Ch-Ua-Platform'),
+        },
+        sessionId: req.sessionID
+      });
+      await playHistory.save();
+    }
 
     const songData = {
       spotifyId: song.spotifyId,
@@ -269,6 +277,7 @@ router.post('/:spotifyId/play', authenticateToken, async (req, res) => {
     await cacheService.cacheSong(spotifyId, songData);
     await cacheService.invalidateSearchCaches();
 
+    console.log('Successfully created and played new song:', spotifyId);
     res.json(songData);
   } catch (error) {
     console.error('Play error:', {
@@ -437,7 +446,7 @@ router.get('/database/trending', optionalAuth, async (req, res) => {
   }
 });
 
-// Like/unlike a song
+// Like/unlike a song - Requires authentication
 router.post('/:spotifyId/like', authenticateToken, async (req, res) => {
   try {
     const { spotifyId } = req.params;
@@ -470,7 +479,7 @@ router.post('/:spotifyId/like', authenticateToken, async (req, res) => {
   }
 });
 
-// Get user's liked songs
+// Get user's liked songs - Requires authentication
 router.get('/user/liked', authenticateToken, async (req, res) => {
   try {
     const { limit = 50, skip = 0 } = req.query;
@@ -511,7 +520,7 @@ router.get('/user/liked', authenticateToken, async (req, res) => {
   }
 });
 
-// Get user's play history
+// Get user's play history - Requires authentication
 router.get('/user/history', authenticateToken, async (req, res) => {
   try {
     const { limit = 50 } = req.query;

@@ -84,7 +84,7 @@ const songSchema = new mongoose.Schema({
   },
   s3Key: {
     type: String,
-    required: true, // S3 object key
+    required: true, // S3 object key (just the spotifyId)
   },
   audioMetadata: {
     size: Number,
