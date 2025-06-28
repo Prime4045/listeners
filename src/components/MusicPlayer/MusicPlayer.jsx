@@ -44,6 +44,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
 
     const [isMuted, setIsMuted] = useState(false);
     const [isLiked, setIsLiked] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
     const progressRef = useRef(null);
 
     // Update muted state when volume changes
@@ -70,8 +71,33 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
         const rect = progressRef.current.getBoundingClientRect();
         const clickX = e.clientX - rect.left;
         const percentage = (clickX / rect.width) * 100;
-        seekTo(percentage);
+        seekTo(Math.max(0, Math.min(100, percentage)));
     };
+
+    const handleProgressMouseDown = (e) => {
+        setIsDragging(true);
+        handleProgressClick(e);
+    };
+
+    const handleProgressMouseMove = (e) => {
+        if (!isDragging) return;
+        handleProgressClick(e);
+    };
+
+    const handleProgressMouseUp = () => {
+        setIsDragging(false);
+    };
+
+    useEffect(() => {
+        if (isDragging) {
+            document.addEventListener('mousemove', handleProgressMouseMove);
+            document.addEventListener('mouseup', handleProgressMouseUp);
+            return () => {
+                document.removeEventListener('mousemove', handleProgressMouseMove);
+                document.removeEventListener('mouseup', handleProgressMouseUp);
+            };
+        }
+    }, [isDragging]);
 
     const handleLikeToggle = () => {
         if (!isAuthenticated) {
@@ -86,12 +112,12 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
         if (repeatMode === 'one') {
             return (
                 <div className="repeat-one">
-                    <Repeat size={16} />
+                    <Repeat size={18} />
                     <span className="repeat-indicator">1</span>
                 </div>
             );
         }
-        return <Repeat size={16} />;
+        return <Repeat size={18} />;
     };
 
     if (!currentTrack) {
@@ -99,11 +125,11 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
             <div className={`music-player no-track ${isMinimized ? 'minimized' : ''}`}>
                 <div className="no-track-content">
                     <div className="no-track-icon">
-                        <Play size={24} />
+                        <Play size={28} />
                     </div>
                     <div className="no-track-text">
                         <h3>No song selected</h3>
-                        <p>Choose a song to start playing</p>
+                        <p>Choose a song to start your musical journey</p>
                     </div>
                 </div>
             </div>
@@ -130,30 +156,43 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                     </div>
 
                     <div className="minimized-controls">
-                        <button className="control-btn" onClick={previousTrack}>
-                            <SkipBack size={16} />
+                        <button 
+                            className="control-btn" 
+                            onClick={previousTrack}
+                            title="Previous track"
+                        >
+                            <SkipBack size={18} />
                         </button>
                         <button
                             className="play-pause-btn"
                             onClick={togglePlayPause}
                             disabled={isLoading}
+                            title={isPlaying ? 'Pause' : 'Play'}
                         >
                             {isLoading ? (
-                                <Loader2 className="animate-spin" size={16} />
+                                <Loader2 className="animate-spin" size={20} />
                             ) : isPlaying ? (
-                                <Pause size={16} />
+                                <Pause size={20} />
                             ) : (
-                                <Play size={16} />
+                                <Play size={20} />
                             )}
                         </button>
-                        <button className="control-btn" onClick={nextTrack}>
-                            <SkipForward size={16} />
+                        <button 
+                            className="control-btn" 
+                            onClick={nextTrack}
+                            title="Next track"
+                        >
+                            <SkipForward size={18} />
                         </button>
                     </div>
 
                     {onToggleMinimize && (
-                        <button className="expand-btn" onClick={onToggleMinimize}>
-                            <Maximize2 size={16} />
+                        <button 
+                            className="expand-btn" 
+                            onClick={onToggleMinimize}
+                            title="Expand player"
+                        >
+                            <Maximize2 size={18} />
                         </button>
                     )}
                 </div>
@@ -172,7 +211,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
         <div className="music-player">
             {error && (
                 <div className="player-error">
-                    <AlertCircle size={16} />
+                    <AlertCircle size={18} />
                     <span>{error}</span>
                     <button onClick={() => window.location.reload()}>
                         Retry
@@ -193,7 +232,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                         />
                         {isLoading && (
                             <div className="artwork-overlay">
-                                <Loader2 className="animate-spin" size={24} />
+                                <Loader2 className="animate-spin" size={28} />
                             </div>
                         )}
                     </div>
@@ -212,14 +251,21 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             onClick={handleLikeToggle}
                             title={isAuthenticated ? 'Like song' : 'Sign in to like songs'}
                         >
-                            <Heart size={16} />
+                            <Heart size={18} />
                         </button>
-                        <button className="action-btn" title="More options">
-                            <MoreHorizontal size={16} />
+                        <button 
+                            className="action-btn" 
+                            title="More options"
+                        >
+                            <MoreHorizontal size={18} />
                         </button>
                         {onToggleMinimize && (
-                            <button className="action-btn minimize-btn" onClick={onToggleMinimize}>
-                                <Minimize2 size={16} />
+                            <button 
+                                className="action-btn minimize-btn" 
+                                onClick={onToggleMinimize}
+                                title="Minimize player"
+                            >
+                                <Minimize2 size={18} />
                             </button>
                         )}
                     </div>
@@ -233,11 +279,15 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             onClick={toggleShuffle}
                             title="Shuffle"
                         >
-                            <Shuffle size={16} />
+                            <Shuffle size={18} />
                         </button>
 
-                        <button className="control-btn" onClick={previousTrack} title="Previous">
-                            <SkipBack size={20} />
+                        <button 
+                            className="control-btn" 
+                            onClick={previousTrack} 
+                            title="Previous track"
+                        >
+                            <SkipBack size={22} />
                         </button>
 
                         <button
@@ -247,16 +297,20 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             title={isPlaying ? 'Pause' : 'Play'}
                         >
                             {isLoading ? (
-                                <Loader2 className="animate-spin" size={24} />
+                                <Loader2 className="animate-spin" size={28} />
                             ) : isPlaying ? (
-                                <Pause size={24} />
+                                <Pause size={28} />
                             ) : (
-                                <Play size={24} />
+                                <Play size={28} />
                             )}
                         </button>
 
-                        <button className="control-btn" onClick={nextTrack} title="Next">
-                            <SkipForward size={20} />
+                        <button 
+                            className="control-btn" 
+                            onClick={nextTrack} 
+                            title="Next track"
+                        >
+                            <SkipForward size={22} />
                         </button>
 
                         <button
@@ -274,6 +328,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             className="progress-container"
                             ref={progressRef}
                             onClick={handleProgressClick}
+                            onMouseDown={handleProgressMouseDown}
                         >
                             <div className="progress-track">
                                 <div
@@ -298,9 +353,9 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                         title={isMuted ? 'Unmute' : 'Mute'}
                     >
                         {isMuted || volume === 0 ? (
-                            <VolumeX size={16} />
+                            <VolumeX size={18} />
                         ) : (
-                            <Volume2 size={16} />
+                            <Volume2 size={18} />
                         )}
                     </button>
 
@@ -313,6 +368,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             value={isMuted ? 0 : volume}
                             onChange={handleVolumeChange}
                             className="volume-slider"
+                            title={`Volume: ${Math.round((isMuted ? 0 : volume) * 100)}%`}
                         />
                     </div>
                 </div>
