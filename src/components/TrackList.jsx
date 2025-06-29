@@ -1,18 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  IoPlay, 
-  IoPause, 
-  IoHeart, 
-  IoHeartOutline, 
-  IoAdd, 
-  IoCheckmark, 
-  IoList, 
-  IoEllipsisHorizontal, 
-  IoTime, 
-  IoMusicalNotes, 
-  IoAlertCircle,
-  IoReload
-} from 'react-icons/io5';
 import { useMusic } from '../contexts/MusicContext';
 import './TrackList.css';
 
@@ -110,7 +96,7 @@ const TrackList = ({
   if (tracks.length === 0 && !isLoading) {
     return (
       <div className="track-list-empty">
-        <IoMusicalNotes size={48} />
+        <i className='bx bx-music' style={{ fontSize: '48px' }}></i>
         <h3>No tracks found</h3>
         <p>
           {searchQuery
@@ -126,7 +112,7 @@ const TrackList = ({
     <div className="track-list-container">
       {isLoading && (
         <div className="track-list-loading">
-          <IoReload size={24} className="animate-spin" />
+          <i className='bx bx-loader-alt bx-spin' style={{ fontSize: '24px' }}></i>
           <p>Loading tracks...</p>
         </div>
       )}
@@ -139,7 +125,7 @@ const TrackList = ({
               <div className="header-title">Title</div>
               <div className="header-album">Album</div>
               <div className="header-duration">
-                <IoTime size={16} />
+                <i className='bx bx-time' style={{ fontSize: '16px' }}></i>
               </div>
               <div className="header-actions">Actions</div>
             </div>
@@ -162,7 +148,7 @@ const TrackList = ({
                       <>
                         <span className="track-index">{index + 1}</span>
                         <button className="track-play-btn">
-                          <IoPlay size={14} />
+                          <i className='bx bx-play' style={{ fontSize: '14px' }}></i>
                         </button>
                       </>
                     ) : (
@@ -182,7 +168,7 @@ const TrackList = ({
                         />
                         {!track.canPlay && (
                           <div className="track-overlay">
-                            <IoAlertCircle size={16} />
+                            <i className='bx bx-error-circle' style={{ fontSize: '16px' }}></i>
                           </div>
                         )}
                       </div>
@@ -208,24 +194,24 @@ const TrackList = ({
                       onClick={(e) => handleLikeTrack(track, e)}
                       data-tooltip={isAuthenticated ? (isTrackLiked(track) ? 'Remove from liked songs' : 'Add to liked songs') : 'Sign in to like songs'}
                     >
-                      {isTrackLiked(track) ? <IoHeart size={16} /> : <IoHeartOutline size={16} />}
+                      <i className={`bx ${isTrackLiked(track) ? 'bxs-heart' : 'bx-heart'}`} style={{ fontSize: '16px' }}></i>
                     </button>
                     <button
                       className={`action-btn ${isTrackInLibrary(track) ? 'in-library' : ''}`}
                       onClick={(e) => handleAddToLibrary(track, e)}
                       data-tooltip={isAuthenticated ? (isTrackInLibrary(track) ? 'Remove from library' : 'Add to library') : 'Sign in to add to library'}
                     >
-                      {isTrackInLibrary(track) ? <IoCheckmark size={16} /> : <IoAdd size={16} />}
+                      <i className={`bx ${isTrackInLibrary(track) ? 'bx-check' : 'bx-plus'}`} style={{ fontSize: '16px' }}></i>
                     </button>
                     <button
                       className="action-btn"
                       onClick={(e) => handleAddToPlaylist(track, e)}
                       data-tooltip={isAuthenticated ? 'Add to playlist' : 'Sign in to add to playlist'}
                     >
-                      <IoList size={16} />
+                      <i className='bx bx-list-plus' style={{ fontSize: '16px' }}></i>
                     </button>
                     <button className="action-btn" data-tooltip="More options">
-                      <IoEllipsisHorizontal size={16} />
+                      <i className='bx bx-dots-horizontal-rounded' style={{ fontSize: '16px' }}></i>
                     </button>
                   </div>
                 </div>
@@ -240,6 +226,7 @@ const TrackList = ({
                 onClick={() => onPageChange?.(currentPage - 1)}
                 disabled={currentPage === 1}
               >
+                <i className='bx bx-chevron-left' style={{ fontSize: '16px', marginRight: '4px' }}></i>
                 Previous
               </button>
 
@@ -278,6 +265,7 @@ const TrackList = ({
                 disabled={currentPage === totalPages}
               >
                 Next
+                <i className='bx bx-chevron-right' style={{ fontSize: '16px', marginLeft: '4px' }}></i>
               </button>
             </div>
           )}
