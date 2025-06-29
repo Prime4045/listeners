@@ -47,6 +47,7 @@
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--border-color);
+  width: 100%;
 }
 
 .track-list-header {
@@ -69,6 +70,7 @@
 .track-list-body {
   max-height: 600px;
   overflow-y: auto;
+  width: 100%;
 }
 
 .track-row {
@@ -81,6 +83,8 @@
   transition: all 0.2s ease;
   align-items: center;
   position: relative;
+  width: 100%;
+  min-width: 0;
 }
 
 .track-row:hover {
@@ -108,6 +112,7 @@
   font-size: 0.875rem;
   color: var(--text-muted);
   position: relative;
+  width: 100%;
 }
 
 .track-index {
@@ -183,12 +188,16 @@
 
 .track-info {
   min-width: 0;
+  width: 100%;
+  overflow: hidden;
 }
 
 .track-main-info {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .track-image {
@@ -223,6 +232,7 @@
 .track-details {
   min-width: 0;
   flex: 1;
+  overflow: hidden;
 }
 
 .track-name {
@@ -233,6 +243,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-primary);
+  width: 100%;
 }
 
 .track-artist {
@@ -241,6 +252,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  width: 100%;
 }
 
 .track-status {
@@ -255,20 +267,24 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  width: 100%;
 }
 
 .track-duration {
   font-size: 0.875rem;
   color: var(--text-muted);
   text-align: center;
+  width: 100%;
 }
 
 .track-actions {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   opacity: 0;
   transition: opacity 0.2s ease;
+  width: 100%;
 }
 
 .track-row:hover .track-actions {
@@ -288,6 +304,7 @@
   border: none;
   cursor: pointer;
   position: relative;
+  flex-shrink: 0;
 }
 
 .action-btn:hover {
@@ -312,6 +329,27 @@
   color: var(--accent-pink);
 }
 
+/* Icon styles to ensure SVG loading */
+.action-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.track-play-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* Tooltip */
 .action-btn::after {
   content: attr(data-tooltip);
@@ -330,6 +368,7 @@
   transition: opacity 0.2s ease;
   z-index: 1000;
   border: 1px solid var(--border-color);
+  margin-bottom: 0.5rem;
 }
 
 .action-btn:hover::after {
@@ -345,6 +384,7 @@
   padding: 1.5rem;
   background: var(--tertiary-bg);
   border-top: 1px solid var(--border-color);
+  flex-wrap: wrap;
 }
 
 .pagination-btn {
@@ -376,6 +416,8 @@
 .pagination-numbers {
   display: flex;
   gap: 0.25rem;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .pagination-number {
@@ -404,11 +446,11 @@
   border-color: var(--accent-purple);
 }
 
-/* Mobile Responsive */
+/* Mobile Responsive - Tablet */
 @media (max-width: 1024px) {
   .track-list-header,
   .track-row {
-    grid-template-columns: 50px 1fr 150px 60px 120px;
+    grid-template-columns: 50px 1fr 120px 60px 100px;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
   }
@@ -417,8 +459,17 @@
     width: 40px;
     height: 40px;
   }
+
+  .track-name {
+    font-size: 0.85rem;
+  }
+
+  .track-artist {
+    font-size: 0.75rem;
+  }
 }
 
+/* Mobile Responsive - Small Tablet */
 @media (max-width: 768px) {
   .track-list-header,
   .track-row {
@@ -437,11 +488,17 @@
   .track-actions {
     opacity: 1;
     gap: 0.25rem;
+    justify-content: flex-end;
   }
 
   .action-btn {
     width: 28px;
     height: 28px;
+  }
+
+  .action-btn svg {
+    width: 14px;
+    height: 14px;
   }
 
   .track-image {
@@ -465,9 +522,22 @@
   .pagination-numbers {
     order: -1;
   }
+
+  .action-btn::after {
+    display: none;
+  }
 }
 
+/* Mobile Responsive - Phone */
 @media (max-width: 480px) {
+  .track-list-container {
+    border-radius: 8px;
+  }
+
+  .track-list {
+    border-radius: 8px;
+  }
+
   .track-list-header,
   .track-row {
     grid-template-columns: 30px 1fr 60px;
@@ -482,15 +552,32 @@
 
   .track-name {
     font-size: 0.8rem;
+    line-height: 1.2;
   }
 
   .track-artist {
     font-size: 0.7rem;
+    line-height: 1.2;
   }
 
   .action-btn {
     width: 24px;
     height: 24px;
+  }
+
+  .action-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .track-play-btn {
+    width: 24px;
+    height: 24px;
+  }
+
+  .track-play-btn svg {
+    width: 10px;
+    height: 10px;
   }
 
   .pagination-numbers {
@@ -503,8 +590,58 @@
     font-size: 0.8rem;
   }
 
-  .action-btn::after {
-    display: none;
+  .pagination-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  .track-actions {
+    gap: 0.125rem;
+  }
+
+  .track-main-info {
+    gap: 0.5rem;
+  }
+}
+
+/* Extra Small Mobile */
+@media (max-width: 360px) {
+  .track-list-header,
+  .track-row {
+    grid-template-columns: 25px 1fr 50px;
+    gap: 0.25rem;
+    padding: 0.5rem;
+  }
+
+  .track-image {
+    width: 28px;
+    height: 28px;
+  }
+
+  .track-name {
+    font-size: 0.75rem;
+  }
+
+  .track-artist {
+    font-size: 0.65rem;
+  }
+
+  .action-btn {
+    width: 20px;
+    height: 20px;
+  }
+
+  .action-btn svg {
+    width: 10px;
+    height: 10px;
+  }
+
+  .track-actions {
+    gap: 0;
+  }
+
+  .track-main-info {
+    gap: 0.25rem;
   }
 }
 
@@ -524,4 +661,34 @@
 
 .track-list-body::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
+}
+
+/* Ensure no overflow */
+* {
+  box-sizing: border-box;
+}
+
+.track-list-container,
+.track-list,
+.track-list-header,
+.track-row,
+.track-info,
+.track-details,
+.track-main-info {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Loading animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
 }

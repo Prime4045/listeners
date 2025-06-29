@@ -1,18 +1,93 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Play,
-  Pause,
-  Heart,
-  Plus,
-  MoreHorizontal,
-  Clock,
-  Music,
-  AlertCircle,
-  Loader2,
-  List
-} from 'lucide-react';
 import { useMusic } from '../contexts/MusicContext';
 import './TrackList.css';
+
+// Define icons as React components to ensure they load properly
+const PlayIcon = ({ size = 16, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <polygon points="5,3 19,12 5,21" fill="currentColor" />
+  </svg>
+);
+
+const PauseIcon = ({ size = 16, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <rect x="6" y="4" width="4" height="16" fill="currentColor" />
+    <rect x="14" y="4" width="4" height="16" fill="currentColor" />
+  </svg>
+);
+
+const HeartIcon = ({ size = 16, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" strokeWidth="2" fill="none" />
+  </svg>
+);
+
+const HeartFilledIcon = ({ size = 16, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+  </svg>
+);
+
+const PlusIcon = ({ size = 16, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2" />
+    <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2" />
+  </svg>
+);
+
+const CheckIcon = ({ size = 16, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <polyline points="20,6 9,17 4,12" stroke="currentColor" strokeWidth="2" fill="none" />
+  </svg>
+);
+
+const ListIcon = ({ size = 16, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <line x1="8" y1="6" x2="21" y2="6" stroke="currentColor" strokeWidth="2" />
+    <line x1="8" y1="12" x2="21" y2="12" stroke="currentColor" strokeWidth="2" />
+    <line x1="8" y1="18" x2="21" y2="18" stroke="currentColor" strokeWidth="2" />
+    <line x1="3" y1="6" x2="3.01" y2="6" stroke="currentColor" strokeWidth="2" />
+    <line x1="3" y1="12" x2="3.01" y2="12" stroke="currentColor" strokeWidth="2" />
+    <line x1="3" y1="18" x2="3.01" y2="18" stroke="currentColor" strokeWidth="2" />
+  </svg>
+);
+
+const MoreHorizontalIcon = ({ size = 16, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <circle cx="12" cy="12" r="1" fill="currentColor" />
+    <circle cx="19" cy="12" r="1" fill="currentColor" />
+    <circle cx="5" cy="12" r="1" fill="currentColor" />
+  </svg>
+);
+
+const ClockIcon = ({ size = 16, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+    <polyline points="12,6 12,12 16,14" stroke="currentColor" strokeWidth="2" />
+  </svg>
+);
+
+const MusicIcon = ({ size = 48, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <path d="M9 18V5l12-2v13" stroke="currentColor" strokeWidth="2" fill="none" />
+    <circle cx="6" cy="18" r="3" stroke="currentColor" strokeWidth="2" fill="none" />
+    <circle cx="18" cy="16" r="3" stroke="currentColor" strokeWidth="2" fill="none" />
+  </svg>
+);
+
+const AlertCircleIcon = ({ size = 16, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+    <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" strokeWidth="2" />
+    <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" strokeWidth="2" />
+  </svg>
+);
+
+const Loader2Icon = ({ size = 24, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <path d="M21 12a9 9 0 11-6.219-8.56" stroke="currentColor" strokeWidth="2" />
+  </svg>
+);
 
 const TrackList = ({
   tracks = [],
@@ -108,7 +183,7 @@ const TrackList = ({
   if (tracks.length === 0 && !isLoading) {
     return (
       <div className="track-list-empty">
-        <Music size={48} />
+        <MusicIcon size={48} />
         <h3>No tracks found</h3>
         <p>
           {searchQuery
@@ -124,7 +199,7 @@ const TrackList = ({
     <div className="track-list-container">
       {isLoading && (
         <div className="track-list-loading">
-          <Loader2 className="animate-spin" size={24} />
+          <Loader2Icon size={24} className="animate-spin" />
           <p>Loading tracks...</p>
         </div>
       )}
@@ -137,7 +212,7 @@ const TrackList = ({
               <div className="header-title">Title</div>
               <div className="header-album">Album</div>
               <div className="header-duration">
-                <Clock size={16} />
+                <ClockIcon size={16} />
               </div>
               <div className="header-actions">Actions</div>
             </div>
@@ -160,7 +235,7 @@ const TrackList = ({
                       <>
                         <span className="track-index">{index + 1}</span>
                         <button className="track-play-btn">
-                          <Play size={14} />
+                          <PlayIcon size={14} />
                         </button>
                       </>
                     ) : (
@@ -180,7 +255,7 @@ const TrackList = ({
                         />
                         {!track.canPlay && (
                           <div className="track-overlay">
-                            <AlertCircle size={16} />
+                            <AlertCircleIcon size={16} />
                           </div>
                         )}
                       </div>
@@ -206,24 +281,24 @@ const TrackList = ({
                       onClick={(e) => handleLikeTrack(track, e)}
                       data-tooltip={isAuthenticated ? (isTrackLiked(track) ? 'Remove from liked songs' : 'Add to liked songs') : 'Sign in to like songs'}
                     >
-                      <Heart size={16} />
+                      {isTrackLiked(track) ? <HeartFilledIcon size={16} /> : <HeartIcon size={16} />}
                     </button>
                     <button
                       className={`action-btn ${isTrackInLibrary(track) ? 'in-library' : ''}`}
                       onClick={(e) => handleAddToLibrary(track, e)}
                       data-tooltip={isAuthenticated ? (isTrackInLibrary(track) ? 'Remove from library' : 'Add to library') : 'Sign in to add to library'}
                     >
-                      <Plus size={16} />
+                      {isTrackInLibrary(track) ? <CheckIcon size={16} /> : <PlusIcon size={16} />}
                     </button>
                     <button
                       className="action-btn"
                       onClick={(e) => handleAddToPlaylist(track, e)}
                       data-tooltip={isAuthenticated ? 'Add to playlist' : 'Sign in to add to playlist'}
                     >
-                      <List size={16} />
+                      <ListIcon size={16} />
                     </button>
                     <button className="action-btn" data-tooltip="More options">
-                      <MoreHorizontal size={16} />
+                      <MoreHorizontalIcon size={16} />
                     </button>
                   </div>
                 </div>
