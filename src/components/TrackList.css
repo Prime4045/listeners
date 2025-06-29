@@ -282,13 +282,9 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  opacity: 0;
+  opacity: 1; /* Always visible now */
   transition: opacity 0.2s ease;
   width: 100%;
-}
-
-.track-row:hover .track-actions {
-  opacity: 1;
 }
 
 .action-btn {
@@ -305,6 +301,13 @@
   cursor: pointer;
   position: relative;
   flex-shrink: 0;
+  outline: none; /* Remove focus outline */
+}
+
+.action-btn:focus {
+  outline: none; /* Remove focus outline */
+  border: none; /* Remove focus border */
+  box-shadow: none; /* Remove focus box-shadow */
 }
 
 .action-btn:hover {
