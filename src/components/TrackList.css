@@ -329,27 +329,6 @@
   color: var(--accent-pink);
 }
 
-/* Icon styles to ensure SVG loading */
-.action-btn svg {
-  width: 16px;
-  height: 16px;
-  fill: currentColor;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.track-play-btn svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 /* Tooltip */
 .action-btn::after {
   content: attr(data-tooltip);
@@ -496,11 +475,6 @@
     height: 28px;
   }
 
-  .action-btn svg {
-    width: 14px;
-    height: 14px;
-  }
-
   .track-image {
     width: 36px;
     height: 36px;
@@ -565,19 +539,9 @@
     height: 24px;
   }
 
-  .action-btn svg {
-    width: 12px;
-    height: 12px;
-  }
-
   .track-play-btn {
     width: 24px;
     height: 24px;
-  }
-
-  .track-play-btn svg {
-    width: 10px;
-    height: 10px;
   }
 
   .pagination-numbers {
@@ -629,11 +593,6 @@
   .action-btn {
     width: 20px;
     height: 20px;
-  }
-
-  .action-btn svg {
-    width: 10px;
-    height: 10px;
   }
 
   .track-actions {
