@@ -679,18 +679,3 @@
 .animate-spin {
     animation: spin 1s linear infinite;
 }
-
-/* Focus States */
-.control-btn:focus,
-.action-btn:focus,
-.volume-btn:focus,
-.play-pause-btn:focus {
-    outline: 2px solid var(--accent-purple);
-    outline-offset: 2px;
-}
-
-.progress-container:focus {
-    outline: 2px solid var(--accent-purple);
-    outline-offset: 2px;
-    border-radius: 4px;
-}

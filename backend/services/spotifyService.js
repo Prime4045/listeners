@@ -162,7 +162,7 @@ class SpotifyService {
             }
 
             // Use a specific playlist ID for trending tracks (e.g., Today's Top Hits)
-            const playlistId = process.env.TODAYS_TOP_HITS_PLAYLIST_ID || '4nqbYFYZOCospBb4miwHWy'; // Default to Today's Top Hits
+            const playlistId = process.env.TODAYS_TOP_HITS_PLAYLIST_ID || '61ouNCQI2mMIikGAMJxskf'; // Default to Today's Top Hits
             const tracksData = await this.makeRequest(`/playlists/${playlistId}/tracks`, {
                 limit,
                 market,

@@ -88,9 +88,7 @@
 }
 
 .action-btn:hover {
-    background: var(--hover-bg);
     color: var(--text-primary);
-    border-color: var(--accent-purple);
 }
 
 .action-btn.primary {

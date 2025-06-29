@@ -69,11 +69,6 @@ button {
   transition: all 0.2s ease;
 }
 
-button:focus {
-  outline: 2px solid var(--accent-purple);
-  outline-offset: 2px;
-}
-
 /* Link Styles */
 a {
   color: var(--text-primary);

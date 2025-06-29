@@ -125,7 +125,7 @@ const TrackList = ({
               <div className="header-title">Title</div>
               <div className="header-album">Album</div>
               <div className="header-duration">
-                <i className='bx bx-time' style={{ fontSize: '16px' }}></i>
+                <i className='bx bx-hourglass' style={{ fontSize: '16px' }}></i>
               </div>
               <div className="header-actions">Actions</div>
             </div>
@@ -209,9 +209,6 @@ const TrackList = ({
                       data-tooltip={isAuthenticated ? 'Add to playlist' : 'Sign in to add to playlist'}
                     >
                       <i className='bx bx-list-plus' style={{ fontSize: '16px' }}></i>
-                    </button>
-                    <button className="action-btn" data-tooltip="More options">
-                      <i className='bx bx-dots-horizontal-rounded' style={{ fontSize: '16px' }}></i>
                     </button>
                   </div>
                 </div>
