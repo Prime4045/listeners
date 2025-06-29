@@ -167,8 +167,8 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                     </div>
 
                     <div className="minimized-controls">
-                        <button 
-                            className="control-btn" 
+                        <button
+                            className="control-btn"
                             onClick={previousTrack}
                             title="Previous track"
                         >
@@ -188,8 +188,8 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                                 <Play size={16} />
                             )}
                         </button>
-                        <button 
-                            className="control-btn" 
+                        <button
+                            className="control-btn"
                             onClick={nextTrack}
                             title="Next track"
                         >
@@ -198,8 +198,8 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                     </div>
 
                     {onToggleMinimize && (
-                        <button 
-                            className="expand-btn" 
+                        <button
+                            className="expand-btn"
                             onClick={onToggleMinimize}
                             title="Expand player"
                         >
@@ -275,9 +275,9 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             <Shuffle size={16} />
                         </button>
 
-                        <button 
-                            className="control-btn" 
-                            onClick={previousTrack} 
+                        <button
+                            className="control-btn"
+                            onClick={previousTrack}
                             title="Previous"
                         >
                             <SkipBack size={16} />
@@ -298,9 +298,9 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             )}
                         </button>
 
-                        <button 
-                            className="control-btn" 
-                            onClick={nextTrack} 
+                        <button
+                            className="control-btn"
+                            onClick={nextTrack}
                             title="Next"
                         >
                             <SkipForward size={16} />
@@ -371,8 +371,8 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                         <ListMusic className="control-icon" title="Queue" />
                         <Monitor className="control-icon" title="Connect to a device" />
                         {onToggleMinimize && (
-                            <Minimize2 
-                                className="control-icon" 
+                            <Minimize2
+                                className="control-icon"
                                 onClick={onToggleMinimize}
                                 title="Minimize player"
                             />

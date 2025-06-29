@@ -212,7 +212,7 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
     // Fetch track metadata from Spotify
     console.log('Fetching track metadata from Spotify:', spotifyId);
     const spotifyTrack = await spotifyService.getTrack(spotifyId);
-    
+
     // Generate S3 signed URL
     const audioUrl = await s3Service.getAudioUrl(spotifyId);
     const fileMetadata = await s3Service.getFileMetadata(spotifyId);
@@ -237,8 +237,8 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
         audioMetadata: fileMetadata,
         $inc: { playCount: 1 },
       },
-      { 
-        upsert: true, 
+      {
+        upsert: true,
         new: true,
         setDefaultsOnInsert: true
       }
