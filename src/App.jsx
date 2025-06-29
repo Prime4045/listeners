@@ -46,9 +46,10 @@ const AppContent = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [databaseSongs, setDatabaseSongs] = useState([]);
   const [trendingSongs, setTrendingSongs] = useState([]);
+  const [newReleases, setNewReleases] = useState([]);
   const [likedSongs, setLikedSongs] = useState([]);
+  const [userLibrary, setUserLibrary] = useState([]);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [authModal, setAuthModal] = useState({ isOpen: false, mode: 'login' });
@@ -60,12 +61,6 @@ const AppContent = () => {
     currentPage: 1,
     totalPages: 1,
     totalResults: 0
-  });
-
-  // Database songs pagination
-  const [dbPagination, setDbPagination] = useState({
-    currentPage: 1,
-    hasMore: true
   });
 
   const location = useLocation();
@@ -80,7 +75,7 @@ const AppContent = () => {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchQuery.trim() && searchQuery.length >= 2) {
-        handleSearch(1); // Reset to page 1 for new search
+        handleSearch(1);
       } else if (searchQuery.trim() === '') {
         setSearchResults([]);
         setSearchPagination({ currentPage: 1, totalPages: 1, totalResults: 0 });
@@ -93,40 +88,38 @@ const AppContent = () => {
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  const loadDatabaseSongs = async (page = 1) => {
+  const loadHomePageData = async () => {
     try {
       setIsLoading(true);
-      const response = await ApiService.getDatabaseSongs(page, 20);
+      setError(null);
 
-      if (page === 1) {
-        setDatabaseSongs(response.songs || []);
+      const [trendingResponse, newReleasesResponse] = await Promise.allSettled([
+        ApiService.getTrendingSongs(12),
+        ApiService.getNewReleases(12)
+      ]);
+
+      if (trendingResponse.status === 'fulfilled') {
+        setTrendingSongs(trendingResponse.value || []);
       } else {
-        setDatabaseSongs(prev => [...prev, ...(response.songs || [])]);
+        console.error('Failed to load trending songs:', trendingResponse.reason);
       }
 
-      setDbPagination({
-        currentPage: page,
-        hasMore: response.pagination?.hasNext || false
-      });
-      setError(null);
+      if (newReleasesResponse.status === 'fulfilled') {
+        setNewReleases(newReleasesResponse.value || []);
+      } else {
+        console.error('Failed to load new releases:', newReleasesResponse.reason);
+        // Fallback to trending songs if new releases fail
+        setNewReleases(trendingResponse.value?.slice(0, 8) || []);
+      }
+
+      if (trendingResponse.status === 'rejected' && newReleasesResponse.status === 'rejected') {
+        setError('Failed to load music data. Please try again later.');
+      }
     } catch (err) {
-      console.error('Failed to load database songs:', err);
-      setError('Failed to load available songs. Please check your connection.');
-      setDatabaseSongs([]);
+      console.error('Failed to load home page data:', err);
+      setError('Failed to load music data. Please try again later.');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchTrendingSongs = async () => {
-    try {
-      const songs = await ApiService.getTrendingSongs(10);
-      setTrendingSongs(songs || []);
-      setError(null);
-    } catch (err) {
-      console.error('Failed to fetch trending songs:', err);
-      setError('Failed to load trending songs. Please check your connection.');
-      setTrendingSongs([]);
     }
   };
 
@@ -138,6 +131,21 @@ const AppContent = () => {
       setLikedSongs(songs || []);
     } catch (err) {
       console.error('Failed to load liked songs:', err);
+    }
+  };
+
+  const loadUserLibrary = async () => {
+    if (!isAuthenticated) {
+      setUserLibrary([]);
+      return;
+    }
+
+    try {
+      const library = await ApiService.getUserLibrary();
+      setUserLibrary(library || []);
+    } catch (err) {
+      console.error('Failed to load user library:', err);
+      setUserLibrary([]);
     }
   };
 
@@ -204,12 +212,45 @@ const AppContent = () => {
     setAuthModal({ isOpen: true, mode: 'login' });
   };
 
+  const handleLikeSong = async (song) => {
+    if (!isAuthenticated) {
+      handleAuthRequired();
+      return;
+    }
+
+    try {
+      await ApiService.likeTrack(song.spotifyId);
+      // Refresh liked songs
+      loadLikedSongs();
+    } catch (err) {
+      console.error('Failed to like song:', err);
+      setError('Failed to like song. Please try again.');
+    }
+  };
+
+  const handleAddToLibrary = async (song) => {
+    if (!isAuthenticated) {
+      handleAuthRequired();
+      return;
+    }
+
+    try {
+      await ApiService.addToLibrary(song.spotifyId);
+      // Refresh user library
+      loadUserLibrary();
+    } catch (err) {
+      console.error('Failed to add to library:', err);
+      setError('Failed to add to library. Please try again.');
+    }
+  };
+
   useEffect(() => {
     if (currentView === 'home') {
-      loadDatabaseSongs();
-      fetchTrendingSongs();
+      loadHomePageData();
     } else if (currentView === 'liked' && isAuthenticated) {
       loadLikedSongs();
+    } else if (currentView === 'library') {
+      loadUserLibrary();
     }
   }, [currentView, isAuthenticated]);
 
@@ -237,6 +278,8 @@ const AppContent = () => {
       await logout();
       setShowUserMenu(false);
       setCurrentView('home');
+      setUserLibrary([]);
+      setLikedSongs([]);
     } catch (error) {
       console.error('Logout failed:', error);
     }
@@ -284,12 +327,15 @@ const AppContent = () => {
             <TrackList
               tracks={searchResults}
               onAuthRequired={handleAuthRequired}
+              onLikeSong={handleLikeSong}
+              onAddToLibrary={handleAddToLibrary}
               showPagination={true}
               currentPage={searchPagination.currentPage}
               totalPages={searchPagination.totalPages}
               onPageChange={handleSearchPageChange}
               isLoading={isSearching}
               searchQuery={searchQuery}
+              isAuthenticated={isAuthenticated}
             />
 
             {!isSearching && searchQuery && searchResults.length === 0 && (
@@ -313,18 +359,23 @@ const AppContent = () => {
           <div className="library-view">
             <div className="section-header">
               <Library className="section-icon" />
-              <h2>Music Library</h2>
+              <h2>Your Library</h2>
             </div>
-            <TrackList
-              tracks={databaseSongs}
-              onAuthRequired={handleAuthRequired}
-              isLoading={isLoading}
-            />
-            {dbPagination.hasMore && (
-              <div style={{ textAlign: 'center', padding: '2rem' }}>
+            {isAuthenticated ? (
+              <TrackList
+                tracks={userLibrary}
+                onAuthRequired={handleAuthRequired}
+                onLikeSong={handleLikeSong}
+                onAddToLibrary={handleAddToLibrary}
+                isLoading={isLoading}
+                isAuthenticated={isAuthenticated}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                <Library size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
+                <p>Sign in to see your music library</p>
                 <button
-                  onClick={() => loadDatabaseSongs(dbPagination.currentPage + 1)}
-                  disabled={isLoading}
+                  onClick={() => openAuthModal('login')}
                   style={{
                     padding: '0.75rem 1.5rem',
                     background: 'var(--accent-purple)',
@@ -332,9 +383,10 @@ const AppContent = () => {
                     border: 'none',
                     borderRadius: '8px',
                     cursor: 'pointer',
+                    marginTop: '1rem',
                   }}
                 >
-                  {isLoading ? 'Loading...' : 'Load More Songs'}
+                  Sign In
                 </button>
               </div>
             )}
@@ -351,6 +403,9 @@ const AppContent = () => {
               <TrackList
                 tracks={likedSongs}
                 onAuthRequired={handleAuthRequired}
+                onLikeSong={handleLikeSong}
+                onAddToLibrary={handleAddToLibrary}
+                isAuthenticated={isAuthenticated}
               />
             ) : (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
@@ -433,11 +488,11 @@ const AppContent = () => {
             <div className="music-section">
               <div className="section-header">
                 <Music className="section-icon" />
-                <h2>Available Songs</h2>
+                <h2>New Releases</h2>
               </div>
               <div className="music-grid">
-                {databaseSongs.length ? (
-                  databaseSongs.slice(0, 8).map((track) => (
+                {newReleases.length ? (
+                  newReleases.slice(0, 8).map((track) => (
                     <div
                       key={track.spotifyId}
                       className="music-card"
@@ -454,12 +509,12 @@ const AppContent = () => {
                       <h3>{track.title}</h3>
                       <p>{track.artist}</p>
                       <small style={{ color: 'var(--text-muted)' }}>
-                        {track.playCount} plays
+                        New Release
                       </small>
                     </div>
                   ))
                 ) : (
-                  <p>No songs available in database.</p>
+                  <p>No new releases available.</p>
                 )}
               </div>
             </div>
@@ -685,7 +740,6 @@ const AppContent = () => {
         </div>
       </div>
 
-      {/* Music Player */}
       <MusicPlayer
         isMinimized={isPlayerMinimized}
         onToggleMinimize={() => setIsPlayerMinimized(!isPlayerMinimized)}

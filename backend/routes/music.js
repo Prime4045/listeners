@@ -2,6 +2,7 @@ import express from 'express';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import Song from '../models/Song.js';
 import UserLikes from '../models/UserLikes.js';
+import UserLibrary from '../models/UserLibrary.js';
 import PlayHistory from '../models/PlayHistory.js';
 import spotifyService from '../services/spotifyService.js';
 import s3Service from '../config/s3.js';
@@ -485,6 +486,51 @@ router.post('/:spotifyId/like', authenticateToken, async (req, res) => {
   }
 });
 
+// Add/remove song from user library - Requires authentication
+router.post('/:spotifyId/library', authenticateToken, async (req, res) => {
+  try {
+    const { spotifyId } = req.params;
+
+    const song = await Song.findOne({ spotifyId });
+    if (!song) {
+      return res.status(404).json({
+        message: 'Song must be played first before adding to library'
+      });
+    }
+
+    const result = await UserLibrary.addToLibrary(req.user._id, song._id);
+    res.json(result);
+  } catch (error) {
+    console.error('Add to library error:', error.message);
+    res.status(500).json({
+      message: 'Failed to add/remove song from library',
+      error: error.message
+    });
+  }
+});
+
+router.delete('/:spotifyId/library', authenticateToken, async (req, res) => {
+  try {
+    const { spotifyId } = req.params;
+
+    const song = await Song.findOne({ spotifyId });
+    if (!song) {
+      return res.status(404).json({
+        message: 'Song not found'
+      });
+    }
+
+    const result = await UserLibrary.removeFromLibrary(req.user._id, song._id);
+    res.json(result);
+  } catch (error) {
+    console.error('Remove from library error:', error.message);
+    res.status(500).json({
+      message: 'Failed to remove song from library',
+      error: error.message
+    });
+  }
+});
+
 // Get user's liked songs - Requires authentication
 router.get('/user/liked', authenticateToken, async (req, res) => {
   try {
@@ -521,6 +567,47 @@ router.get('/user/liked', authenticateToken, async (req, res) => {
     console.error('Get liked songs error:', error.message);
     res.status(500).json({
       message: 'Failed to get liked songs',
+      error: error.message
+    });
+  }
+});
+
+// Get user's library - Requires authentication
+router.get('/user/library', authenticateToken, async (req, res) => {
+  try {
+    const { limit = 50, skip = 0 } = req.query;
+
+    const librarySongs = await UserLibrary.getUserLibrary(
+      req.user._id,
+      parseInt(limit),
+      parseInt(skip)
+    );
+
+    const songs = librarySongs.map(library => ({
+      spotifyId: library.song.spotifyId,
+      title: library.song.title,
+      artist: library.song.artist,
+      album: library.song.album,
+      duration: library.song.duration,
+      imageUrl: library.song.imageUrl,
+      audioUrl: library.song.audioUrl,
+      addedAt: library.addedAt,
+      playCount: library.song.playCount,
+      likeCount: library.song.likeCount,
+      popularity: library.song.popularity,
+      explicit: library.song.explicit,
+      releaseDate: library.song.releaseDate,
+      genre: library.song.genre,
+      isInDatabase: true,
+      canPlay: true,
+      spotifyData: library.song.spotifyData,
+    }));
+
+    res.json(songs);
+  } catch (error) {
+    console.error('Get user library error:', error.message);
+    res.status(500).json({
+      message: 'Failed to get user library',
       error: error.message
     });
   }

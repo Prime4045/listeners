@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Play,
   Pause,
@@ -8,25 +8,28 @@ import {
   Clock,
   Music,
   AlertCircle,
-  Loader2
+  Loader2,
+  List
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
 import { useMusic } from '../contexts/MusicContext';
 import './TrackList.css';
 
 const TrackList = ({
   tracks = [],
   onAuthRequired,
+  onLikeSong,
+  onAddToLibrary,
   showPagination = false,
   currentPage = 1,
   totalPages = 1,
   onPageChange,
   isLoading = false,
-  searchQuery = ''
+  searchQuery = '',
+  isAuthenticated = false
 }) => {
-  const { isAuthenticated } = useAuth();
   const { currentTrack, isPlaying, playTrack } = useMusic();
   const [likedTracks, setLikedTracks] = useState(new Set());
+  const [libraryTracks, setLibraryTracks] = useState(new Set());
 
   const formatDuration = (ms) => {
     if (!ms) return '0:00';
@@ -44,35 +47,63 @@ const TrackList = ({
     }
   };
 
-  const handleLikeTrack = (track, e) => {
+  const handleLikeTrack = async (track, e) => {
     e.stopPropagation();
     if (!isAuthenticated) {
       onAuthRequired?.();
       return;
     }
 
-    // Toggle like status
-    const newLikedTracks = new Set(likedTracks);
-    if (likedTracks.has(track.spotifyId)) {
-      newLikedTracks.delete(track.spotifyId);
-    } else {
-      newLikedTracks.add(track.spotifyId);
+    try {
+      await onLikeSong?.(track);
+      // Toggle like status locally
+      const newLikedTracks = new Set(likedTracks);
+      if (likedTracks.has(track.spotifyId)) {
+        newLikedTracks.delete(track.spotifyId);
+      } else {
+        newLikedTracks.add(track.spotifyId);
+      }
+      setLikedTracks(newLikedTracks);
+    } catch (error) {
+      console.error('Failed to like track:', error);
     }
-    setLikedTracks(newLikedTracks);
   };
 
-  const handleAddToLibrary = (track, e) => {
+  const handleAddToLibrary = async (track, e) => {
     e.stopPropagation();
     if (!isAuthenticated) {
       onAuthRequired?.();
       return;
     }
-    // Add to library logic here
-    console.log('Add to library:', track.title);
+
+    try {
+      await onAddToLibrary?.(track);
+      // Toggle library status locally
+      const newLibraryTracks = new Set(libraryTracks);
+      if (libraryTracks.has(track.spotifyId)) {
+        newLibraryTracks.delete(track.spotifyId);
+      } else {
+        newLibraryTracks.add(track.spotifyId);
+      }
+      setLibraryTracks(newLibraryTracks);
+    } catch (error) {
+      console.error('Failed to add to library:', error);
+    }
+  };
+
+  const handleAddToPlaylist = (track, e) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      onAuthRequired?.();
+      return;
+    }
+    // TODO: Implement playlist modal
+    console.log('Add to playlist:', track.title);
   };
 
   const isCurrentTrack = (track) => currentTrack?.spotifyId === track.spotifyId;
   const isTrackLiked = (track) => likedTracks.has(track.spotifyId);
+  const isTrackInLibrary = (track) => libraryTracks.has(track.spotifyId);
 
   if (tracks.length === 0 && !isLoading) {
     return (
@@ -126,9 +157,12 @@ const TrackList = ({
                         <div className="bar"></div>
                       </div>
                     ) : track.canPlay ? (
-                      <button className="track-play-btn">
-                        <Play size={12} />
-                      </button>
+                      <>
+                        <span className="track-index">{index + 1}</span>
+                        <button className="track-play-btn">
+                          <Play size={14} />
+                        </button>
+                      </>
                     ) : (
                       <span className="track-index">{index + 1}</span>
                     )}
@@ -168,20 +202,27 @@ const TrackList = ({
 
                   <div className="track-actions">
                     <button
-                      className={`action-btn like-btn ${isTrackLiked(track) ? 'liked' : ''}`}
+                      className={`action-btn ${isTrackLiked(track) ? 'liked' : ''}`}
                       onClick={(e) => handleLikeTrack(track, e)}
-                      title={isAuthenticated ? 'Like song' : 'Sign in to like songs'}
+                      data-tooltip={isAuthenticated ? (isTrackLiked(track) ? 'Remove from liked songs' : 'Add to liked songs') : 'Sign in to like songs'}
                     >
                       <Heart size={16} />
                     </button>
                     <button
-                      className="action-btn"
+                      className={`action-btn ${isTrackInLibrary(track) ? 'in-library' : ''}`}
                       onClick={(e) => handleAddToLibrary(track, e)}
-                      title={isAuthenticated ? 'Add to library' : 'Sign in to add to library'}
+                      data-tooltip={isAuthenticated ? (isTrackInLibrary(track) ? 'Remove from library' : 'Add to library') : 'Sign in to add to library'}
                     >
                       <Plus size={16} />
                     </button>
-                    <button className="action-btn" title="More options">
+                    <button
+                      className="action-btn"
+                      onClick={(e) => handleAddToPlaylist(track, e)}
+                      data-tooltip={isAuthenticated ? 'Add to playlist' : 'Sign in to add to playlist'}
+                    >
+                      <List size={16} />
+                    </button>
+                    <button className="action-btn" data-tooltip="More options">
                       <MoreHorizontal size={16} />
                     </button>
                   </div>

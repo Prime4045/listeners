@@ -135,6 +135,12 @@ const ApiService = {
     return this.makeRequest(`/music/database/trending?limit=${limit}`);
   },
 
+  async getNewReleases(limit = 20) {
+    // For now, return trending songs as new releases
+    // This can be updated when the backend supports new releases
+    return this.makeRequest(`/music/database/trending?limit=${limit}`);
+  },
+
   async searchMusic(query, limit = 20, offset = 0) {
     const params = new URLSearchParams({
       q: query,
@@ -167,6 +173,23 @@ const ApiService = {
 
   async getPlayHistory(limit = 50) {
     return this.makeRequest(`/music/user/history?limit=${limit}`);
+  },
+
+  // User Library endpoints
+  async getUserLibrary(limit = 50, skip = 0) {
+    return this.makeRequest(`/music/user/library?limit=${limit}&skip=${skip}`);
+  },
+
+  async addToLibrary(spotifyId) {
+    return this.makeRequest(`/music/${spotifyId}/library`, {
+      method: 'POST',
+    });
+  },
+
+  async removeFromLibrary(spotifyId) {
+    return this.makeRequest(`/music/${spotifyId}/library`, {
+      method: 'DELETE',
+    });
   },
 
   // Health check
