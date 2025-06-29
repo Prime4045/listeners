@@ -1,4 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
+import {
+    Play,
+    Pause,
+    SkipBack,
+    SkipForward,
+    Volume2,
+    VolumeX,
+    Shuffle,
+    Repeat,
+    Heart,
+    Loader2,
+    AlertCircle,
+    Minimize2,
+    Maximize2,
+    PictureInPicture2,
+    ListMusic,
+    Monitor
+} from 'lucide-react';
 import { useMusic } from '../../contexts/MusicContext';
 import { useAuth } from '../../contexts/AuthContext';
 import './MusicPlayer.css';
@@ -105,12 +123,12 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
         if (repeatMode === 'one') {
             return (
                 <div className="repeat-one">
-                    <i className='bx bx-repeat' style={{ fontSize: '16px' }}></i>
+                    <Repeat size={16} />
                     <span className="repeat-indicator">1</span>
                 </div>
             );
         }
-        return <i className='bx bx-repeat' style={{ fontSize: '16px' }}></i>;
+        return <Repeat size={16} />;
     };
 
     if (!currentTrack) {
@@ -118,7 +136,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
             <div className="music-player no-track">
                 <div className="no-track-content">
                     <div className="no-track-icon">
-                        <i className='bx bx-play' style={{ fontSize: '24px' }}></i>
+                        <Play size={24} />
                     </div>
                     <div className="no-track-text">
                         <h3>No song selected</h3>
@@ -154,7 +172,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             onClick={previousTrack}
                             title="Previous track"
                         >
-                            <i className='bx bx-skip-previous' style={{ fontSize: '16px' }}></i>
+                            <SkipBack size={16} />
                         </button>
                         <button
                             className="play-pause-btn"
@@ -163,11 +181,11 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             title={isPlaying ? 'Pause' : 'Play'}
                         >
                             {isLoading ? (
-                                <i className='bx bx-loader-alt bx-spin' style={{ fontSize: '16px' }}></i>
+                                <Loader2 className="animate-spin" size={16} />
                             ) : isPlaying ? (
-                                <i className='bx bx-pause' style={{ fontSize: '16px' }}></i>
+                                <Pause size={16} />
                             ) : (
-                                <i className='bx bx-play' style={{ fontSize: '16px' }}></i>
+                                <Play size={16} />
                             )}
                         </button>
                         <button
@@ -175,7 +193,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             onClick={nextTrack}
                             title="Next track"
                         >
-                            <i className='bx bx-skip-next' style={{ fontSize: '16px' }}></i>
+                            <SkipForward size={16} />
                         </button>
                     </div>
 
@@ -185,7 +203,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             onClick={onToggleMinimize}
                             title="Expand player"
                         >
-                            <i className='bx bx-expand-alt' style={{ fontSize: '16px' }}></i>
+                            <Maximize2 size={16} />
                         </button>
                     )}
                 </div>
@@ -204,7 +222,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
         <div className="music-player">
             {error && (
                 <div className="player-error">
-                    <i className='bx bx-error-circle' style={{ fontSize: '16px' }}></i>
+                    <AlertCircle size={16} />
                     <span>{error}</span>
                     <button onClick={() => window.location.reload()}>
                         Retry
@@ -225,7 +243,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                         />
                         {isLoading && (
                             <div className="artwork-overlay">
-                                <i className='bx bx-loader-alt bx-spin' style={{ fontSize: '20px' }}></i>
+                                <Loader2 className="animate-spin" size={20} />
                             </div>
                         )}
                     </div>
@@ -233,6 +251,16 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                     <div className="track-details">
                         <h3 className="track-title">{currentTrack.title}</h3>
                         <p className="track-artist">{currentTrack.artist}</p>
+                    </div>
+
+                    <div className="track-actions">
+                        <button
+                            className={`action-btn like-btn ${isLiked ? 'liked' : ''}`}
+                            onClick={handleLikeToggle}
+                            title={isAuthenticated ? 'Save to your Liked Songs' : 'Sign in to like songs'}
+                        >
+                            <Heart size={16} />
+                        </button>
                     </div>
                 </div>
 
@@ -244,7 +272,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             onClick={toggleShuffle}
                             title="Enable shuffle"
                         >
-                            <i className='bx bx-shuffle' style={{ fontSize: '16px' }}></i>
+                            <Shuffle size={16} />
                         </button>
 
                         <button
@@ -252,7 +280,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             onClick={previousTrack}
                             title="Previous"
                         >
-                            <i className='bx bx-skip-previous' style={{ fontSize: '16px' }}></i>
+                            <SkipBack size={16} />
                         </button>
 
                         <button
@@ -262,11 +290,11 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             title={isPlaying ? 'Pause' : 'Play'}
                         >
                             {isLoading ? (
-                                <i className='bx bx-loader-alt bx-spin' style={{ fontSize: '16px' }}></i>
+                                <Loader2 className="animate-spin" size={16} />
                             ) : isPlaying ? (
-                                <i className='bx bx-pause' style={{ fontSize: '16px' }}></i>
+                                <Pause size={16} />
                             ) : (
-                                <i className='bx bx-play' style={{ fontSize: '16px' }}></i>
+                                <Play size={16} />
                             )}
                         </button>
 
@@ -275,7 +303,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             onClick={nextTrack}
                             title="Next"
                         >
-                            <i className='bx bx-skip-next' style={{ fontSize: '16px' }}></i>
+                            <SkipForward size={16} />
                         </button>
 
                         <button
@@ -284,15 +312,6 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                             title="Enable repeat"
                         >
                             {getRepeatIcon()}
-                        </button>
-
-                        {/* Like Button */}
-                        <button
-                            className={`like-btn ${isLiked ? 'liked' : ''}`}
-                            onClick={handleLikeToggle}
-                            title={isAuthenticated ? 'Save to your Liked Songs' : 'Sign in to like songs'}
-                        >
-                            <i className={`bx ${isLiked ? 'bxs-heart' : 'bx-heart'}`} style={{ fontSize: '16px' }}></i>
                         </button>
                     </div>
 
@@ -327,9 +346,9 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                         title="Mute"
                     >
                         {isMuted || volume === 0 ? (
-                            <i className='bx bx-volume-mute' style={{ fontSize: '16px' }}></i>
+                            <VolumeX size={16} />
                         ) : (
-                            <i className='bx bx-volume-full' style={{ fontSize: '16px' }}></i>
+                            <Volume2 size={16} />
                         )}
                     </button>
 
@@ -348,14 +367,15 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                     </div>
 
                     <div className="additional-controls">
-                        <i className='bx bx-devices control-icon' title="Connect to a device"></i>
-                        <i className='bx bx-list-ul control-icon' title="Queue"></i>
+                        <PictureInPicture2 className="control-icon" title="Picture-in-picture" />
+                        <ListMusic className="control-icon" title="Queue" />
+                        <Monitor className="control-icon" title="Connect to a device" />
                         {onToggleMinimize && (
-                            <i 
-                                className='bx bx-minus control-icon'
+                            <Minimize2
+                                className="control-icon"
                                 onClick={onToggleMinimize}
                                 title="Minimize player"
-                            ></i>
+                            />
                         )}
                     </div>
                 </div>
