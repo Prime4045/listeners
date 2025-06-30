@@ -4,7 +4,6 @@ import {
   Mail,
   Phone,
   Calendar,
-  Camera,
   Save,
   X,
   Eye,
@@ -31,7 +30,6 @@ const Profile = () => {
     username: '',
     firstName: '',
     lastName: '',
-    profilePicture: null,
     preferences: {
       theme: 'dark',
       autoplay: true,
@@ -57,7 +55,6 @@ const Profile = () => {
     new: false,
     confirm: false,
   });
-  const [profilePreview, setProfilePreview] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -65,7 +62,6 @@ const Profile = () => {
         username: user.username || '',
         firstName: user.firstName || '',
         lastName: user.lastName || '',
-        profilePicture: null,
         preferences: {
           theme: user.preferences?.theme || 'dark',
           autoplay: user.preferences?.autoplay ?? true,
@@ -82,27 +78,9 @@ const Profile = () => {
   }, [user]);
 
   const handleProfileChange = (e) => {
-    const { name, value, type, checked, files } = e.target;
+    const { name, value, type, checked } = e.target;
 
-    if (type === 'file') {
-      const file = files[0];
-      if (file) {
-        if (file.size > 5 * 1024 * 1024) {
-          setError('File size must be less than 5MB');
-          return;
-        }
-
-        if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
-          setError('Only JPG, JPEG, and PNG files are allowed');
-          return;
-        }
-
-        setProfileData({ ...profileData, profilePicture: file });
-        const reader = new FileReader();
-        reader.onload = (e) => setProfilePreview(e.target.result);
-        reader.readAsDataURL(file);
-      }
-    } else if (name.includes('.')) {
+    if (name.includes('.')) {
       const [parent, child, grandchild] = name.split('.');
       setProfileData(prev => ({
         ...prev,
@@ -139,22 +117,7 @@ const Profile = () => {
     setSuccess(null);
 
     try {
-      const formData = new FormData();
-      
-      // Add text fields
-      Object.keys(profileData).forEach(key => {
-        if (key === 'profilePicture') {
-          if (profileData[key]) {
-            formData.append(key, profileData[key]);
-          }
-        } else if (key === 'preferences') {
-          formData.append(key, JSON.stringify(profileData[key]));
-        } else {
-          formData.append(key, profileData[key]);
-        }
-      });
-
-      const response = await ApiService.updateUserProfile(formData);
+      const response = await ApiService.updateUserProfile(profileData);
       updateUser(response.user);
       setSuccess('Profile updated successfully!');
     } catch (err) {
@@ -281,17 +244,17 @@ const Profile = () => {
             <div className="tab-content">
               <div className="tab-header">
                 <h2>Profile Information</h2>
-                <p>Update your personal information and profile picture</p>
+                <p>Update your personal information</p>
               </div>
 
               <form onSubmit={handleProfileSubmit} className="profile-form">
                 <div className="form-section">
-                  <h3>Profile Picture</h3>
+                  <h3>Avatar</h3>
                   <div className="profile-picture-section">
                     <div className="profile-picture-preview">
-                      {profilePreview || user?.profilePicture ? (
+                      {user?.avatar ? (
                         <img
-                          src={profilePreview || user.profilePicture}
+                          src={user.avatar}
                           alt="Profile"
                         />
                       ) : (
@@ -299,19 +262,12 @@ const Profile = () => {
                       )}
                     </div>
                     <div className="profile-picture-controls">
-                      <input
-                        type="file"
-                        id="profilePicture"
-                        name="profilePicture"
-                        accept="image/jpeg,image/jpg,image/png"
-                        onChange={handleProfileChange}
-                        className="file-input"
-                      />
-                      <label htmlFor="profilePicture" className="upload-btn">
-                        <Camera size={16} />
-                        Change Photo
-                      </label>
-                      <p className="upload-hint">Max 5MB, JPG/PNG only</p>
+                      <p className="upload-hint">
+                        {user?.avatar ? 'Avatar from Google Account' : 'No avatar available'}
+                      </p>
+                      {!user?.avatar && (
+                        <p className="upload-hint">Sign in with Google to get an avatar</p>
+                      )}
                     </div>
                   </div>
                 </div>

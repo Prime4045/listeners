@@ -4,6 +4,7 @@ import Song from '../models/Song.js';
 import UserLikes from '../models/UserLikes.js';
 import UserLibrary from '../models/UserLibrary.js';
 import PlayHistory from '../models/PlayHistory.js';
+import User from '../models/User.js';
 import spotifyService from '../services/spotifyService.js';
 import s3Service from '../config/s3.js';
 import cacheService from '../services/cacheService.js';
@@ -470,8 +471,16 @@ router.post('/:spotifyId/like', authenticateToken, async (req, res) => {
     // Update song like count
     if (result.liked) {
       song.likeCount += 1;
+      // Add to user's liked songs array
+      await User.findByIdAndUpdate(req.user._id, {
+        $addToSet: { likedSongs: song._id }
+      });
     } else {
       song.likeCount = Math.max(0, song.likeCount - 1);
+      // Remove from user's liked songs array
+      await User.findByIdAndUpdate(req.user._id, {
+        $pull: { likedSongs: song._id }
+      });
     }
     await song.save();
 

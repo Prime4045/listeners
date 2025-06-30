@@ -19,7 +19,7 @@ import ApiService from '../../services/api';
 import './Dashboard.css';
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,12 +28,40 @@ const Dashboard = () => {
     loadDashboardData();
   }, []);
 
+  // Refresh dashboard when user likes/unlikes songs
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'liked_songs_updated') {
+        loadDashboardData();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for custom events
+    const handleLikeUpdate = () => {
+      loadDashboardData();
+    };
+    
+    window.addEventListener('liked_songs_updated', handleLikeUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('liked_songs_updated', handleLikeUpdate);
+    };
+  }, []);
+
   const loadDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await ApiService.getUserDashboard();
       setDashboardData(data);
+      
+      // Update user context with fresh data
+      if (data.user) {
+        updateUser(data.user);
+      }
     } catch (err) {
       console.error('Failed to load dashboard:', err);
       setError('Failed to load dashboard data');
@@ -82,8 +110,8 @@ const Dashboard = () => {
       <div className="dashboard-header">
         <div className="welcome-section">
           <div className="user-avatar">
-            {user?.profilePicture ? (
-              <img src={user.profilePicture} alt={user.username} />
+            {user?.avatar ? (
+              <img src={user.avatar} alt={user.username} />
             ) : (
               <User size={32} />
             )}

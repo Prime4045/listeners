@@ -2,27 +2,8 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import { authenticateToken } from '../middleware/auth.js';
 import User from '../models/User.js';
-import multer from 'multer';
-import path from 'path';
 
 const router = express.Router();
-
-// Configure multer for profile picture uploads
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only JPEG, JPG, and PNG files are allowed'), false);
-    }
-  },
-});
 
 // Get user profile
 router.get('/profile', authenticateToken, async (req, res) => {
@@ -64,7 +45,6 @@ router.get('/profile', authenticateToken, async (req, res) => {
 router.put(
   '/profile',
   authenticateToken,
-  upload.single('profilePicture'),
   [
     body('username')
       .optional()
@@ -130,6 +110,7 @@ router.put(
       delete updates.subscription;
       delete updates.mfaEnabled;
       delete updates.mfaSecret;
+      delete updates.avatar; // Remove avatar from updates
 
       // Check if username is being changed and if it's available
       if (updates.username) {
@@ -145,13 +126,6 @@ router.put(
             field: 'username',
           });
         }
-      }
-
-      // Handle profile picture upload
-      if (req.file) {
-        // In a real application, you would upload this to a cloud storage service
-        // For now, we'll just store a placeholder URL
-        updates.profilePicture = `/uploads/profiles/${userId}_${Date.now()}.${req.file.mimetype.split('/')[1]}`;
       }
 
       // Update user
@@ -324,33 +298,10 @@ router.put(
       user.emailVerificationToken = crypto.randomBytes(32).toString('hex');
       await user.save();
 
-      // Send verification email if transporter is configured
-      if (transporter) {
-        try {
-          const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${user.emailVerificationToken}`;
-          await transporter.sendMail({
-            from: process.env.FROM_EMAIL,
-            to: newEmail,
-            subject: 'Verify Your New Email - Listeners',
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #8b5cf6;">Email Change Verification</h2>
-                <p>Hi ${user.firstName || user.username},</p>
-                <p>You have requested to change your email address. Please verify your new email by clicking the button below:</p>
-                <a href="${verificationUrl}" style="display: inline-block; background: #8b5cf6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">Verify New Email</a>
-                <p>If you didn't request this change, please contact support immediately.</p>
-              </div>
-            `,
-          });
-        } catch (emailError) {
-          console.error('Failed to send verification email:', emailError);
-        }
-      }
-
       res.json({
         message: 'Email changed successfully. Please verify your new email address.',
         code: 'EMAIL_CHANGED',
-        emailSent: !!transporter,
+        emailSent: false,
       });
     } catch (error) {
       console.error('Change email error:', error);
@@ -368,6 +319,7 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
       .populate('recentlyPlayed.song')
+      .populate('likedSongs')
       .select('-password -mfaSecret -emailVerificationToken -passwordResetToken');
 
     if (!user) {

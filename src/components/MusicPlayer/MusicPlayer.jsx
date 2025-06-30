@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useMusic } from '../../contexts/MusicContext';
 import { useAuth } from '../../contexts/AuthContext';
+import ApiService from '../../services/api';
 import './MusicPlayer.css';
 
 const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
@@ -61,6 +62,24 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
             volumeSliderRef.current.style.setProperty('--volume-percentage', `${percentage}%`);
         }
     }, [volume, isMuted]);
+
+    // Check if current track is liked
+    useEffect(() => {
+        const checkLikedStatus = async () => {
+            if (currentTrack && isAuthenticated) {
+                try {
+                    const trackDetails = await ApiService.getTrackDetails(currentTrack.spotifyId);
+                    setIsLiked(trackDetails.isLiked || false);
+                } catch (error) {
+                    console.error('Failed to check liked status:', error);
+                }
+            } else {
+                setIsLiked(false);
+            }
+        };
+
+        checkLikedStatus();
+    }, [currentTrack, isAuthenticated]);
 
     const handleVolumeChange = (e) => {
         const newVolume = parseFloat(e.target.value);
@@ -109,13 +128,28 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
         }
     }, [isDragging]);
 
-    const handleLikeToggle = () => {
+    const handleLikeToggle = async () => {
         if (!isAuthenticated) {
-            // Show auth modal or redirect to login
             return;
         }
-        setIsLiked(!isLiked);
-        // TODO: Implement API call to like/unlike track
+
+        if (!currentTrack) {
+            return;
+        }
+
+        try {
+            await ApiService.likeTrack(currentTrack.spotifyId);
+            setIsLiked(!isLiked);
+            
+            // Dispatch custom event to update dashboard
+            window.dispatchEvent(new CustomEvent('liked_songs_updated'));
+            
+            // Also trigger storage event for cross-tab communication
+            localStorage.setItem('liked_songs_updated', Date.now().toString());
+            localStorage.removeItem('liked_songs_updated');
+        } catch (error) {
+            console.error('Failed to like/unlike track:', error);
+        }
     };
 
     const getRepeatIcon = () => {
@@ -252,6 +286,29 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                         <p className="track-artist">{currentTrack.artist}</p>
                     </div>
 
+                    {/* Like Button */}
+                    {isAuthenticated && (
+                        <div className="track-actions">
+                            <button
+                                className={`action-btn like-btn ${isLiked ? 'liked' : ''}`}
+                                onClick={handleLikeToggle}
+                                title={isLiked ? 'Remove from liked songs' : 'Add to liked songs'}
+                            >
+                                <svg
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill={isLiked ? "currentColor" : "none"}
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                                </svg>
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Controls Section */}

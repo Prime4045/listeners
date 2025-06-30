@@ -51,10 +51,6 @@ const userSchema = new mongoose.Schema({
     trim: true,
     match: /^\+[1-9]\d{1,14}$/,
   },
-  profilePicture: {
-    type: String,
-    default: null,
-  },
   googleId: {
     type: String,
     sparse: true,

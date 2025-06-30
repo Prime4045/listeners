@@ -84,21 +84,11 @@ const ApiService = {
     return this.makeRequest('/users/profile');
   },
 
-  async updateUserProfile(formData) {
-    const response = await fetch(`${API_URL}/users/profile`, {
+  async updateUserProfile(data) {
+    return this.makeRequest('/users/profile', {
       method: 'PUT',
-      body: formData,
-      credentials: 'include',
-      headers: {
-        ...(localStorage.getItem('token') && {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }),
-      },
+      body: JSON.stringify(data),
     });
-
-    const result = await response.json();
-    if (!response.ok) throw result;
-    return result;
   },
 
   async changePassword(data) {
