@@ -16,18 +16,57 @@ const ApiService = {
         credentials: 'include',
       });
 
+      // Handle non-JSON responses
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        if (!response.ok) {
+          throw {
+            message: `HTTP ${response.status}: ${response.statusText}`,
+            code: 'HTTP_ERROR',
+            status: response.status
+          };
+        }
+        return {};
+      }
+
       const result = await response.json();
 
       if (!response.ok) {
+        // Handle token expiration
+        if (result.code === 'TOKEN_EXPIRED') {
+          const refreshToken = localStorage.getItem('refreshToken');
+          if (refreshToken) {
+            try {
+              const refreshResponse = await this.refreshToken(refreshToken);
+              localStorage.setItem('token', refreshResponse.token);
+              localStorage.setItem('refreshToken', refreshResponse.refreshToken);
+              
+              // Retry original request with new token
+              return this.makeRequest(endpoint, {
+                ...options,
+                headers: {
+                  ...options.headers,
+                  Authorization: `Bearer ${refreshResponse.token}`
+                }
+              });
+            } catch (refreshError) {
+              // Refresh failed, redirect to login
+              localStorage.removeItem('token');
+              localStorage.removeItem('refreshToken');
+              window.location.href = '/login';
+              throw refreshError;
+            }
+          }
+        }
         throw result;
       }
 
       return result;
     } catch (error) {
       // Handle network errors
-      if (!error.message) {
+      if (!error.message && !error.code) {
         throw {
-          message: 'Network error occurred',
+          message: 'Network error occurred. Please check your connection.',
           code: 'NETWORK_ERROR',
           status: 0
         };

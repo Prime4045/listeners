@@ -55,12 +55,16 @@ const authenticateToken = async (req, res, next) => {
     }
 
     // Check if token is blacklisted
-    const isBlacklisted = await redisClient.get(`blacklist:${token}`);
-    if (isBlacklisted) {
-      return res.status(401).json({
-        message: 'Token has been revoked',
-        code: 'TOKEN_REVOKED'
-      });
+    try {
+      const isBlacklisted = await redisClient.get(`blacklist:${token}`);
+      if (isBlacklisted) {
+        return res.status(401).json({
+          message: 'Token has been revoked',
+          code: 'TOKEN_REVOKED'
+        });
+      }
+    } catch (redisError) {
+      console.warn('Redis check failed, continuing without blacklist check:', redisError.message);
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -122,10 +126,15 @@ const optionalAuth = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.userId).select('-password -mfaSecret');
-      if (user && !user.isLocked) {
-        req.user = user;
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.userId).select('-password -mfaSecret');
+        if (user && !user.isLocked) {
+          req.user = user;
+        }
+      } catch (error) {
+        // Silently fail for optional auth
+        console.log('Optional auth failed:', error.message);
       }
     }
     next();
@@ -225,12 +234,16 @@ const validateRefreshToken = async (req, res, next) => {
     }
 
     // Check if refresh token is blacklisted
-    const isBlacklisted = await redisClient.get(`blacklist:${refreshToken}`);
-    if (isBlacklisted) {
-      return res.status(401).json({
-        message: 'Refresh token has been revoked',
-        code: 'REFRESH_TOKEN_REVOKED'
-      });
+    try {
+      const isBlacklisted = await redisClient.get(`blacklist:${refreshToken}`);
+      if (isBlacklisted) {
+        return res.status(401).json({
+          message: 'Refresh token has been revoked',
+          code: 'REFRESH_TOKEN_REVOKED'
+        });
+      }
+    } catch (redisError) {
+      console.warn('Redis check failed, continuing without blacklist check:', redisError.message);
     }
 
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
@@ -244,12 +257,16 @@ const validateRefreshToken = async (req, res, next) => {
     }
 
     // Check if the refresh token exists in Redis
-    const storedToken = await redisClient.get(`refreshToken:${user._id}`);
-    if (storedToken !== refreshToken) {
-      return res.status(401).json({
-        message: 'Invalid refresh token',
-        code: 'REFRESH_TOKEN_INVALID'
-      });
+    try {
+      const storedToken = await redisClient.get(`refreshToken:${user._id}`);
+      if (storedToken !== refreshToken) {
+        return res.status(401).json({
+          message: 'Invalid refresh token',
+          code: 'REFRESH_TOKEN_INVALID'
+        });
+      }
+    } catch (redisError) {
+      console.warn('Redis token check failed, continuing:', redisError.message);
     }
 
     req.user = user;

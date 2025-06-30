@@ -6,7 +6,7 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
-import User from '../models/User.js'; // Fixed: Added missing import
+import User from '../models/User.js';
 import {
   generateToken,
   generateRefreshToken,
@@ -23,7 +23,7 @@ const router = express.Router();
 // Email transporter setup (optional)
 let transporter = null;
 if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-  transporter = nodemailer.createTransport({
+  transporter = nodemailer.createTransporter({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT) || 587,
     secure: false,
@@ -33,7 +33,6 @@ if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
     },
   });
 }
-
 
 // Apply security headers to all routes
 router.use(securityHeaders);
@@ -98,6 +97,7 @@ router.get('/me', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
       .populate('recentlyPlayed.song')
+      .populate('likedSongs')
       .select('-password -mfaSecret -emailVerificationToken -passwordResetToken');
 
     if (!user) {
@@ -196,7 +196,11 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
     const token = generateToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
-    await redisClient.setEx(`refreshToken:${user._id}`, 7 * 24 * 60 * 60, refreshToken);
+    try {
+      await redisClient.setEx(`refreshToken:${user._id}`, 7 * 24 * 60 * 60, refreshToken);
+    } catch (redisError) {
+      console.warn('Redis set failed, continuing without refresh token storage:', redisError.message);
+    }
 
     await user.addLoginHistory(req.ip, req.get('User-Agent'), true);
 
@@ -305,7 +309,11 @@ router.post('/login', progressiveAuthLimiter, loginValidation, async (req, res) 
     const refreshToken = generateRefreshToken(user._id);
 
     const refreshExpiry = rememberMe ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60;
-    await redisClient.setEx(`refreshToken:${user._id}`, refreshExpiry, refreshToken);
+    try {
+      await redisClient.setEx(`refreshToken:${user._id}`, refreshExpiry, refreshToken);
+    } catch (redisError) {
+      console.warn('Redis set failed, continuing without refresh token storage:', redisError.message);
+    }
 
     user.lastLogin = new Date();
     await user.save();
@@ -347,8 +355,12 @@ router.post('/refresh-token', validateRefreshToken, async (req, res) => {
     const newToken = generateToken(user._id);
     const newRefreshToken = generateRefreshToken(user._id);
 
-    await redisClient.setEx(`refreshToken:${user._id}`, 7 * 24 * 60 * 60, newRefreshToken);
-    await blacklistToken(oldRefreshToken, 7 * 24 * 60 * 60);
+    try {
+      await redisClient.setEx(`refreshToken:${user._id}`, 7 * 24 * 60 * 60, newRefreshToken);
+      await blacklistToken(oldRefreshToken, 7 * 24 * 60 * 60);
+    } catch (redisError) {
+      console.warn('Redis operations failed, continuing:', redisError.message);
+    }
 
     res.json({
       message: 'Token refreshed successfully',
@@ -375,8 +387,12 @@ router.post('/logout', authenticateToken, async (req, res) => {
       await blacklistToken(token, 15 * 60);
     }
     if (refreshToken) {
-      await redisClient.del(`refreshToken:${req.user._id}`);
-      await blacklistToken(refreshToken, 7 * 24 * 60 * 60);
+      try {
+        await redisClient.del(`refreshToken:${req.user._id}`);
+        await blacklistToken(refreshToken, 7 * 24 * 60 * 60);
+      } catch (redisError) {
+        console.warn('Redis operations failed during logout:', redisError.message);
+      }
     }
 
     req.logout((err) => {
@@ -470,7 +486,11 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         const token = generateToken(user._id);
         const refreshToken = generateRefreshToken(user._id);
 
-        await redisClient.setEx(`refreshToken:${user._id}`, 7 * 24 * 60 * 60, refreshToken);
+        try {
+          await redisClient.setEx(`refreshToken:${user._id}`, 7 * 24 * 60 * 60, refreshToken);
+        } catch (redisError) {
+          console.warn('Redis set failed during OAuth callback:', redisError.message);
+        }
 
         await user.addLoginHistory(req.ip, req.get('User-Agent'), true);
 

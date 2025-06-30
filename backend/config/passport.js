@@ -7,7 +7,7 @@ passport.use(
         {
             clientID: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-            callbackURL: `${process.env.BACKEND_URL}/api/auth/google/callback`,
+            callbackURL: `${process.env.BACKEND_URL || 'http://localhost:3001'}/api/auth/google/callback`,
         },
         async (accessToken, refreshToken, profile, done) => {
             try {
@@ -29,22 +29,22 @@ passport.use(
                     if (existingEmail) {
                         console.log('Linking Google ID to existing user:', existingEmail.email);
                         existingEmail.googleId = profile.id;
-                        existingEmail.avatar = profile.photos[0].value;
+                        existingEmail.avatar = profile.photos[0]?.value || null;
                         existingEmail.isVerified = true;
-                        user = existingEmail;
+                        user = await existingEmail.save();
                     } else {
                         console.log('Creating new user for email:', profile.emails[0].value);
                         user = new User({
                             googleId: profile.id,
                             email: profile.emails[0].value,
                             username,
-                            avatar: profile.photos[0].value,
-                            firstName: profile.name.givenName,
-                            lastName: profile.name.familyName,
+                            avatar: profile.photos[0]?.value || null,
+                            firstName: profile.name?.givenName || '',
+                            lastName: profile.name?.familyName || '',
                             isVerified: true,
                         });
+                        await user.save();
                     }
-                    await user.save();
                 }
                 done(null, user);
             } catch (error) {
@@ -65,12 +65,13 @@ passport.deserializeUser(async (id, done) => {
         const user = await User.findById(id).select('-password -mfaSecret');
         if (!user) {
             console.error('Deserialize error: User not found for ID:', id);
-            return done(new Error('User not found'), null);
+            return done(null, false); // Return false instead of error
         }
+        console.log('Deserializing user:', user._id);
         done(null, user);
     } catch (error) {
         console.error('Deserialize error:', error);
-        done(error, null);
+        done(null, false); // Return false instead of error to prevent crashes
     }
 });
 

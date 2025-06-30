@@ -265,7 +265,14 @@ const PORT = process.env.PORT || 3001;
 async function startServer() {
   try {
     await connectMongoDB();
-    await initializeRedis();
+    
+    // Initialize Redis with error handling
+    try {
+      await initializeRedis();
+      console.log('✅ Redis connected successfully');
+    } catch (redisError) {
+      console.warn('⚠️ Redis connection failed, continuing without Redis:', redisError.message);
+    }
 
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`🎵 Listeners Backend Server running on port ${PORT}`);
@@ -274,8 +281,8 @@ async function startServer() {
       console.log(`🔒 Security features enabled: Rate limiting, CORS, Helmet, CSRF protection`);
       console.log(`🔐 Authentication: JWT with refresh tokens, MFA support, Google OAuth`);
       console.log(`📧 Email service: ${process.env.SMTP_HOST ? 'Configured' : 'Not configured'}`);
-      console.log(`🎶 Music Player: Spotify API + Google Cloud Storage + MongoDB`);
-      console.log(`☁️ Google Cloud Storage: ${process.env.GOOGLE_CLOUD_PROJECT_ID ? 'Configured' : 'Not configured'}`);
+      console.log(`🎶 Music Player: Spotify API + Amazon S3 + MongoDB`);
+      console.log(`☁️ Amazon S3: ${process.env.AWS_ACCESS_KEY_ID ? 'Configured' : 'Not configured'}`);
       console.log(`🎵 Spotify API: ${process.env.SPOTIFY_CLIENT_ID ? 'Configured' : 'Not configured'}`);
       console.log(`🚀 Server ready for production use!`);
     });
