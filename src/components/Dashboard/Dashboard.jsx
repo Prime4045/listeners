@@ -12,7 +12,9 @@ import {
   Headphones,
   Users,
   Award,
-  Activity
+  Activity,
+  Plus,
+  List
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import ApiService from '../../services/api';
@@ -28,10 +30,10 @@ const Dashboard = () => {
     loadDashboardData();
   }, []);
 
-  // Refresh dashboard when user likes/unlikes songs
+  // Refresh dashboard when user likes/unlikes songs or creates playlists
   useEffect(() => {
     const handleStorageChange = (e) => {
-      if (e.key === 'liked_songs_updated') {
+      if (e.key === 'liked_songs_updated' || e.key === 'playlist_created') {
         loadDashboardData();
       }
     };
@@ -39,15 +41,19 @@ const Dashboard = () => {
     window.addEventListener('storage', handleStorageChange);
     
     // Also listen for custom events
-    const handleLikeUpdate = () => {
+    const handleUpdate = () => {
       loadDashboardData();
     };
     
-    window.addEventListener('liked_songs_updated', handleLikeUpdate);
+    window.addEventListener('liked_songs_updated', handleUpdate);
+    window.addEventListener('playlist_created', handleUpdate);
+    window.addEventListener('song_played', handleUpdate);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('liked_songs_updated', handleLikeUpdate);
+      window.removeEventListener('liked_songs_updated', handleUpdate);
+      window.removeEventListener('playlist_created', handleUpdate);
+      window.removeEventListener('song_played', handleUpdate);
     };
   }, []);
 
@@ -71,10 +77,13 @@ const Dashboard = () => {
   };
 
   const formatDate = (date) => {
+    if (!date) return 'Never';
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -83,6 +92,24 @@ const Dashboard = () => {
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const getTimeAgo = (date) => {
+    if (!date) return 'Never';
+    const now = new Date();
+    const playedAt = new Date(date);
+    const diffInMinutes = Math.floor((now - playedAt) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+    
+    return formatDate(date);
   };
 
   if (loading) {
@@ -111,7 +138,11 @@ const Dashboard = () => {
         <div className="welcome-section">
           <div className="user-avatar">
             {user?.avatar ? (
-              <img src={user.avatar} alt={user.username} />
+              <img 
+                src={user.avatar} 
+                alt={user.username}
+                style={{ width: '80px', height: '80px', borderRadius: '50%' }}
+              />
             ) : (
               <User size={32} />
             )}
@@ -231,14 +262,14 @@ const Dashboard = () => {
               {recentActivity && recentActivity.length > 0 ? (
                 <div className="activity-list">
                   {recentActivity.map((activity, index) => (
-                    <div key={index} className="activity-item">
+                    <div key={`${activity.song?._id}-${index}`} className="activity-item">
                       <div className="activity-icon">
                         <Play size={16} />
                       </div>
                       <div className="activity-details">
                         <div className="activity-title">{activity.song?.title}</div>
                         <div className="activity-subtitle">{activity.song?.artist}</div>
-                        <div className="activity-time">{formatDate(activity.playedAt)}</div>
+                        <div className="activity-time">{getTimeAgo(activity.playedAt)}</div>
                       </div>
                       <div className="activity-duration">
                         {formatDuration(activity.song?.duration)}
@@ -307,29 +338,35 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="info-card actions-card">
+          {/* Music Library Overview */}
+          <div className="info-card library-card">
             <div className="card-header">
-              <h2>Quick Actions</h2>
-              <TrendingUp size={20} />
+              <h2>Music Library</h2>
+              <List size={20} />
             </div>
             <div className="card-content">
-              <div className="quick-actions">
-                <button className="action-btn">
-                  <Music size={20} />
-                  <span>Create Playlist</span>
+              <div className="library-stats">
+                <div className="library-stat">
+                  <div className="stat-number">{stats?.totalPlaylists || 0}</div>
+                  <div className="stat-label">Playlists</div>
+                </div>
+                <div className="library-stat">
+                  <div className="stat-number">{stats?.totalLikedSongs || 0}</div>
+                  <div className="stat-label">Liked Songs</div>
+                </div>
+                <div className="library-stat">
+                  <div className="stat-number">{stats?.recentlyPlayedCount || 0}</div>
+                  <div className="stat-label">Recent Tracks</div>
+                </div>
+              </div>
+              <div className="library-actions">
+                <button className="library-action-btn">
+                  <Plus size={16} />
+                  Create Playlist
                 </button>
-                <button className="action-btn">
-                  <Heart size={20} />
-                  <span>View Liked Songs</span>
-                </button>
-                <button className="action-btn">
-                  <TrendingUp size={20} />
-                  <span>Discover Music</span>
-                </button>
-                <button className="action-btn">
-                  <Settings size={20} />
-                  <span>Account Settings</span>
+                <button className="library-action-btn">
+                  <Heart size={16} />
+                  View Liked Songs
                 </button>
               </div>
             </div>

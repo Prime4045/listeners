@@ -2,6 +2,9 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import { authenticateToken } from '../middleware/auth.js';
 import User from '../models/User.js';
+import Playlist from '../models/Playlist.js';
+import PlayHistory from '../models/PlayHistory.js';
+import UserLikes from '../models/UserLikes.js';
 
 const router = express.Router();
 
@@ -314,7 +317,7 @@ router.put(
   }
 );
 
-// Get user dashboard data
+// Get user dashboard data - ENHANCED
 router.get('/dashboard', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
@@ -329,22 +332,49 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
       });
     }
 
+    // Get dynamic playlist count
+    const playlistCount = await Playlist.countDocuments({ owner: user._id });
+
+    // Get dynamic liked songs count
+    const likedSongsCount = await UserLikes.countDocuments({ 
+      user: user._id, 
+      isActive: true 
+    });
+
+    // Get recent play history (last 10 unique songs)
+    const recentHistory = await PlayHistory.find({ user: user._id })
+      .populate('song')
+      .sort({ playedAt: -1 })
+      .limit(50); // Get more to filter duplicates
+
+    // Remove duplicates and keep only last 10 unique songs
+    const uniqueRecentSongs = [];
+    const seenSongs = new Set();
+    
+    for (const entry of recentHistory) {
+      if (entry.song && !seenSongs.has(entry.song._id.toString())) {
+        uniqueRecentSongs.push(entry);
+        seenSongs.add(entry.song._id.toString());
+        if (uniqueRecentSongs.length >= 10) break;
+      }
+    }
+
     // Get user statistics
     const stats = {
-      totalPlaylists: user.playlists.length,
-      totalLikedSongs: user.likedSongs.length,
-      totalFollowedArtists: user.followedArtists.length,
-      recentlyPlayedCount: user.recentlyPlayed.length,
+      totalPlaylists: playlistCount,
+      totalLikedSongs: likedSongsCount,
+      totalFollowedArtists: user.followedArtists?.length || 0,
+      recentlyPlayedCount: uniqueRecentSongs.length,
       memberSince: user.createdAt,
       lastLogin: user.lastLogin,
-      subscriptionType: user.subscription.type,
-      subscriptionExpiry: user.subscription.expiresAt,
+      subscriptionType: user.subscription?.type || 'free',
+      subscriptionExpiry: user.subscription?.expiresAt,
     };
 
     res.json({
       user: user.toJSON(),
       stats,
-      recentActivity: user.recentlyPlayed.slice(0, 10), // Last 10 played songs
+      recentActivity: uniqueRecentSongs,
     });
   } catch (error) {
     console.error('Get dashboard error:', error);

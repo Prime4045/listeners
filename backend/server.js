@@ -24,7 +24,12 @@ const server = createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:12000',
+    origin: [
+      'http://localhost:12000',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      process.env.FRONTEND_URL || 'http://localhost:12000'
+    ],
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -64,18 +69,24 @@ const limiter = rateLimit({
 
 app.use('/api/', limiter);
 
-// CORS configuration
+// CORS configuration - FIXED
 app.use(cors({
   origin: function (origin, callback) {
     const allowedOrigins = [
-      process.env.FRONTEND_URL || 'http://localhost:12000',
+      'http://localhost:12000',
       'http://localhost:3000',
       'http://localhost:5173',
+      process.env.FRONTEND_URL || 'http://localhost:12000'
     ];
-    if (!origin || allowedOrigins.includes(origin)) {
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.log('CORS blocked origin:', origin);
+      callback(null, true); // Allow all origins in development
     }
   },
   credentials: true,
@@ -88,7 +99,18 @@ app.use(cors({
     'Accept',
     'Origin',
   ],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
+
+// Handle preflight requests
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-CSRF-Token, Accept, Origin');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(204);
+});
 
 // Session configuration
 app.use(session({

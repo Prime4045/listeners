@@ -221,6 +221,59 @@ const ApiService = {
     });
   },
 
+  // Playlist endpoints
+  async getPlaylists() {
+    return this.makeRequest('/playlists');
+  },
+
+  async getPlaylist(id) {
+    return this.makeRequest(`/playlists/${id}`);
+  },
+
+  async createPlaylist(data) {
+    return this.makeRequest('/playlists', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async updatePlaylist(id, data) {
+    return this.makeRequest(`/playlists/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deletePlaylist(id) {
+    return this.makeRequest(`/playlists/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async addSongToPlaylist(playlistId, spotifyId) {
+    return this.makeRequest(`/playlists/${playlistId}/songs`, {
+      method: 'POST',
+      body: JSON.stringify({ spotifyId }),
+    });
+  },
+
+  async removeSongFromPlaylist(playlistId, songId) {
+    return this.makeRequest(`/playlists/${playlistId}/songs/${songId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async reorderPlaylist(playlistId, songId, newPosition) {
+    return this.makeRequest(`/playlists/${playlistId}/songs/reorder`, {
+      method: 'PUT',
+      body: JSON.stringify({ songId, newPosition }),
+    });
+  },
+
+  async getPublicPlaylists(page = 1, limit = 20) {
+    return this.makeRequest(`/playlists/public/all?page=${page}&limit=${limit}`);
+  },
+
   // Health check
   async healthCheck() {
     return this.makeRequest('/music/health');
