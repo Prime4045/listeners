@@ -27,19 +27,12 @@ import AuthCallback from './components/auth/AuthCallback';
 import Dashboard from './components/Dashboard/Dashboard';
 import Profile from './components/Profile/Profile';
 import MusicPlayer from './components/MusicPlayer/MusicPlayer';
+import CreatePlaylistModal from './components/CreatePlaylistModal/CreatePlaylistModal';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { MusicProvider } from './contexts/MusicContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import ApiService from './services/api';
 import './App.css';
-
-const samplePlaylists = [
-  { id: 1, name: 'Chill Vibes', songCount: 24 },
-  { id: 2, name: 'Workout Mix', songCount: 18 },
-  { id: 3, name: 'Study Focus', songCount: 32 },
-  { id: 4, name: 'Road Trip', songCount: 45 },
-  { id: 5, name: 'Late Night', songCount: 16 },
-];
 
 const AppContent = () => {
   const [currentView, setCurrentView] = useState('home');
@@ -50,11 +43,13 @@ const AppContent = () => {
   const [newReleases, setNewReleases] = useState([]);
   const [likedSongs, setLikedSongs] = useState([]);
   const [userLibrary, setUserLibrary] = useState([]);
+  const [userPlaylists, setUserPlaylists] = useState([]);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [authModal, setAuthModal] = useState({ isOpen: false, mode: 'login' });
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isPlayerMinimized, setIsPlayerMinimized] = useState(false);
+  const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
 
   // Search pagination
   const [searchPagination, setSearchPagination] = useState({
@@ -123,6 +118,21 @@ const AppContent = () => {
     }
   };
 
+  const loadUserPlaylists = async () => {
+    if (!isAuthenticated) {
+      setUserPlaylists([]);
+      return;
+    }
+
+    try {
+      const response = await ApiService.getPlaylists();
+      setUserPlaylists(response.playlists || []);
+    } catch (err) {
+      console.error('Failed to load playlists:', err);
+      setUserPlaylists([]);
+    }
+  };
+
   const loadLikedSongs = async () => {
     if (!isAuthenticated) return;
 
@@ -182,7 +192,7 @@ const AppContent = () => {
       setCurrentView('search');
     } catch (error) {
       console.error('Search failed:', error);
-      setError(`Search failed: ${error.message || 'Unable to fetch songs from Spotify'}. Please try again.`);
+      setError(`Search failed: ${error.message || 'Unable to fetch songs'}. Please try again.`);
       setSearchResults([]);
     } finally {
       setIsSearching(false);
@@ -244,6 +254,12 @@ const AppContent = () => {
     }
   };
 
+  const handlePlaylistCreated = (playlist) => {
+    console.log('Playlist created:', playlist.name);
+    loadUserPlaylists(); // Refresh playlists
+    setShowCreatePlaylist(false);
+  };
+
   useEffect(() => {
     if (currentView === 'home') {
       loadHomePageData();
@@ -253,6 +269,12 @@ const AppContent = () => {
       loadUserLibrary();
     }
   }, [currentView, isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadUserPlaylists();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (user?.preferences?.theme) {
@@ -280,6 +302,7 @@ const AppContent = () => {
       setCurrentView('home');
       setUserLibrary([]);
       setLikedSongs([]);
+      setUserPlaylists([]);
     } catch (error) {
       console.error('Logout failed:', error);
     }
@@ -581,8 +604,8 @@ const AppContent = () => {
                 <>
                   <div className="user-info" onClick={handleUserMenuClick}>
                     <div className="user-avatar">
-                      {user?.profilePicture ? (
-                        <img src={user.profilePicture} alt={user.username} />
+                      {user?.avatar ? (
+                        <img src={user.avatar} alt={user.username} />
                       ) : (
                         <User size={20} />
                       )}
@@ -594,8 +617,8 @@ const AppContent = () => {
                     <div className="user-dropdown">
                       <div className="dropdown-header">
                         <div className="user-avatar-large">
-                          {user?.profilePicture ? (
-                            <img src={user.profilePicture} alt={user.username} />
+                          {user?.avatar ? (
+                            <img src={user.avatar} alt={user.username} />
                           ) : (
                             <User size={24} />
                           )}
@@ -720,18 +743,36 @@ const AppContent = () => {
             <div className="playlists">
               <div className="playlists-header">
                 <h3 className="nav-title">PLAYLISTS</h3>
-                <Plus className="add-playlist" />
+                {isAuthenticated && (
+                  <Plus 
+                    className="add-playlist" 
+                    onClick={() => setShowCreatePlaylist(true)}
+                  />
+                )}
               </div>
               <div className="playlist-list">
-                {samplePlaylists.map((playlist) => (
-                  <div key={playlist.id} className="playlist-item">
-                    <div className="playlist-cover"></div>
-                    <div className="playlist-info">
-                      <div className="playlist-name">{playlist.name}</div>
-                      <div className="playlist-count">{playlist.songCount} songs</div>
+                {isAuthenticated ? (
+                  userPlaylists.length > 0 ? (
+                    userPlaylists.map((playlist) => (
+                      <div key={playlist._id} className="playlist-item">
+                        <div className="playlist-cover"></div>
+                        <div className="playlist-info">
+                          <div className="playlist-name">{playlist.name}</div>
+                          <div className="playlist-count">{playlist.songs?.length || 0} songs</div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      <p style={{ fontSize: '0.875rem', margin: 0 }}>No playlists yet</p>
+                      <p style={{ fontSize: '0.75rem', margin: '0.25rem 0 0 0' }}>Create your first playlist</p>
                     </div>
+                  )
+                ) : (
+                  <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <p style={{ fontSize: '0.875rem', margin: 0 }}>Sign in to create playlists</p>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </aside>
@@ -749,6 +790,12 @@ const AppContent = () => {
         isOpen={authModal.isOpen}
         onClose={closeAuthModal}
         initialMode={authModal.mode}
+      />
+
+      <CreatePlaylistModal
+        isOpen={showCreatePlaylist}
+        onClose={() => setShowCreatePlaylist(false)}
+        onPlaylistCreated={handlePlaylistCreated}
       />
     </div>
   );
