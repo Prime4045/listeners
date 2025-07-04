@@ -77,6 +77,18 @@ const ApiService = {
 
   // Authentication endpoints
   async login(data) {
+    // Ensure required fields are present
+    if (!data.emailOrUsername || !data.password) {
+      throw {
+        message: 'Email/username and password are required',
+        code: 'VALIDATION_ERROR',
+        errors: [
+          { param: 'emailOrUsername', msg: 'Email or username is required' },
+          { param: 'password', msg: 'Password is required' }
+        ]
+      };
+    }
+
     return this.makeRequest('/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),

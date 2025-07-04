@@ -10,6 +10,18 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (loginData) => {
     try {
+      // Validate required fields before making request
+      if (!loginData.emailOrUsername || !loginData.password) {
+        throw {
+          message: 'Email/username and password are required',
+          code: 'VALIDATION_ERROR',
+          errors: [
+            { param: 'emailOrUsername', msg: 'Email or username is required' },
+            { param: 'password', msg: 'Password is required' }
+          ]
+        };
+      }
+
       const response = await ApiService.login(loginData);
       
       if (response.requiresMFA) {

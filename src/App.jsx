@@ -66,6 +66,9 @@ const AppContent = () => {
   const location = useLocation();
   const { user, isAuthenticated, logout, loading: authLoading } = useAuth();
 
+  // Debounced search to prevent too many requests
+  const [searchTimeout, setSearchTimeout] = useState(null);
+
   useEffect(() => {
     if (location.state?.error) {
       setError(location.state.error);
@@ -73,6 +76,12 @@ const AppContent = () => {
   }, [location]);
 
   useEffect(() => {
+    // Clear previous timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
+    // Set new timeout for search
     const timeoutId = setTimeout(() => {
       if (searchQuery.trim() && searchQuery.length >= 2) {
         handleSearch(1);
@@ -83,15 +92,24 @@ const AppContent = () => {
           setCurrentView('home');
         }
       }
-    }, 500);
+    }, 800); // Increased debounce time from 500ms to 800ms
 
-    return () => clearTimeout(timeoutId);
+    setSearchTimeout(timeoutId);
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [searchQuery]);
 
   const loadHomePageData = async () => {
     try {
       setIsLoading(true);
       setError(null);
+
+      // Add delay to prevent rapid requests
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       const [trendingResponse, newReleasesResponse] = await Promise.allSettled([
         ApiService.getTrendingSongs(12),
@@ -244,14 +262,25 @@ const AppContent = () => {
     }
   };
 
+  // Load data only when view changes, not on every render
   useEffect(() => {
-    if (currentView === 'home') {
-      loadHomePageData();
-    } else if (currentView === 'liked' && isAuthenticated) {
-      loadLikedSongs();
-    } else if (currentView === 'library') {
-      loadUserLibrary();
-    }
+    let isMounted = true;
+
+    const loadData = async () => {
+      if (currentView === 'home' && isMounted) {
+        await loadHomePageData();
+      } else if (currentView === 'liked' && isAuthenticated && isMounted) {
+        await loadLikedSongs();
+      } else if (currentView === 'library' && isMounted) {
+        await loadUserLibrary();
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [currentView, isAuthenticated]);
 
   useEffect(() => {

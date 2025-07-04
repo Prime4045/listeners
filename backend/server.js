@@ -35,7 +35,52 @@ const io = new Server(server, {
   },
 });
 
-// Security middleware
+// Trust proxy for rate limiting
+app.set('trust proxy', 1);
+
+// CORS configuration - FIXED and moved to top
+const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:12000',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      process.env.FRONTEND_URL || 'http://localhost:12000'
+    ];
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('CORS allowed origin:', origin);
+      callback(null, true); // Allow all origins in development
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'X-CSRF-Token',
+    'Accept',
+    'Origin',
+    'Cache-Control',
+    'Pragma'
+  ],
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly
+app.options('*', cors(corsOptions));
+
+// Security middleware - moved after CORS
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
   contentSecurityPolicy: {
@@ -53,64 +98,27 @@ app.use(helmet({
   },
 }));
 
-app.use(securityHeaders);
-
-// Rate limiting
+// More lenient rate limiting
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 500, // Increased from 100 to 500
   message: {
     error: 'Too many requests from this IP, please try again later.',
     retryAfter: 15 * 60 * 1000,
   },
   standardHeaders: true,
   legacyHeaders: false,
-});
-
-app.use('/api/', limiter);
-
-// CORS configuration - FIXED
-app.use(cors({
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:12000',
-      'http://localhost:3000',
-      'http://localhost:5173',
-      process.env.FRONTEND_URL || 'http://localhost:12000'
-    ];
-    
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(null, true); // Allow all origins in development
-    }
+  keyGenerator: (req) => {
+    return req.ip || req.connection.remoteAddress || 'unknown';
   },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'X-Requested-With',
-    'X-CSRF-Token',
-    'Accept',
-    'Origin',
-  ],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-}));
-
-// Handle preflight requests
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-CSRF-Token, Accept, Origin');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.sendStatus(204);
+  skip: (req) => {
+    // Skip rate limiting for health checks and static assets
+    return req.path === '/api/health' || req.path.startsWith('/static');
+  }
 });
+
+// Apply rate limiting only to API routes, not all routes
+app.use('/api/', limiter);
 
 // Session configuration
 app.use(session({

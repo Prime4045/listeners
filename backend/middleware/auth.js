@@ -5,10 +5,10 @@ import User from '../models/User.js';
 import { redisClient } from '../config/database.js';
 import crypto from 'crypto';
 
-// Rate limiting for authentication endpoints
+// More lenient rate limiting for authentication endpoints
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts per window
+  max: 10, // Increased from 5 to 10 attempts per window
   message: {
     error: 'Too many authentication attempts, please try again later.',
     retryAfter: 15 * 60 * 1000,
@@ -29,9 +29,9 @@ export const progressiveAuthLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: (req) => {
     const attempts = req.user?.loginAttempts || 0;
-    if (attempts >= 3) return 1; // 1 attempt per hour after 3 failures
-    if (attempts >= 2) return 3; // 3 attempts per hour after 2 failures
-    return 10; // 10 attempts per hour initially
+    if (attempts >= 3) return 5; // Increased from 1 to 5 attempts per hour after 3 failures
+    if (attempts >= 2) return 8; // Increased from 3 to 8 attempts per hour after 2 failures
+    return 20; // Increased from 10 to 20 attempts per hour initially
   },
   message: {
     error: 'Account temporarily locked due to multiple failed login attempts.',
