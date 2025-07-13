@@ -11,7 +11,6 @@ import {
   Home,
   Library,
   Heart,
-  Plus,
   Music,
   User,
   TrendingUp,
@@ -27,19 +26,14 @@ import AuthCallback from './components/auth/AuthCallback';
 import Dashboard from './components/Dashboard/Dashboard';
 import Profile from './components/Profile/Profile';
 import MusicPlayer from './components/MusicPlayer/MusicPlayer';
+import PlaylistSection from './components/PlaylistSection/PlaylistSection';
+import SignIn from './pages/SignIn';
+import SignUp from './pages/SignUp';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { MusicProvider } from './contexts/MusicContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import ApiService from './services/api';
 import './App.css';
-
-const samplePlaylists = [
-  { id: 1, name: 'Chill Vibes', songCount: 24 },
-  { id: 2, name: 'Workout Mix', songCount: 18 },
-  { id: 3, name: 'Study Focus', songCount: 32 },
-  { id: 4, name: 'Road Trip', songCount: 45 },
-  { id: 5, name: 'Late Night', songCount: 16 },
-];
 
 const AppContent = () => {
   const [currentView, setCurrentView] = useState('home');
@@ -693,13 +687,13 @@ const AppContent = () => {
                 <div className="auth-buttons">
                   <button
                     className="auth-btn login-btn"
-                    onClick={() => openAuthModal('login')}
+                    onClick={() => window.location.href = '/signin'}
                   >
                     Sign In
                   </button>
                   <button
                     className="auth-btn register-btn"
-                    onClick={() => openAuthModal('register')}
+                    onClick={() => window.location.href = '/signup'}
                   >
                     Sign Up
                   </button>
@@ -746,23 +740,7 @@ const AppContent = () => {
                 </li>
               </ul>
             </nav>
-            <div className="playlists">
-              <div className="playlists-header">
-                <h3 className="nav-title">PLAYLISTS</h3>
-                <Plus className="add-playlist" />
-              </div>
-              <div className="playlist-list">
-                {samplePlaylists.map((playlist) => (
-                  <div key={playlist.id} className="playlist-item">
-                    <div className="playlist-cover"></div>
-                    <div className="playlist-info">
-                      <div className="playlist-name">{playlist.name}</div>
-                      <div className="playlist-count">{playlist.songCount} songs</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <PlaylistSection onAuthRequired={handleAuthRequired} />
           </aside>
 
           <main className="main-content">{renderMainContent()}</main>
@@ -791,7 +769,10 @@ function App() {
           <MusicProvider>
             <Routes>
               <Route path="/" element={<AppContent />} />
-              <Route path="/login" element={<AppContent />} />
+              <Route path="/signin" element={<SignIn />} />
+              <Route path="/signup" element={<SignUp />} />
+              <Route path="/login" element={<Navigate to="/signin" />} />
+              <Route path="/register" element={<Navigate to="/signup" />} />
               <Route path="/dashboard" element={<AppContent />} />
               <Route path="/profile" element={<AppContent />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
