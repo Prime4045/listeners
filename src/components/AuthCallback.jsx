@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
 const AuthCallback = () => {
@@ -27,7 +27,8 @@ const AuthCallback = () => {
                     localStorage.setItem('refreshToken', refreshToken);
 
                     // Get user data
-                    const response = await fetch('/api/auth/me', {
+                    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+                    const response = await fetch(`${apiUrl}/auth/me`, {
                         headers: {
                             'Authorization': `Bearer ${token}`
                         }

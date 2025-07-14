@@ -21,8 +21,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import TrackList from './components/TrackList';
-import AuthModal from './components/auth/AuthModal';
-import AuthCallback from './components/auth/AuthCallback';
+import AuthCallback from './components/AuthCallback';
 import Dashboard from './components/Dashboard/Dashboard';
 import Profile from './components/Profile/Profile';
 import MusicPlayer from './components/MusicPlayer/MusicPlayer';
@@ -46,7 +45,6 @@ const AppContent = () => {
   const [userLibrary, setUserLibrary] = useState([]);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [authModal, setAuthModal] = useState({ isOpen: false, mode: 'login' });
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isPlayerMinimized, setIsPlayerMinimized] = useState(false);
 
@@ -221,7 +219,7 @@ const AppContent = () => {
   };
 
   const handleAuthRequired = () => {
-    setAuthModal({ isOpen: true, mode: 'login' });
+    navigate('/signin');
   };
 
   const handleLikeSong = async (song) => {
@@ -285,11 +283,7 @@ const AppContent = () => {
   }, [user?.preferences?.theme]);
 
   const openAuthModal = (mode = 'login') => {
-    setAuthModal({ isOpen: true, mode });
-  };
-
-  const closeAuthModal = () => {
-    setAuthModal({ isOpen: false, mode: 'login' });
+    navigate(mode === 'login' ? '/signin' : '/signup');
   };
 
   const handleUserMenuClick = () => {
@@ -750,12 +744,6 @@ const AppContent = () => {
       <MusicPlayer
         isMinimized={isPlayerMinimized}
         onToggleMinimize={() => setIsPlayerMinimized(!isPlayerMinimized)}
-      />
-
-      <AuthModal
-        isOpen={authModal.isOpen}
-        onClose={closeAuthModal}
-        initialMode={authModal.mode}
       />
     </div>
   );
