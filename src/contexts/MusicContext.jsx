@@ -234,8 +234,8 @@ export const MusicProvider = ({ children }) => {
         attempts++;
       }
 
-      // If repeat mode is 'none' and we've cycled through all tracks, stop
-      if (repeatMode === 'none' && attempts >= playlist.length) {
+      // If repeat mode is 'none' and we've reached the end, stop
+      if (repeatMode === 'none' && nextIndex <= currentIndex && attempts > 0) {
         setIsPlaying(false);
         return;
       }

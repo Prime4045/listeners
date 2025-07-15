@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Music, Play, Lock } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import CreatePlaylistModal from '../CreatePlaylistModal/CreatePlaylistModal';
@@ -7,6 +8,7 @@ import './PlaylistSection.css';
 
 const PlaylistSection = ({ onAuthRequired }) => {
   const { isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
   const [playlists, setPlaylists] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -57,6 +59,9 @@ const PlaylistSection = ({ onAuthRequired }) => {
     setShowCreateModal(false);
   };
 
+  const handlePlaylistClick = (playlist) => {
+    navigate(`/playlist/${playlist._id}`);
+  };
   if (!isAuthenticated) {
     return (
       <div className="playlist-section">
@@ -107,7 +112,11 @@ const PlaylistSection = ({ onAuthRequired }) => {
           </div>
         ) : playlists.length > 0 ? (
           playlists.map((playlist) => (
-            <div key={playlist._id} className="playlist-item">
+            <div 
+              key={playlist._id} 
+              className="playlist-item"
+              onClick={() => handlePlaylistClick(playlist)}
+            >
               <div className="playlist-cover">
                 <Music size={16} />
               </div>
@@ -117,7 +126,14 @@ const PlaylistSection = ({ onAuthRequired }) => {
                   {playlist.songs?.length || 0} songs
                 </div>
               </div>
-              <button className="playlist-play-btn" title="Play playlist">
+              <button 
+                className="playlist-play-btn" 
+                title="Play playlist"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // TODO: Implement playlist play functionality
+                }}
+              >
                 <Play size={12} />
               </button>
             </div>

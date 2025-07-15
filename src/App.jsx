@@ -5,6 +5,7 @@ import {
   Route,
   Navigate,
   useLocation,
+  useNavigate,
 } from 'react-router-dom';
 import {
   Search,
@@ -23,6 +24,7 @@ import {
 import TrackList from './components/TrackList';
 import AuthCallback from './components/AuthCallback';
 import Dashboard from './components/Dashboard/Dashboard';
+import PlaylistView from './components/PlaylistView/PlaylistView';
 import Profile from './components/Profile/Profile';
 import MusicPlayer from './components/MusicPlayer/MusicPlayer';
 import PlaylistSection from './components/PlaylistSection/PlaylistSection';
@@ -56,6 +58,7 @@ const AppContent = () => {
   });
 
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, isAuthenticated, logout, loading: authLoading } = useAuth();
 
   // Debounced search to prevent too many requests
@@ -763,6 +766,7 @@ function App() {
               <Route path="/register" element={<Navigate to="/signup" />} />
               <Route path="/dashboard" element={<AppContent />} />
               <Route path="/profile" element={<AppContent />} />
+              <Route path="/playlist/:id" element={<PlaylistView />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
