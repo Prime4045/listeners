@@ -142,7 +142,6 @@ const TrackList = ({
                 <div className="header-duration">
                   <i className='bx bx-hourglass' style={{ fontSize: '16px' }}></i>
                 </div>
-                <div className="header-actions">Actions</div>
               </div>
 
               <div className="track-list-body">
@@ -209,7 +208,7 @@ const TrackList = ({
                       {formatDuration(track.duration)}
                     </div>
 
-                    <div className="track-actions">
+                    <div className="track-actions" style={{ opacity: isCurrentTrack(track) ? 1 : 0 }}>
                       <button
                         className={`action-btn ${isTrackLiked(track) ? 'liked' : ''}`}
                         onClick={(e) => handleLikeTrack(track, e)}

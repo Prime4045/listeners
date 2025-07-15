@@ -115,8 +115,14 @@ const PlaylistView = () => {
   };
 
   const getPlaylistImage = () => {
-    const firstSong = playlistData?.songs?.find(item => item.song?.imageUrl);
-    return firstSong?.song?.imageUrl || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300';
+    // Get the first song with an image, or use a default playlist image
+    const firstSongWithImage = playlistData?.songs?.find(item => item.song?.imageUrl);
+    if (firstSongWithImage?.song?.imageUrl) {
+      return firstSongWithImage.song.imageUrl;
+    }
+    
+    // Default playlist cover with gradient
+    return 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300';
   };
 
   const formatTracks = (songs) => {
@@ -177,15 +183,21 @@ const PlaylistView = () => {
           </div>
           
           <div className="playlist-details">
-            <span className="playlist-type">Playlist</span>
+            <span className="playlist-type">{playlistData.isPublic ? 'Public Playlist' : 'Playlist'}</span>
             <h1 className="playlist-title">{playlistData.name}</h1>
             <div className="playlist-meta">
+              {playlistData.description && (
+                <>
+                  <span className="playlist-description">{playlistData.description}</span>
+                  <span className="separator">•</span>
+                </>
+              )}
               <span className="playlist-owner">
                 {playlistData.owner?.username || 'Unknown'}
               </span>
               <span className="separator">•</span>
               <span className="playlist-stats">
-                {playlistData.songs?.length || 0} songs, {getTotalDuration()}
+                {playlistData.songs?.length || 0} songs{playlistData.songs?.length > 0 && `, ${getTotalDuration()}`}
               </span>
             </div>
           </div>

@@ -52,7 +52,7 @@
 
 .track-list-header {
   display: grid;
-  grid-template-columns: 60px 1fr 200px 80px 140px;
+  grid-template-columns: 60px 1fr 200px 120px 80px;
   gap: 1rem;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border-color);
@@ -75,7 +75,7 @@
 
 .track-row {
   display: grid;
-  grid-template-columns: 60px 1fr 200px 80px 140px;
+  grid-template-columns: 60px 1fr 200px 120px 80px;
   gap: 1rem;
   padding: 0.75rem 1.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -438,7 +438,7 @@
 
   .track-list-header,
   .track-row {
-    grid-template-columns: 50px 1fr 120px 100px 60px 100px;
+    grid-template-columns: 50px 1fr 150px 100px 60px;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
   }
@@ -462,17 +462,17 @@
 
   .track-list-header,
   .track-row {
-    grid-template-columns: 40px 1fr 80px 80px;
+    grid-template-columns: 40px 1fr 80px;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
   }
 
   .header-album,
   .track-album,
-  .header-duration,
-  .track-duration,
   .header-added,
-  .track-added {
+  .track-added,
+  .header-actions,
+  .track-actions {
     display: none;
   }
 
@@ -526,7 +526,7 @@
 
   .track-list-header,
   .track-row {
-    grid-template-columns: 30px 1fr 60px;
+    grid-template-columns: 30px 1fr 50px;
     gap: 0.5rem;
     padding: 0.5rem 0.75rem;
   }
