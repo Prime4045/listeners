@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Music, Plus, Search, Check } from 'lucide-react';
+import { X, Music, Plus, Check, Sparkles } from 'lucide-react';
 import ApiService from '../../services/api';
 import './CreatePlaylistModal.css';
 
@@ -122,17 +122,30 @@ const CreatePlaylistModal = ({ isOpen, onClose, onPlaylistCreated, selectedSong 
     }
   };
 
+  const getPlaylistGradient = (index) => {
+    const gradients = [
+      'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+      'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+      'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+      'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+      'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+    ];
+    return gradients[index % gradients.length];
+  };
+
   if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && handleClose()}>
       <div className="modal-container">
         <div className="modal-header">
-          <h2>
-            {selectedSong ? 'Add to Playlist' : 'Create Playlist'}
-          </h2>
+          <div className="modal-title">
+            <Sparkles size={20} />
+            <h2>{selectedSong ? 'Add to Playlist' : 'Create Playlist'}</h2>
+          </div>
           <button className="modal-close" onClick={handleClose}>
-            <X size={24} />
+            <X size={20} />
           </button>
         </div>
 
@@ -164,35 +177,55 @@ const CreatePlaylistModal = ({ isOpen, onClose, onPlaylistCreated, selectedSong 
             )}
 
             {createNew ? (
-              <div className="create-playlist-form">
+              <div className="create-section">
+                <div className="create-preview">
+                  <div className="preview-artwork">
+                    <Music size={32} />
+                  </div>
+                  <div className="preview-info">
+                    <h3>{playlistName || 'My Playlist #1'}</h3>
+                    <p>0 songs</p>
+                  </div>
+                </div>
+
                 <div className="form-group">
-                  <label>Playlist Name *</label>
+                  <label>Give your playlist a name</label>
                   <input
                     type="text"
                     value={playlistName}
                     onChange={(e) => setPlaylistName(e.target.value)}
-                    placeholder="Enter playlist name"
+                    placeholder="My Playlist #1"
                     maxLength={100}
                     autoFocus
+                    className="playlist-name-input"
                   />
                 </div>
               </div>
             ) : (
-              <div className="existing-playlists">
+              <div className="existing-section">
+                <h3>Choose a playlist</h3>
                 {existingPlaylists.length > 0 ? (
-                  <div className="playlists-list">
-                    {existingPlaylists.map(playlist => (
+                  <div className="playlists-grid">
+                    {existingPlaylists.map((playlist, index) => (
                       <div
                         key={playlist._id}
-                        className={`playlist-item ${selectedPlaylist?._id === playlist._id ? 'selected' : ''}`}
+                        className={`playlist-card ${selectedPlaylist?._id === playlist._id ? 'selected' : ''}`}
                         onClick={() => setSelectedPlaylist(playlist)}
                       >
+                        <div 
+                          className="playlist-cover"
+                          style={{ background: getPlaylistGradient(index) }}
+                        >
+                          <Music size={20} />
+                        </div>
                         <div className="playlist-info">
                           <h4>{playlist.name}</h4>
                           <p>{playlist.songs?.length || 0} songs</p>
                         </div>
                         {selectedPlaylist?._id === playlist._id && (
-                          <Check size={20} className="check-icon" />
+                          <div className="selection-indicator">
+                            <Check size={16} />
+                          </div>
                         )}
                       </div>
                     ))}
@@ -207,7 +240,7 @@ const CreatePlaylistModal = ({ isOpen, onClose, onPlaylistCreated, selectedSong 
               </div>
             )}
 
-            <div className="step-actions">
+            <div className="modal-actions">
               <button
                 className="btn-secondary"
                 onClick={handleClose}
@@ -219,7 +252,19 @@ const CreatePlaylistModal = ({ isOpen, onClose, onPlaylistCreated, selectedSong 
                 onClick={handleSubmit}
                 disabled={loading || (createNew ? !playlistName.trim() : !selectedPlaylist)}
               >
-                {loading ? 'Processing...' : createNew ? 'Create Playlist' : 'Add to Playlist'}
+                {loading ? (
+                  <div className="loading-spinner"></div>
+                ) : createNew ? (
+                  <>
+                    <Plus size={16} />
+                    Create
+                  </>
+                ) : (
+                  <>
+                    <Music size={16} />
+                    Add Song
+                  </>
+                )}
               </button>
             </div>
           </div>

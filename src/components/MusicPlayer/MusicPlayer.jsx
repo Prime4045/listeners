@@ -414,9 +414,6 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                     </div>
 
                     <div className="additional-controls">
-                        <PictureInPicture2 className="control-icon" title="Picture-in-picture" />
-                        <ListMusic className="control-icon" title="Queue" />
-                        <Monitor className="control-icon" title="Connect to a device" />
                         {onToggleMinimize && (
                             <Minimize2
                                 className="control-icon"

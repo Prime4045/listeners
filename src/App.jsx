@@ -222,7 +222,7 @@ const AppContent = () => {
   };
 
   const handleAuthRequired = () => {
-    navigate('/signin');
+    navigate('/signin', { state: { from: location.pathname } });
   };
 
   const handleLikeSong = async (song) => {

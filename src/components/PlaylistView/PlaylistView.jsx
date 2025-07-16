@@ -12,7 +12,15 @@ import {
   Search,
   SortDesc,
   Loader2,
-  Music
+  Music,
+  Share,
+  Plus,
+  Users,
+  Globe,
+  Lock,
+  Calendar,
+  TrendingUp,
+  Headphones
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMusic } from '../../contexts/MusicContext';
@@ -23,13 +31,16 @@ import './PlaylistView.css';
 const PlaylistView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { currentTrack, isPlaying, playTrack, playlist } = useMusic();
   
   const [playlistData, setPlaylistData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isPlaylistPlaying, setIsPlaylistPlaying] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (id && isAuthenticated) {
@@ -122,7 +133,7 @@ const PlaylistView = () => {
     }
     
     // Default playlist cover with gradient
-    return 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300';
+    return null;
   };
 
   const formatTracks = (songs) => {
@@ -135,12 +146,33 @@ const PlaylistView = () => {
       }));
   };
 
+  const getPlaylistTypeIcon = () => {
+    if (playlistData?.isPublic) return <Globe size={16} />;
+    if (playlistData?.isCollaborative) return <Users size={16} />;
+    return <Lock size={16} />;
+  };
+
+  const getPlaylistTypeText = () => {
+    if (playlistData?.isPublic) return 'Public Playlist';
+    if (playlistData?.isCollaborative) return 'Collaborative Playlist';
+    return 'Private Playlist';
+  };
+
+  const filteredTracks = formatTracks(playlistData?.songs || []).filter(track =>
+    searchQuery === '' || 
+    track.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    track.artist.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (loading) {
     return (
       <div className="playlist-view">
         <div className="playlist-loading">
-          <Loader2 className="animate-spin" size={48} />
-          <p>Loading playlist...</p>
+          <div className="loading-content">
+            <div className="loading-spinner"></div>
+            <h3>Loading playlist...</h3>
+            <p>Getting your music ready</p>
+          </div>
         </div>
       </div>
     );
@@ -150,55 +182,112 @@ const PlaylistView = () => {
     return (
       <div className="playlist-view">
         <div className="playlist-error">
-          <Music size={48} />
-          <h2>Playlist not found</h2>
-          <p>{error || 'The playlist you\'re looking for doesn\'t exist or you don\'t have access to it.'}</p>
-          <button onClick={() => navigate('/')} className="back-home-btn">
-            Go Home
-          </button>
+          <div className="error-content">
+            <div className="error-icon">
+              <Music size={64} />
+            </div>
+            <h2>Playlist not found</h2>
+            <p>{error || 'The playlist you\'re looking for doesn\'t exist or you don\'t have access to it.'}</p>
+            <button onClick={() => navigate('/')} className="back-home-btn">
+              <ArrowLeft size={16} />
+              Go Home
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  const tracks = formatTracks(playlistData.songs || []);
+  const tracks = filteredTracks;
+  const playlistImage = getPlaylistImage();
 
   return (
     <div className="playlist-view">
       {/* Header */}
       <div className="playlist-header">
         <button className="back-btn" onClick={() => navigate('/')}>
-          <ArrowLeft size={24} />
+          <ArrowLeft size={20} />
         </button>
         
-        <div className="playlist-info">
-          <div className="playlist-cover">
-            <img
-              src={getPlaylistImage()}
-              alt={playlistData.name}
-              onError={(e) => {
-                e.target.src = 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300';
-              }}
-            />
+        <div className="playlist-hero">
+          <div className="playlist-artwork">
+            {playlistImage ? (
+              <img
+                src={playlistImage}
+                alt={playlistData.name}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'flex';
+                }}
+              />
+            ) : null}
+            <div 
+              className="default-artwork"
+              style={{ display: playlistImage ? 'none' : 'flex' }}
+            >
+              <Music size={80} />
+            </div>
+            <div className="artwork-overlay">
+              <button 
+                className="hero-play-btn"
+                onClick={handlePlayPlaylist}
+                disabled={!tracks.length}
+              >
+                {isPlaylistPlaying ? <Pause size={24} /> : <Play size={24} />}
+              </button>
+            </div>
           </div>
           
           <div className="playlist-details">
-            <span className="playlist-type">{playlistData.isPublic ? 'Public Playlist' : 'Playlist'}</span>
+            <div className="playlist-type">
+              {getPlaylistTypeIcon()}
+              <span>{getPlaylistTypeText()}</span>
+            </div>
+            
             <h1 className="playlist-title">{playlistData.name}</h1>
-            <div className="playlist-meta">
-              {playlistData.description && (
+            
+            {playlistData.description && (
+              <p className="playlist-description">{playlistData.description}</p>
+            )}
+            
+            <div className="playlist-metadata">
+              <div className="metadata-item">
+                <div className="owner-avatar">
+                  {playlistData.owner?.avatar ? (
+                    <img src={playlistData.owner.avatar} alt={playlistData.owner.username} />
+                  ) : (
+                    <Users size={16} />
+                  )}
+                </div>
+                <span className="owner-name">{playlistData.owner?.username || 'Unknown'}</span>
+              </div>
+              
+              <span className="separator">•</span>
+              
+              <div className="metadata-item">
+                <Music size={14} />
+                <span>{playlistData.songs?.length || 0} songs</span>
+              </div>
+              
+              {playlistData.songs?.length > 0 && (
                 <>
-                  <span className="playlist-description">{playlistData.description}</span>
                   <span className="separator">•</span>
+                  <div className="metadata-item">
+                    <Clock size={14} />
+                    <span>{getTotalDuration()}</span>
+                  </div>
                 </>
               )}
-              <span className="playlist-owner">
-                {playlistData.owner?.username || 'Unknown'}
-              </span>
-              <span className="separator">•</span>
-              <span className="playlist-stats">
-                {playlistData.songs?.length || 0} songs{playlistData.songs?.length > 0 && `, ${getTotalDuration()}`}
-              </span>
+              
+              {playlistData.playCount > 0 && (
+                <>
+                  <span className="separator">•</span>
+                  <div className="metadata-item">
+                    <TrendingUp size={14} />
+                    <span>{playlistData.playCount} plays</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -206,40 +295,78 @@ const PlaylistView = () => {
 
       {/* Controls */}
       <div className="playlist-controls">
-        <button 
-          className="play-btn-large"
-          onClick={handlePlayPlaylist}
-          disabled={!tracks.length}
-        >
-          {isPlaylistPlaying ? <Pause size={24} /> : <Play size={24} />}
-        </button>
-        
-        <button className="control-btn">
-          <Shuffle size={20} />
-        </button>
-        
-        <button className="control-btn">
-          <Heart size={20} />
-        </button>
-        
-        <button className="control-btn">
-          <Download size={20} />
-        </button>
-        
-        <button className="control-btn">
-          <MoreHorizontal size={20} />
-        </button>
-
-        <div className="playlist-actions">
-          <button className="search-btn">
-            <Search size={16} />
+        <div className="primary-controls">
+          <button 
+            className="play-btn-large"
+            onClick={handlePlayPlaylist}
+            disabled={!tracks.length}
+          >
+            {isPlaylistPlaying ? <Pause size={28} /> : <Play size={28} />}
           </button>
-          <button className="sort-btn">
-            Custom order
+          
+          <button className="control-btn shuffle-btn">
+            <Shuffle size={20} />
+          </button>
+          
+          <button 
+            className={`control-btn like-btn ${isLiked ? 'liked' : ''}`}
+            onClick={() => setIsLiked(!isLiked)}
+          >
+            <Heart size={20} fill={isLiked ? 'currentColor' : 'none'} />
+          </button>
+          
+          <button className="control-btn">
+            <Download size={20} />
+          </button>
+          
+          <button className="control-btn">
+            <Share size={20} />
+          </button>
+          
+          <button className="control-btn">
+            <MoreHorizontal size={20} />
+          </button>
+        </div>
+
+        <div className="secondary-controls">
+          <button 
+            className={`control-btn search-btn ${showSearch ? 'active' : ''}`}
+            onClick={() => setShowSearch(!showSearch)}
+          >
+            <Search size={18} />
+          </button>
+          
+          <button className="control-btn sort-btn">
+            <span>Custom order</span>
             <SortDesc size={16} />
           </button>
         </div>
       </div>
+
+      {/* Search Bar */}
+      {showSearch && (
+        <div className="search-section">
+          <div className="search-container">
+            <Search className="search-icon" size={16} />
+            <input
+              type="text"
+              placeholder="Find in playlist"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+              autoFocus
+            />
+            {searchQuery && (
+              <button 
+                className="clear-search"
+                onClick={() => setSearchQuery('')}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Track List */}
       <div className="playlist-content">
@@ -266,9 +393,17 @@ const PlaylistView = () => {
           />
         ) : (
           <div className="empty-playlist">
-            <Music size={64} />
-            <h3>This playlist is empty</h3>
-            <p>Add some songs to get started</p>
+            <div className="empty-content">
+              <div className="empty-icon">
+                <Headphones size={64} />
+              </div>
+              <h3>This playlist is empty</h3>
+              <p>Add some songs to get started</p>
+              <button className="add-songs-btn">
+                <Plus size={16} />
+                Find something to play
+              </button>
+            </div>
           </div>
         )}
       </div>
