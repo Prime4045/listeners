@@ -20,6 +20,7 @@ import {
   LogOut,
   Shield,
   AlertCircle,
+  Plus,
 } from 'lucide-react';
 import TrackList from './components/TrackList';
 import AuthCallback from './components/AuthCallback';
@@ -316,6 +317,18 @@ const AppContent = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showUserMenu]);
 
+  const getPlaylistGradient = (index) => {
+    const gradients = [
+      'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+      'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+      'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+      'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+      'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+    ];
+    return gradients[index % gradients.length];
+  };
+
   const renderMainContent = () => {
     switch (currentView) {
       case 'dashboard':
@@ -537,7 +550,7 @@ const AppContent = () => {
                   <p>No new releases available.</p>
                 )}
               </div>
-            </div>
+            )}
           </>
         );
     }
@@ -703,7 +716,6 @@ const AppContent = () => {
         <div className="main-layout">
           <aside className="sidebar">
             <nav className="nav">
-              <h3 className="nav-title">MENU</h3>
               <ul className="nav-list">
                 <li
                   className={`nav-item ${currentView === 'home' ? 'active' : ''}`}
@@ -753,23 +765,80 @@ const AppContent = () => {
               <div className="playlists-container">
                 {isAuthenticated ? (
                   <div className="playlists-list">
-                    {/* Sample playlists - this will be replaced with actual playlist data */}
                     <div className="playlist-item">
-                      <div className="playlist-cover">
-                        <Music size={16} />
+                      <div 
+                        className="playlist-cover"
+                        style={{ background: getPlaylistGradient(0) }}
+                      >
+                        <Heart size={16} />
                       </div>
                       <div className="playlist-info">
                         <div className="playlist-name">Liked Songs</div>
-                        <div className="playlist-count">0 songs</div>
+                        <div className="playlist-count">{likedSongs.length} songs</div>
                       </div>
                     </div>
                     
                     <div className="playlist-item">
-                      <div className="playlist-cover">
+                      <div 
+                        className="playlist-cover"
+                        style={{ background: getPlaylistGradient(1) }}
+                      >
                         <Music size={16} />
                       </div>
                       <div className="playlist-info">
                         <div className="playlist-name">My Playlist #1</div>
+                        <div className="playlist-count">0 songs</div>
+                      </div>
+                    </div>
+
+                    <div className="playlist-item">
+                      <div 
+                        className="playlist-cover"
+                        style={{ background: getPlaylistGradient(2) }}
+                      >
+                        <Music size={16} />
+                      </div>
+                      <div className="playlist-info">
+                        <div className="playlist-name">Chill Vibes</div>
+                        <div className="playlist-count">0 songs</div>
+                      </div>
+                    </div>
+
+                    <div className="playlist-item">
+                      <div 
+                        className="playlist-cover"
+                        style={{ background: getPlaylistGradient(3) }}
+                      >
+                        <Music size={16} />
+                      </div>
+                      <div className="playlist-info">
+                        <div className="playlist-name">Workout Mix</div>
+                        <div className="playlist-count">0 songs</div>
+                      </div>
+                    </div>
+
+                    <div className="playlist-item">
+                      <div 
+                        className="playlist-cover"
+                        style={{ background: getPlaylistGradient(4) }}
+                      >
+                        <Music size={16} />
+                      </div>
+                      <div className="playlist-info">
+                        <div className="playlist-name">Road Trip</div>
+                        <div className="playlist-count">0 songs</div>
+                      </div>
+                    </div>
+
+                    <div className="playlist-item">
+                      <div 
+                        className="playlist-cover"
+                        style={{ background: getPlaylistGradient(5) }}
+                      >
+                        <Music size={16} />
+                      </div>
+                      <div className="playlist-info">
+                        <div className="playlist-name">Study Session</div>
                         <div className="playlist-count">0 songs</div>
                       </div>
                     </div>
