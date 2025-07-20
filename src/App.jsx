@@ -737,7 +737,60 @@ const AppContent = () => {
                 </li>
               </ul>
             </nav>
-            <PlaylistSection onAuthRequired={handleAuthRequired} />
+            
+            <div className="playlists">
+              <div className="playlists-header">
+                <h3 className="playlists-title">YOUR PLAYLISTS</h3>
+                <button 
+                  className="add-playlist"
+                  onClick={handleAuthRequired}
+                  title={isAuthenticated ? "Create playlist" : "Sign in to create playlists"}
+                >
+                  <Plus size={12} />
+                </button>
+              </div>
+              
+              <div className="playlists-container">
+                {isAuthenticated ? (
+                  <div className="playlists-list">
+                    {/* Sample playlists - this will be replaced with actual playlist data */}
+                    <div className="playlist-item">
+                      <div className="playlist-cover">
+                        <Music size={16} />
+                      </div>
+                      <div className="playlist-info">
+                        <div className="playlist-name">Liked Songs</div>
+                        <div className="playlist-count">0 songs</div>
+                      </div>
+                    </div>
+                    
+                    <div className="playlist-item">
+                      <div className="playlist-cover">
+                        <Music size={16} />
+                      </div>
+                      <div className="playlist-info">
+                        <div className="playlist-name">My Playlist #1</div>
+                        <div className="playlist-count">0 songs</div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="playlists-empty">
+                    <div className="playlists-empty-icon">
+                      <Music size={20} />
+                    </div>
+                    <h4>Create your first playlist</h4>
+                    <p>It's easy, we'll help you</p>
+                    <button 
+                      className="create-playlist-btn"
+                      onClick={handleAuthRequired}
+                    >
+                      Create playlist
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </aside>
 
           <main className="main-content">{renderMainContent()}</main>
