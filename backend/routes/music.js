@@ -6,7 +6,7 @@ import UserLibrary from '../models/UserLibrary.js';
 import PlayHistory from '../models/PlayHistory.js';
 import User from '../models/User.js';
 import spotifyService from '../services/spotifyService.js';
-import s3Service from '../config/s3.js';
+import audioOptimizationService from '../services/audioOptimization.js';
 import cacheService from '../services/cacheService.js';
 
 const router = express.Router();
@@ -142,7 +142,7 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
     if (song) {
       // Song exists in database, generate fresh S3 URL
       try {
-        const audioUrl = await s3Service.getAudioUrl(spotifyId);
+        const audioUrl = await audioOptimizationService.getOptimizedAudioUrl(spotifyId, 'high');
         song.audioUrl = audioUrl;
         await song.incrementPlayCount();
         await song.save();
@@ -199,7 +199,7 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
     let audioExists = await cacheService.getCachedS3Check(s3CacheKey);
 
     if (audioExists === null) {
-      audioExists = await s3Service.audioExists(spotifyId);
+      audioExists = await audioOptimizationService.checkFileExists(`${spotifyId}.mp3`);
       await cacheService.cacheS3Check(s3CacheKey, audioExists, 60 * 60);
     }
 
@@ -216,8 +216,8 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
     const spotifyTrack = await spotifyService.getTrack(spotifyId);
 
     // Generate S3 signed URL
-    const audioUrl = await s3Service.getAudioUrl(spotifyId);
-    const fileMetadata = await s3Service.getFileMetadata(spotifyId);
+    const audioUrl = await audioOptimizationService.getOptimizedAudioUrl(spotifyId, 'high');
+    const fileMetadata = await audioOptimizationService.getAudioMetadata(spotifyId);
 
     // Create new song in database with upsert to handle duplicates
     song = await Song.findOneAndUpdate(
@@ -357,7 +357,7 @@ router.get('/:spotifyId', optionalAuth, async (req, res) => {
       let audioExists = await cacheService.getCachedS3Check(s3CacheKey);
 
       if (audioExists === null) {
-        audioExists = await s3Service.audioExists(spotifyId);
+        audioExists = await audioOptimizationService.checkFileExists(`${spotifyId}.mp3`);
         await cacheService.cacheS3Check(s3CacheKey, audioExists, 60 * 60);
       }
 
@@ -655,9 +655,9 @@ router.get('/user/history', authenticateToken, async (req, res) => {
 // Health check endpoint
 router.get('/health', async (req, res) => {
   try {
-    const [spotifyHealth, s3Health, cacheHealth] = await Promise.allSettled([
+    const [spotifyHealth, audioHealth, cacheHealth] = await Promise.allSettled([
       spotifyService.healthCheck(),
-      s3Service.healthCheck(),
+      audioOptimizationService.healthCheck(),
       cacheService.healthCheck(),
     ]);
 
@@ -666,7 +666,7 @@ router.get('/health', async (req, res) => {
       timestamp: new Date().toISOString(),
       services: {
         spotify: spotifyHealth.status === 'fulfilled' ? spotifyHealth.value : { status: 'unhealthy', error: spotifyHealth.reason?.message },
-        s3: s3Health.status === 'fulfilled' ? s3Health.value : { status: 'unhealthy', error: s3Health.reason?.message },
+        audio: audioHealth.status === 'fulfilled' ? audioHealth.value : { status: 'unhealthy', error: audioHealth.reason?.message },
         cache: cacheHealth.status === 'fulfilled' ? cacheHealth.value : { status: 'unhealthy', error: cacheHealth.reason?.message },
       }
     };
