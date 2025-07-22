@@ -1,26 +1,31 @@
+/* FULL WINDOW AUTH PAGES - COMPLETE VIEWPORT COVERAGE */
 .auth-page {
   min-height: 100vh;
+  width: 100vw;
   background: var(--primary-bg);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+  margin: 0;
+  overflow-x: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
 .auth-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  max-width: 1200px;
   width: 100%;
-  min-height: 600px;
+  height: 100vh;
   background: var(--secondary-bg);
-  border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--border-color);
 }
 
-/* Left Column - Branding */
+/* Left Column - Branding - FIXED POSITION */
 .auth-branding {
   background: var(--gradient-primary);
   padding: 3rem;
@@ -29,6 +34,7 @@
   justify-content: center;
   position: relative;
   overflow: hidden;
+  height: 100vh;
 }
 
 .auth-branding::before {
@@ -47,6 +53,7 @@
   z-index: 1;
   text-align: center;
   color: white;
+  max-width: 500px;
 }
 
 .logo-large {
@@ -91,7 +98,6 @@
   margin: 0 0 2rem 0;
   opacity: 0.9;
   line-height: 1.5;
-  max-width: 400px;
 }
 
 .branding-features {
@@ -122,18 +128,24 @@
   flex-shrink: 0;
 }
 
-/* Right Column - Form */
+/* Right Column - Form - SCROLLABLE WHEN CONTENT OVERFLOWS */
 .auth-form-section {
   padding: 3rem;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--secondary-bg);
+  overflow-y: auto;
+  height: 100vh;
+  position: relative;
 }
 
 .auth-form-container {
   width: 100%;
   max-width: 400px;
+  padding: 2rem 0;
+  max-height: calc(100vh - 6rem);
+  overflow-y: auto;
 }
 
 .auth-header {
@@ -487,16 +499,23 @@
   margin: 0;
 }
 
-/* Responsive Design */
+/* SINGLE COLUMN ON MOBILE - FULL VIEWPORT */
 @media (max-width: 1024px) {
   .auth-container {
     grid-template-columns: 1fr;
-    max-width: 500px;
+    height: 100vh;
   }
 
   .auth-branding {
     padding: 2rem;
+    height: 40vh;
     min-height: 300px;
+  }
+
+  .auth-form-section {
+    padding: 2rem;
+    height: 60vh;
+    min-height: 400px;
   }
 
   .logo-text-large {
@@ -530,20 +549,24 @@
 
 @media (max-width: 768px) {
   .auth-page {
-    padding: 0.5rem;
+    padding: 0;
   }
 
   .auth-container {
-    border-radius: 15px;
+    border-radius: 0;
+    height: 100vh;
   }
 
   .auth-branding {
     padding: 1.5rem;
+    height: 35vh;
     min-height: 250px;
   }
 
   .auth-form-section {
-    padding: 2rem;
+    padding: 2rem 1.5rem;
+    height: 65vh;
+    min-height: 450px;
   }
 
   .form-row {
@@ -569,7 +592,14 @@
 
 @media (max-width: 480px) {
   .auth-form-section {
-    padding: 1.5rem;
+    padding: 1.5rem 1rem;
+    height: 70vh;
+    min-height: 500px;
+  }
+
+  .auth-branding {
+    height: 30vh;
+    min-height: 200px;
   }
 
   .auth-header h2 {
@@ -592,6 +622,29 @@
     width: 60px;
     height: 60px;
   }
+}
+
+/* SCROLLING BEHAVIOR FOR FORM CONTAINER */
+.auth-form-container {
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-muted) transparent;
+}
+
+.auth-form-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.auth-form-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.auth-form-container::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 3px;
+}
+
+.auth-form-container::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
 }
 
 /* Animations */

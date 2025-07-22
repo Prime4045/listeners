@@ -10,10 +10,12 @@
   overflow: hidden;
 }
 
-/* Main Navigation */
+/* Main Navigation - Fixed Height */
 .main-nav {
   padding: 1.5rem 1rem 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+  background: var(--secondary-bg);
 }
 
 .nav-list {
@@ -58,10 +60,12 @@
   color: var(--accent-purple);
 }
 
-/* Library Section */
+/* Library Section - Fixed Height */
 .library-section {
   padding: 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+  background: var(--secondary-bg);
 }
 
 .library-header {
@@ -160,13 +164,14 @@
   color: var(--text-primary);
 }
 
-/* Playlists Section */
+/* Playlists Section - SCROLLABLE ONLY WHEN CONTENT OVERFLOWS */
 .playlists-section {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
   padding: 1rem;
+  background: var(--secondary-bg);
 }
 
 .playlists-header {
@@ -174,6 +179,7 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1rem;
+  flex-shrink: 0;
 }
 
 .playlists-header span {
@@ -200,12 +206,14 @@
   color: var(--accent-purple);
 }
 
+/* CRITICAL: SCROLLABLE CONTAINER - ONLY SCROLLS WHEN CONTENT OVERFLOWS */
 .playlists-container {
   flex: 1;
-  overflow-y: auto;
   min-height: 0;
-  margin-right: -8px;
-  padding-right: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  margin-right: -4px;
 }
 
 .playlists-loading {
@@ -235,6 +243,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  padding-bottom: 1rem;
 }
 
 .playlist-item {
@@ -410,7 +419,7 @@
   box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
 }
 
-/* Scrollbar */
+/* CUSTOM SCROLLBAR - ONLY VISIBLE WHEN SCROLLING */
 .playlists-container::-webkit-scrollbar {
   width: 6px;
 }
@@ -428,6 +437,12 @@
 .playlists-container::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
   opacity: 0.8;
+}
+
+/* Firefox scrollbar */
+.playlists-container {
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-muted) transparent;
 }
 
 /* Animations */
@@ -509,9 +524,7 @@
   .playlists-section {
     flex: 1;
     padding: 1rem 0.75rem;
-  }
-  
-  .playlists-container {
     max-height: 200px;
+    overflow-y: auto;
   }
 }

@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
-  Search as SearchIcon, 
   TrendingUp, 
   Clock, 
   Music, 
   Filter,
-  X,
   Loader2,
   Sparkles,
   Radio,
-  Mic2
+  Mic2,
+  Star,
+  Heart,
+  Play
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMusic } from '../../contexts/MusicContext';
@@ -65,18 +66,20 @@ const Search = () => {
 
   const loadSearchHistory = () => {
     const history = JSON.parse(localStorage.getItem('searchHistory') || '[]');
-    setSearchHistory(history.slice(0, 5));
+    setSearchHistory(history.slice(0, 8));
   };
 
   const loadSuggestions = async () => {
     try {
-      // Load trending searches or popular terms
       const trending = [
         'Bollywood hits',
         'Latest songs',
         'Romantic songs',
         'Party music',
-        'Workout playlist'
+        'Workout playlist',
+        'Chill vibes',
+        'Top 40',
+        'Indie music'
       ];
       setSuggestions(trending);
     } catch (error) {
@@ -114,26 +117,12 @@ const Search = () => {
     const history = JSON.parse(localStorage.getItem('searchHistory') || '[]');
     const newHistory = [searchQuery, ...history.filter(item => item !== searchQuery)].slice(0, 10);
     localStorage.setItem('searchHistory', JSON.stringify(newHistory));
-    setSearchHistory(newHistory.slice(0, 5));
-  };
-
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (query.trim()) {
-      performSearch(query.trim());
-    }
+    setSearchHistory(newHistory.slice(0, 8));
   };
 
   const handleSuggestionClick = (suggestion) => {
     setQuery(suggestion);
     performSearch(suggestion);
-  };
-
-  const clearSearch = () => {
-    setQuery('');
-    setResults([]);
-    setHasSearched(false);
-    setSearchParams({});
   };
 
   const filteredResults = results.filter(track => {
@@ -149,58 +138,33 @@ const Search = () => {
   return (
     <div className="search-page">
       <div className="search-container">
-        {/* Search Header */}
-        <div className="search-header">
-          <form onSubmit={handleSearchSubmit} className="search-form">
-            <div className="search-input-container">
-              <SearchIcon className="search-icon" size={20} />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="What do you want to listen to?"
-                className="search-input"
-                autoFocus
-              />
-              {query && (
-                <button
-                  type="button"
-                  className="clear-btn"
-                  onClick={clearSearch}
-                >
-                  <X size={16} />
-                </button>
-              )}
-              {loading && (
-                <div className="search-loading">
-                  <Loader2 className="animate-spin" size={16} />
-                </div>
-              )}
-            </div>
-          </form>
-        </div>
-
-        {/* Search Content */}
-        <div className="search-content">
-          {!hasSearched ? (
-            /* Browse Section */
-            <div className="browse-section">
-              <div className="section-header">
-                <h2>Browse all</h2>
+        {!hasSearched ? (
+          /* Browse Section - FULL WIDTH USAGE */
+          <div className="browse-section">
+            <div className="browse-header">
+              <div className="header-content">
+                <h1>Browse all</h1>
+                <p>Discover new music and find your favorites</p>
               </div>
+            </div>
 
+            <div className="browse-content">
               {/* Search History */}
               {searchHistory.length > 0 && (
                 <div className="history-section">
-                  <h3>Recent searches</h3>
-                  <div className="history-list">
+                  <div className="section-header">
+                    <h2>Recent searches</h2>
+                  </div>
+                  <div className="history-grid">
                     {searchHistory.map((item, index) => (
                       <button
                         key={index}
                         className="history-item"
                         onClick={() => handleSuggestionClick(item)}
                       >
-                        <Clock size={16} />
+                        <div className="history-icon">
+                          <Clock size={20} />
+                        </div>
                         <span>{item}</span>
                       </button>
                     ))}
@@ -208,9 +172,11 @@ const Search = () => {
                 </div>
               )}
 
-              {/* Suggestions */}
+              {/* Trending Suggestions */}
               <div className="suggestions-section">
-                <h3>Try something like</h3>
+                <div className="section-header">
+                  <h2>Trending searches</h2>
+                </div>
                 <div className="suggestions-grid">
                   {suggestions.map((suggestion, index) => (
                     <button
@@ -219,9 +185,12 @@ const Search = () => {
                       onClick={() => handleSuggestionClick(suggestion)}
                     >
                       <div className="suggestion-icon">
-                        <Music size={24} />
+                        <TrendingUp size={24} />
                       </div>
-                      <span>{suggestion}</span>
+                      <div className="suggestion-content">
+                        <span className="suggestion-title">{suggestion}</span>
+                        <span className="suggestion-subtitle">Popular now</span>
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -229,7 +198,9 @@ const Search = () => {
 
               {/* Browse Categories */}
               <div className="categories-section">
-                <h3>Browse by genre</h3>
+                <div className="section-header">
+                  <h2>Browse by genre</h2>
+                </div>
                 <div className="categories-grid">
                   {[
                     { name: 'Bollywood', color: '#ff6b6b', icon: Mic2 },
@@ -237,7 +208,11 @@ const Search = () => {
                     { name: 'Rock', color: '#45b7d1', icon: Music },
                     { name: 'Hip Hop', color: '#f9ca24', icon: Mic2 },
                     { name: 'Electronic', color: '#6c5ce7', icon: Radio },
-                    { name: 'Classical', color: '#a29bfe', icon: Music }
+                    { name: 'Classical', color: '#a29bfe', icon: Music },
+                    { name: 'Jazz', color: '#fd79a8', icon: Music },
+                    { name: 'Country', color: '#fdcb6e', icon: Radio },
+                    { name: 'R&B', color: '#e17055', icon: Mic2 },
+                    { name: 'Indie', color: '#00b894', icon: Music }
                   ].map((category, index) => (
                     <button
                       key={index}
@@ -245,42 +220,46 @@ const Search = () => {
                       style={{ backgroundColor: category.color }}
                       onClick={() => handleSuggestionClick(category.name)}
                     >
-                      <span>{category.name}</span>
-                      <category.icon size={32} />
+                      <span className="category-name">{category.name}</span>
+                      <div className="category-icon">
+                        <category.icon size={32} />
+                      </div>
                     </button>
                   ))}
                 </div>
               </div>
             </div>
-          ) : (
-            /* Results Section */
-            <div className="results-section">
-              {error ? (
-                <div className="error-state">
-                  <div className="error-content">
-                    <Sparkles size={48} />
-                    <h3>Something went wrong</h3>
-                    <p>{error}</p>
-                    <button onClick={() => performSearch(query)} className="retry-btn">
-                      Try again
-                    </button>
-                  </div>
+          </div>
+        ) : (
+          /* Results Section - FULL WIDTH USAGE */
+          <div className="results-section">
+            {error ? (
+              <div className="error-state">
+                <div className="error-content">
+                  <Sparkles size={48} />
+                  <h3>Something went wrong</h3>
+                  <p>{error}</p>
+                  <button onClick={() => performSearch(query)} className="retry-btn">
+                    Try again
+                  </button>
                 </div>
-              ) : (
-                <>
-                  {/* Results Header */}
-                  <div className="results-header">
-                    <div className="results-info">
-                      <h2>Search results for "{query}"</h2>
-                      <p>
-                        {results.length} songs found
-                        {playableCount > 0 && ` • ${playableCount} available`}
-                        {unavailableCount > 0 && ` • ${unavailableCount} coming soon`}
-                      </p>
+              </div>
+            ) : (
+              <>
+                {/* Results Header */}
+                <div className="results-header">
+                  <div className="results-info">
+                    <h1>Search results for "{query}"</h1>
+                    <div className="results-stats">
+                      <span>{results.length} songs found</span>
+                      {playableCount > 0 && <span>• {playableCount} available</span>}
+                      {unavailableCount > 0 && <span>• {unavailableCount} coming soon</span>}
                     </div>
+                  </div>
 
-                    {/* Filter Buttons */}
-                    {results.length > 0 && (
+                  {/* Filter Buttons */}
+                  {results.length > 0 && (
+                    <div className="filter-section">
                       <div className="filter-buttons">
                         <button
                           className={`filter-btn ${activeFilter === 'all' ? 'active' : ''}`}
@@ -293,6 +272,7 @@ const Search = () => {
                             className={`filter-btn ${activeFilter === 'playable' ? 'active' : ''}`}
                             onClick={() => setActiveFilter('playable')}
                           >
+                            <Play size={16} />
                             Available ({playableCount})
                           </button>
                         )}
@@ -301,14 +281,17 @@ const Search = () => {
                             className={`filter-btn ${activeFilter === 'unavailable' ? 'active' : ''}`}
                             onClick={() => setActiveFilter('unavailable')}
                           >
+                            <Clock size={16} />
                             Coming Soon ({unavailableCount})
                           </button>
                         )}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                </div>
 
-                  {/* Results List */}
+                {/* Results Content - SCROLLABLE WHEN OVERFLOW */}
+                <div className="results-content">
                   {loading ? (
                     <div className="loading-results">
                       <div className="loading-animation">
@@ -320,39 +303,44 @@ const Search = () => {
                           <div className="wave-bar"></div>
                         </div>
                       </div>
-                      <p>Searching for the best music...</p>
+                      <h3>Searching for the best music...</h3>
+                      <p>Finding tracks that match your taste</p>
                     </div>
                   ) : filteredResults.length > 0 ? (
-                    <TrackList
-                      tracks={filteredResults}
-                      onAuthRequired={() => navigate('/signin')}
-                      onLikeSong={async (song) => {
-                        try {
-                          await ApiService.likeTrack(song.spotifyId);
-                        } catch (error) {
-                          console.error('Failed to like song:', error);
-                        }
-                      }}
-                      onAddToLibrary={async (song) => {
-                        try {
-                          await ApiService.addToLibrary(song.spotifyId);
-                        } catch (error) {
-                          console.error('Failed to add to library:', error);
-                        }
-                      }}
-                      isAuthenticated={isAuthenticated}
-                      searchQuery={query}
-                    />
+                    <div className="tracks-container">
+                      <TrackList
+                        tracks={filteredResults}
+                        onAuthRequired={() => navigate('/signin')}
+                        onLikeSong={async (song) => {
+                          try {
+                            await ApiService.likeTrack(song.spotifyId);
+                          } catch (error) {
+                            console.error('Failed to like song:', error);
+                          }
+                        }}
+                        onAddToLibrary={async (song) => {
+                          try {
+                            await ApiService.addToLibrary(song.spotifyId);
+                          } catch (error) {
+                            console.error('Failed to add to library:', error);
+                          }
+                        }}
+                        isAuthenticated={isAuthenticated}
+                        searchQuery={query}
+                      />
+                    </div>
                   ) : (
                     <div className="no-results">
                       <div className="no-results-content">
-                        <SearchIcon size={64} />
+                        <div className="no-results-icon">
+                          <Music size={64} />
+                        </div>
                         <h3>No results found for "{query}"</h3>
                         <p>Try different keywords or check your spelling</p>
                         <div className="suggestions">
                           <p>Try searching for:</p>
                           <div className="suggestion-chips">
-                            {suggestions.slice(0, 3).map((suggestion, index) => (
+                            {suggestions.slice(0, 4).map((suggestion, index) => (
                               <button
                                 key={index}
                                 className="suggestion-chip"
@@ -366,11 +354,11 @@ const Search = () => {
                       </div>
                     </div>
                   )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
