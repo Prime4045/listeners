@@ -12,12 +12,11 @@ import {
     AlertCircle,
     Minimize2,
     Maximize2,
-    PictureInPicture2,
-    ListMusic,
-    Monitor
+    PictureInPicture2
 } from 'lucide-react';
 import { useMusic } from '../../contexts/MusicContext';
 import { useAuth } from '../../contexts/AuthContext';
+import AudioVisualizer from '../AudioVisualizer/AudioVisualizer';
 import ApiService from '../../services/api';
 import './MusicPlayer.css';
 
@@ -196,6 +195,10 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                         <div className="minimized-info">
                             <div className="minimized-title">{currentTrack.title}</div>
                             <div className="minimized-artist">{currentTrack.artist}</div>
+                            <PictureInPicture2
+                                className="control-icon"
+                                title="Picture in picture"
+                            />
                         </div>
                     </div>
 
@@ -276,7 +279,19 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                         />
                         {isLoading && (
                             <div className="artwork-overlay">
-                                <Loader2 className="animate-spin" size={20} />
+                                <AlertCircle size={20} />
+                            </div>
+                        )}
+                        
+                        {/* Audio Visualizer Overlay */}
+                        {isPlaying && (
+                            <div className="visualizer-overlay">
+                                <AudioVisualizer 
+                                    type="bars" 
+                                    size="small" 
+                                    color="purple" 
+                                    animated={true} 
+                                />
                             </div>
                         )}
                     </div>

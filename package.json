@@ -18,7 +18,7 @@
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.2",
     "tone": "^15.1.22",
-    "wavesurfer.js": "^7.9.5"
+    "wavesurfer.js": "^7.10.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",

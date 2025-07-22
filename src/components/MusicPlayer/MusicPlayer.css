@@ -113,7 +113,7 @@
 
 .artwork-overlay {
     position: absolute;
-    top: 65%;
+    top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     background: rgba(0, 0, 0, 0.6);
@@ -121,6 +121,23 @@
     align-items: center;
     justify-content: center;
     color: white;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+.visualizer-overlay {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    right: 4px;
+    height: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.9;
 }
 
 .track-details {
