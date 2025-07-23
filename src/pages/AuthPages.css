@@ -1,32 +1,33 @@
 /* FULL WINDOW AUTH PAGES - COMPLETE VIEWPORT COVERAGE */
 .auth-page {
-  min-height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100vw;
+  height: 100vh;
   background: var(--primary-bg);
   display: flex;
   align-items: stretch;
   justify-content: stretch;
   padding: 0;
   margin: 0;
-  overflow-x: hidden;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  overflow: hidden;
+  z-index: 9999;
 }
 
 .auth-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   width: 100%;
   height: 100vh;
   background: var(--secondary-bg);
   overflow: hidden;
 }
 
-/* Left Column - Branding - FIXED POSITION */
+/* Left Column - Branding - FULL WIDTH */
 .auth-branding {
+  flex: 1;
   background: var(--gradient-primary);
   padding: 3rem;
   display: flex;
@@ -34,7 +35,7 @@
   justify-content: center;
   position: relative;
   overflow: hidden;
-  height: 100vh;
+  min-width: 50%;
 }
 
 .auth-branding::before {
@@ -54,6 +55,7 @@
   text-align: center;
   color: white;
   max-width: 500px;
+  width: 100%;
 }
 
 .logo-large {
@@ -128,24 +130,23 @@
   flex-shrink: 0;
 }
 
-/* Right Column - Form - SCROLLABLE WHEN CONTENT OVERFLOWS */
+/* Right Column - Form - FULL WIDTH WITH SCROLLING */
 .auth-form-section {
-  padding: 3rem;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--secondary-bg);
   overflow-y: auto;
-  height: 100vh;
-  position: relative;
+  overflow-x: hidden;
+  min-width: 50%;
+  padding: 2rem;
 }
 
 .auth-form-container {
   width: 100%;
-  max-width: 400px;
+  max-width: 500px;
   padding: 2rem 0;
-  max-height: calc(100vh - 6rem);
-  overflow-y: auto;
 }
 
 .auth-header {
@@ -499,23 +500,22 @@
   margin: 0;
 }
 
-/* SINGLE COLUMN ON MOBILE - FULL VIEWPORT */
+/* RESPONSIVE DESIGN - MAINTAIN FULL WIDTH */
 @media (max-width: 1024px) {
   .auth-container {
-    grid-template-columns: 1fr;
-    height: 100vh;
+    flex-direction: column;
   }
 
   .auth-branding {
-    padding: 2rem;
-    height: 40vh;
+    flex: 0 0 40vh;
     min-height: 300px;
+    padding: 2rem;
   }
 
   .auth-form-section {
+    flex: 1;
+    min-height: 60vh;
     padding: 2rem;
-    height: 60vh;
-    min-height: 400px;
   }
 
   .logo-text-large {
@@ -548,25 +548,16 @@
 }
 
 @media (max-width: 768px) {
-  .auth-page {
-    padding: 0;
-  }
-
-  .auth-container {
-    border-radius: 0;
-    height: 100vh;
-  }
-
   .auth-branding {
-    padding: 1.5rem;
-    height: 35vh;
+    flex: 0 0 35vh;
     min-height: 250px;
+    padding: 1.5rem;
   }
 
   .auth-form-section {
+    flex: 1;
+    min-height: 65vh;
     padding: 2rem 1.5rem;
-    height: 65vh;
-    min-height: 450px;
   }
 
   .form-row {
@@ -593,13 +584,12 @@
 @media (max-width: 480px) {
   .auth-form-section {
     padding: 1.5rem 1rem;
-    height: 70vh;
-    min-height: 500px;
   }
 
   .auth-branding {
-    height: 30vh;
+    flex: 0 0 30vh;
     min-height: 200px;
+    padding: 1rem;
   }
 
   .auth-header h2 {

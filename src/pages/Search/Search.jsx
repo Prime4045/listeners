@@ -141,13 +141,6 @@ const Search = () => {
         {!hasSearched ? (
           /* Browse Section - FULL WIDTH USAGE */
           <div className="browse-section">
-            <div className="browse-header">
-              <div className="header-content">
-                <h1>Browse all</h1>
-                <p>Discover new music and find your favorites</p>
-              </div>
-            </div>
-
             <div className="browse-content">
               {/* Search History */}
               {searchHistory.length > 0 && (

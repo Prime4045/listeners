@@ -1,6 +1,7 @@
+/* LIBRARY PAGE - SEPARATE SCROLLING SYSTEM */
 .library-page {
   width: 100%;
-  height: 100vh;
+  height: calc(100vh - 70px);
   background: var(--primary-bg);
   color: var(--text-primary);
   display: flex;
@@ -202,10 +203,11 @@
   color: white;
 }
 
-/* Content - SCROLLABLE WHEN OVERFLOW */
+/* Content - SEPARATE SCROLLBAR */
 .library-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 2rem;
   background: var(--primary-bg);
 }
@@ -570,7 +572,7 @@
   margin: 0;
 }
 
-/* SCROLLBAR STYLING */
+/* SEPARATE SCROLLBAR FOR LIBRARY CONTENT */
 .library-content::-webkit-scrollbar {
   width: 8px;
 }

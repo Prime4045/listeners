@@ -1,3 +1,4 @@
+/* SIDEBAR - SEPARATE SCROLLBAR SYSTEM */
 .sidebar {
   width: 280px;
   height: 100vh;
@@ -5,12 +6,12 @@
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  position: sticky;
-  top: 0;
+  position: relative;
+  flex-shrink: 0;
   overflow: hidden;
 }
 
-/* Main Navigation - Fixed Height */
+/* Main Navigation - FIXED HEIGHT */
 .main-nav {
   padding: 1.5rem 1rem 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -60,7 +61,7 @@
   color: var(--accent-purple);
 }
 
-/* Library Section - Fixed Height */
+/* Library Section - FIXED HEIGHT */
 .library-section {
   padding: 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -164,7 +165,7 @@
   color: var(--text-primary);
 }
 
-/* Playlists Section - SCROLLABLE ONLY WHEN CONTENT OVERFLOWS */
+/* Playlists Section - SEPARATE SCROLLBAR ONLY WHEN NEEDED */
 .playlists-section {
   flex: 1;
   display: flex;
@@ -172,6 +173,7 @@
   min-height: 0;
   padding: 1rem;
   background: var(--secondary-bg);
+  overflow: hidden;
 }
 
 .playlists-header {
@@ -206,14 +208,14 @@
   color: var(--accent-purple);
 }
 
-/* CRITICAL: SCROLLABLE CONTAINER - ONLY SCROLLS WHEN CONTENT OVERFLOWS */
+/* CRITICAL: SEPARATE SCROLLBAR CONTAINER */
 .playlists-container {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-right: 4px;
-  margin-right: -4px;
+  padding-right: 8px;
+  margin-right: -8px;
 }
 
 .playlists-loading {
@@ -419,9 +421,9 @@
   box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
 }
 
-/* CUSTOM SCROLLBAR - ONLY VISIBLE WHEN SCROLLING */
+/* CUSTOM SCROLLBAR - ONLY FOR PLAYLISTS SECTION */
 .playlists-container::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .playlists-container::-webkit-scrollbar-track {
@@ -430,8 +432,8 @@
 
 .playlists-container::-webkit-scrollbar-thumb {
   background: var(--text-muted);
-  border-radius: 3px;
-  opacity: 0.5;
+  border-radius: 4px;
+  opacity: 0.6;
 }
 
 .playlists-container::-webkit-scrollbar-thumb:hover {

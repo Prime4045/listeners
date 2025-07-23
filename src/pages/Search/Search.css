@@ -1,6 +1,7 @@
+/* SEARCH PAGE - FULL WIDTH WITH SEPARATE SCROLLING */
 .search-page {
   width: 100%;
-  height: 100vh;
+  height: calc(100vh - 70px);
   background: var(--primary-bg);
   color: var(--text-primary);
   overflow: hidden;
@@ -17,7 +18,7 @@
   margin: 0;
 }
 
-/* Browse Section - FULL WIDTH USAGE */
+/* Browse Section - FULL WIDTH USAGE WITH SEPARATE SCROLLING */
 .browse-section {
   flex: 1;
   display: flex;
@@ -25,34 +26,11 @@
   overflow: hidden;
 }
 
-.browse-header {
-  padding: 2rem 2rem 1rem;
-  background: var(--primary-bg);
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
-}
-
-.header-content h1 {
-  font-size: 2.5rem;
-  font-weight: 900;
-  color: var(--text-primary);
-  margin: 0 0 0.5rem 0;
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.header-content p {
-  font-size: 1.125rem;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-/* Browse Content - SCROLLABLE WHEN OVERFLOW */
+/* Browse Content - SEPARATE SCROLLBAR */
 .browse-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 2rem;
   display: flex;
   flex-direction: column;
@@ -232,7 +210,7 @@
   z-index: 1;
 }
 
-/* Results Section - FULL WIDTH USAGE */
+/* Results Section - FULL WIDTH USAGE WITH SEPARATE SCROLLING */
 .results-section {
   flex: 1;
   display: flex;
@@ -302,10 +280,11 @@
   box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
 }
 
-/* Results Content - SCROLLABLE WHEN OVERFLOW */
+/* Results Content - SEPARATE SCROLLBAR */
 .results-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0 2rem 2rem;
 }
 
@@ -505,7 +484,7 @@
   animation: spin 1s linear infinite;
 }
 
-/* SCROLLBAR STYLING */
+/* SEPARATE SCROLLBARS FOR EACH SECTION */
 .browse-content::-webkit-scrollbar,
 .results-content::-webkit-scrollbar {
   width: 8px;
@@ -529,10 +508,6 @@
 
 /* Responsive Design */
 @media (max-width: 1024px) {
-  .browse-header {
-    padding: 1.5rem;
-  }
-  
   .browse-content {
     padding: 1.5rem;
   }
@@ -559,10 +534,6 @@
 }
 
 @media (max-width: 768px) {
-  .browse-header {
-    padding: 1rem;
-  }
-  
   .browse-content {
     padding: 1rem;
     gap: 2rem;
@@ -574,10 +545,6 @@
   
   .results-content {
     padding: 0 1rem 2rem;
-  }
-  
-  .header-content h1 {
-    font-size: 2rem;
   }
   
   .results-info h1 {
@@ -608,10 +575,6 @@
 }
 
 @media (max-width: 480px) {
-  .header-content h1 {
-    font-size: 1.75rem;
-  }
-  
   .results-info h1 {
     font-size: 1.25rem;
   }

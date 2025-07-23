@@ -1,6 +1,7 @@
+/* HOME PAGE - SEPARATE SCROLLING SYSTEM */
 .home {
   width: 100%;
-  height: 100vh;
+  height: calc(100vh - 70px);
   background: var(--primary-bg);
   color: var(--text-primary);
   display: flex;
@@ -381,7 +382,7 @@
   font-weight: 500;
 }
 
-/* Music Sections - SCROLLABLE WHEN OVERFLOW */
+/* Music Sections - SEPARATE SCROLLBAR */
 .music-sections {
   flex: 1;
   display: flex;
@@ -520,10 +521,11 @@
   border-color: var(--accent-purple);
 }
 
-/* Track List Container - SCROLLABLE WHEN OVERFLOW */
+/* Track List Container - SEPARATE SCROLLBAR */
 .section-tracks {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0;
 }
 
@@ -641,7 +643,7 @@
   gap: 1rem;
 }
 
-/* SCROLLBAR STYLING */
+/* SEPARATE SCROLLBARS FOR EACH SECTION */
 .music-sections::-webkit-scrollbar,
 .section-tracks::-webkit-scrollbar {
   width: 8px;
