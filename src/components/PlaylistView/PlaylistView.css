@@ -2,7 +2,8 @@
   min-height: 100vh;
   background: var(--primary-bg);
   color: var(--text-primary);
-  padding-bottom: 100px; /* Space for music player */
+  padding-bottom: 100px;
+  /* Space for music player */
   position: relative;
 }
 
@@ -433,7 +434,6 @@
 
 .search-container {
   position: relative;
-  max-width: 400px;
 }
 
 .search-icon {
@@ -686,9 +686,6 @@
     padding: 1rem;
   }
 
-  .search-container {
-    max-width: none;
-  }
 }
 
 @media (max-width: 480px) {
@@ -733,6 +730,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }

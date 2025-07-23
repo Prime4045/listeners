@@ -69,7 +69,6 @@
 
 .search-container {
   position: relative;
-  max-width: 400px;
 }
 
 .search-icon {
@@ -674,6 +673,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }

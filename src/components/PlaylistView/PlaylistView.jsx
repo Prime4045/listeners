@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  Play, 
-  Pause, 
-  Shuffle, 
-  Heart, 
-  Download, 
+import {
+  ArrowLeft,
+  Play,
+  Pause,
+  Shuffle,
+  Heart,
+  Download,
   MoreHorizontal,
   Clock,
   Search,
@@ -33,7 +33,7 @@ const PlaylistView = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const { currentTrack, isPlaying, playTrack, playlist } = useMusic();
-  
+
   const [playlistData, setPlaylistData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -110,15 +110,15 @@ const PlaylistView = () => {
 
   const getTotalDuration = () => {
     if (!playlistData?.songs) return '0 min';
-    
+
     const totalMs = playlistData.songs.reduce((total, item) => {
       return total + (item.song?.duration || 0);
     }, 0);
-    
+
     const totalMinutes = Math.floor(totalMs / 60000);
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
-    
+
     if (hours > 0) {
       return `${hours} hr ${minutes} min`;
     }
@@ -131,7 +131,7 @@ const PlaylistView = () => {
     if (firstSongWithImage?.song?.imageUrl) {
       return firstSongWithImage.song.imageUrl;
     }
-    
+
     // Default playlist cover with gradient
     return null;
   };
@@ -159,7 +159,7 @@ const PlaylistView = () => {
   };
 
   const filteredTracks = formatTracks(playlistData?.songs || []).filter(track =>
-    searchQuery === '' || 
+    searchQuery === '' ||
     track.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     track.artist.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -184,7 +184,7 @@ const PlaylistView = () => {
         <div className="playlist-error">
           <div className="error-content">
             <div className="error-icon">
-              <Music size={64} />
+              <Music size={50} />
             </div>
             <h2>Playlist not found</h2>
             <p>{error || 'The playlist you\'re looking for doesn\'t exist or you don\'t have access to it.'}</p>
@@ -208,7 +208,7 @@ const PlaylistView = () => {
         <button className="back-btn" onClick={() => navigate('/')}>
           <ArrowLeft size={20} />
         </button>
-        
+
         <div className="playlist-hero">
           <div className="playlist-artwork">
             {playlistImage ? (
@@ -221,14 +221,14 @@ const PlaylistView = () => {
                 }}
               />
             ) : null}
-            <div 
+            <div
               className="default-artwork"
               style={{ display: playlistImage ? 'none' : 'flex' }}
             >
               <Music size={80} />
             </div>
             <div className="artwork-overlay">
-              <button 
+              <button
                 className="hero-play-btn"
                 onClick={handlePlayPlaylist}
                 disabled={!tracks.length}
@@ -237,19 +237,19 @@ const PlaylistView = () => {
               </button>
             </div>
           </div>
-          
+
           <div className="playlist-details">
             <div className="playlist-type">
               {getPlaylistTypeIcon()}
               <span>{getPlaylistTypeText()}</span>
             </div>
-            
+
             <h1 className="playlist-title">{playlistData.name}</h1>
-            
+
             {playlistData.description && (
               <p className="playlist-description">{playlistData.description}</p>
             )}
-            
+
             <div className="playlist-metadata">
               <div className="metadata-item">
                 <div className="owner-avatar">
@@ -261,14 +261,14 @@ const PlaylistView = () => {
                 </div>
                 <span className="owner-name">{playlistData.owner?.username || 'Unknown'}</span>
               </div>
-              
+
               <span className="separator">•</span>
-              
+
               <div className="metadata-item">
                 <Music size={14} />
                 <span>{playlistData.songs?.length || 0} songs</span>
               </div>
-              
+
               {playlistData.songs?.length > 0 && (
                 <>
                   <span className="separator">•</span>
@@ -278,7 +278,7 @@ const PlaylistView = () => {
                   </div>
                 </>
               )}
-              
+
               {playlistData.playCount > 0 && (
                 <>
                   <span className="separator">•</span>
@@ -296,46 +296,46 @@ const PlaylistView = () => {
       {/* Controls */}
       <div className="playlist-controls">
         <div className="primary-controls">
-          <button 
+          <button
             className="play-btn-large"
             onClick={handlePlayPlaylist}
             disabled={!tracks.length}
           >
             {isPlaylistPlaying ? <Pause size={28} /> : <Play size={28} />}
           </button>
-          
+
           <button className="control-btn shuffle-btn">
             <Shuffle size={20} />
           </button>
-          
-          <button 
+
+          <button
             className={`control-btn like-btn ${isLiked ? 'liked' : ''}`}
             onClick={() => setIsLiked(!isLiked)}
           >
             <Heart size={20} fill={isLiked ? 'currentColor' : 'none'} />
           </button>
-          
+
           <button className="control-btn">
             <Download size={20} />
           </button>
-          
+
           <button className="control-btn">
             <Share size={20} />
           </button>
-          
+
           <button className="control-btn">
             <MoreHorizontal size={20} />
           </button>
         </div>
 
         <div className="secondary-controls">
-          <button 
+          <button
             className={`control-btn search-btn ${showSearch ? 'active' : ''}`}
             onClick={() => setShowSearch(!showSearch)}
           >
             <Search size={18} />
           </button>
-          
+
           <button className="control-btn sort-btn">
             <span>Custom order</span>
             <SortDesc size={16} />
@@ -357,7 +357,7 @@ const PlaylistView = () => {
               autoFocus
             />
             {searchQuery && (
-              <button 
+              <button
                 className="clear-search"
                 onClick={() => setSearchQuery('')}
               >

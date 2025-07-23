@@ -146,7 +146,8 @@
 .auth-form-container {
   width: 100%;
   max-width: 500px;
-  padding: 2rem 0;
+  padding: 1rem 0;
+  margin-top: 5rem;
 }
 
 .auth-header {
@@ -365,12 +366,12 @@
   transition: all 0.2s ease;
 }
 
-.checkbox-label input[type='checkbox']:checked + .checkbox-custom {
+.checkbox-label input[type='checkbox']:checked+.checkbox-custom {
   background: var(--accent-purple);
   border-color: var(--accent-purple);
 }
 
-.checkbox-label input[type='checkbox']:checked + .checkbox-custom::after {
+.checkbox-label input[type='checkbox']:checked+.checkbox-custom::after {
   content: '✓';
   position: absolute;
   top: 50%;
@@ -643,6 +644,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -653,6 +655,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }

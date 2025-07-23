@@ -252,7 +252,7 @@ const SignUp = () => {
 
         {/* Right Column - Sign Up Form */}
         <div className="auth-form-section">
-          <div className="auth-form-container">
+          <div className="auth-form-container" style={{ marginTop: '15rem' }}>
             <div className="auth-header">
               <h2>Create Account</h2>
               <p>Join Listeners and discover amazing music</p>

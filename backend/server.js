@@ -9,13 +9,13 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import passport from 'passport';
 import './config/passport.js'; // Initialize passport configuration
-import { authenticateToken, securityHeaders } from './middleware/auth.js';
+import { authenticateToken } from './middleware/auth.js';
 import { connectMongoDB, initializeRedis } from './config/database.js';
-import { 
-  securityHeaders, 
-  corsConfig, 
-  apiLimiter, 
-  authLimiter, 
+import {
+  securityHeaders,
+  corsConfig,
+  apiLimiter,
+  authLimiter,
   searchLimiter,
   sanitizeRequest,
   securityLogger,
@@ -244,7 +244,7 @@ const PORT = process.env.PORT || 3001;
 async function startServer() {
   try {
     await connectMongoDB();
-    
+
     // Initialize Redis with error handling
     try {
       await initializeRedis();
@@ -266,10 +266,10 @@ async function startServer() {
       console.log(`🎵 Spotify API: ${process.env.SPOTIFY_CLIENT_ID ? 'Configured' : 'Not configured'}`);
       console.log(`🚀 Server ready for production use!`);
     });
-    
+
     // Setup graceful shutdown
     gracefulShutdown(serverInstance);
-    
+
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

@@ -32,7 +32,8 @@ body.light {
   display: flex;
   flex: 1;
   overflow: hidden;
-  height: calc(100vh - 70px); /* Subtract header height */
+  height: calc(100vh - 70px);
+  /* Subtract header height */
 }
 
 /* Loading Screen */
@@ -524,6 +525,10 @@ body.light {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.main-content {
+  width: 100%;
 }
 
 .dropdown-header {

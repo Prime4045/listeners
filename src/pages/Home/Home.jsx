@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  TrendingUp, 
-  Clock, 
-  Music, 
-  Play, 
+import {
+  TrendingUp,
+  Clock,
+  Music,
+  Play,
   Pause,
   Heart,
   Plus,
@@ -24,7 +24,7 @@ const Home = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const { currentTrack, isPlaying, playTrack } = useMusic();
-  
+
   const [trendingSongs, setTrendingSongs] = useState([]);
   const [databaseSongs, setDatabaseSongs] = useState([]);
   const [recentlyPlayed, setRecentlyPlayed] = useState([]);
@@ -68,7 +68,7 @@ const Home = () => {
 
   const handleQuickPlay = async (tracks) => {
     if (tracks.length === 0) return;
-    
+
     const playableTracks = tracks.filter(track => track.canPlay);
     if (playableTracks.length === 0) return;
 
@@ -149,7 +149,7 @@ const Home = () => {
       <div className="home-error">
         <div className="error-content">
           <div className="error-icon">
-            <Music size={64} />
+            <Music size={50} />
           </div>
           <h2>Something went wrong</h2>
           <p>{error}</p>
@@ -171,16 +171,16 @@ const Home = () => {
               {getGreeting()}{isAuthenticated ? `, ${user?.firstName || user?.username}` : ''}
             </h1>
             <p className="hero-subtitle">
-              {isAuthenticated 
+              {isAuthenticated
                 ? "Ready to discover your next favorite song?"
                 : "Discover millions of songs and create your perfect playlist"
               }
             </p>
           </div>
-          
+
           <div className="hero-actions">
             {!isAuthenticated ? (
-              <button 
+              <button
                 className="cta-button primary"
                 onClick={() => navigate('/signup')}
               >
@@ -189,7 +189,7 @@ const Home = () => {
               </button>
             ) : (
               <div className="quick-actions">
-                <button 
+                <button
                   className="quick-action-btn"
                   onClick={() => handleQuickPlay(trendingSongs)}
                   disabled={trendingSongs.length === 0}
@@ -197,7 +197,7 @@ const Home = () => {
                   <Play size={20} />
                   Play Trending
                 </button>
-                <button 
+                <button
                   className="quick-action-btn secondary"
                   onClick={() => navigate('/search')}
                 >
@@ -208,7 +208,7 @@ const Home = () => {
             )}
           </div>
         </div>
-        
+
         <div className="hero-visual">
           <div className="floating-elements">
             <div className="floating-disc disc-1">
@@ -285,10 +285,10 @@ const Home = () => {
                 {activeSection === 'recent' && 'Your recently played tracks'}
               </p>
             </div>
-            
+
             {activeData.length > 0 && (
               <div className="section-actions">
-                <button 
+                <button
                   className="play-all-btn"
                   onClick={() => handleQuickPlay(activeData)}
                 >
@@ -331,7 +331,7 @@ const Home = () => {
                   {activeSection === 'recent' && 'Start listening to see your recent tracks'}
                 </p>
                 {activeSection === 'recent' && (
-                  <button 
+                  <button
                     className="discover-btn"
                     onClick={() => setActiveSection('trending')}
                   >
@@ -354,14 +354,14 @@ const Home = () => {
               <p>Join millions of music lovers and create your perfect soundtrack</p>
             </div>
             <div className="cta-actions">
-              <button 
+              <button
                 className="cta-button primary"
                 onClick={() => navigate('/signup')}
               >
                 <Plus size={20} />
                 Sign Up Free
               </button>
-              <button 
+              <button
                 className="cta-button secondary"
                 onClick={() => navigate('/signin')}
               >
