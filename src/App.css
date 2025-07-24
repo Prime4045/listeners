@@ -18,22 +18,21 @@ body.light {
   color: #333;
 }
 
-.app-container {
+.app-layout {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding-bottom: 100px;
-  /* Space for music player */
+  height: 100vh;
 }
 
-/* Main Layout - CRITICAL: Separate scrollbars */
+/* Main Layout - Full height minus header and player */
 .main-layout {
   display: flex;
   flex: 1;
   overflow: hidden;
-  height: calc(100vh - 70px);
-  /* Subtract header height */
+  height: calc(100vh - 70px - 90px); /* Header + Player height */
+  min-height: 0;
 }
 
 /* Loading Screen */
@@ -139,181 +138,6 @@ body.light {
   transition: all 0.3s ease;
   background: var(--tertiary-bg);
   border: 1px solid transparent;
-}
-
-.music-card:hover {
-  background: var(--hover-bg);
-  transform: translateY(-4px);
-  border-color: var(--border-color);
-}
-
-.music-card.playing {
-  border-color: var(--accent-purple);
-  box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
-}
-
-.card-image {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1;
-  overflow: hidden;
-  border-radius: 8px;
-  margin-bottom: 1rem;
-  background: var(--gradient-primary);
-}
-
-.card-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* Player Bar */
-.player-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background-color: #181818;
-  padding: 1rem 2rem;
-  border-top: 1px solid #282828;
-  position: sticky;
-  bottom: 0;
-  z-index: 100;
-}
-
-.player-track {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  min-width: 0;
-  flex: 1;
-}
-
-.track-cover {
-  flex-shrink: 0;
-}
-
-.track-info {
-  min-width: 0;
-}
-
-.track-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.track-artist {
-  font-size: 0.8rem;
-  color: #b3b3b3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.player-controls {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  flex: 2;
-  max-width: 600px;
-}
-
-.control-buttons {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.control-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  color: var(--text-secondary);
-  transition: all 0.2s ease;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
-.control-btn:hover {
-  color: var(--accent-purple);
-  background: var(--hover-bg);
-  transform: scale(1.1);
-}
-
-.control-btn.active {
-  color: var(--accent-purple);
-}
-
-.play-pause-btn {
-  width: 40px;
-  height: 40px;
-  background: var(--accent-purple);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.play-pause-btn:hover {
-  background: var(--accent-pink);
-  transform: scale(1.05);
-}
-
-.progress-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  width: 100%;
-}
-
-.progress {
-  flex: 1;
-  height: 4px;
-  background: #535353;
-  border-radius: 2px;
-  position: relative;
-  cursor: pointer;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--accent-purple);
-  border-radius: 2px;
-  transition: width 0.1s ease;
-}
-
-.progress:hover .progress-fill {
-  background: var(--accent-pink);
-}
-
-.time {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  min-width: 40px;
-  text-align: center;
-}
-
-.volume-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex: 1;
-  justify-content: flex-end;
-}
-
 /* Theme support */
 body.dark {
   background-color: #121212;
@@ -529,6 +353,9 @@ body.light {
 
 .main-content {
   width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .dropdown-header {
@@ -698,10 +525,6 @@ body.light {
   .search-bar {
     max-width: 500px;
   }
-
-  .app-container {
-    padding-bottom: 120px;
-  }
 }
 
 @media (max-width: 768px) {
@@ -714,33 +537,8 @@ body.light {
     max-width: 400px;
   }
 
-  .player-bar {
-    padding: 0.75rem 1rem;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-
-  .player-track {
-    order: 1;
-    flex: 1 1 100%;
-  }
-
-  .player-controls {
-    order: 2;
-    flex: 1 1 auto;
-  }
-
-  .volume-controls {
-    order: 3;
-    flex: 0 0 auto;
-  }
-
   .user-dropdown {
     min-width: 250px;
-  }
-
-  .app-container {
-    padding-bottom: 140px;
   }
 }
 
