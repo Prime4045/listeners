@@ -1,201 +1,699 @@
-import rateLimit from 'express-rate-limit';
-import helmet from 'helmet';
-import crypto from 'crypto';
+.music-player {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--secondary-bg);
+    border-top: 1px solid var(--border-color);
+    z-index: 1000;
+    height: 90px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(20px);
+}
 
-// Enhanced rate limiting with different tiers
-export const createRateLimiter = (windowMs, max, message) => {
-  return rateLimit({
-    windowMs,
-    max,
-    message: { error: message, retryAfter: windowMs },
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: (req) => {
-      // Use IP + User-Agent for better fingerprinting
-      const ip = req.ip || req.connection.remoteAddress;
-      const userAgent = req.get('User-Agent') || '';
-      return crypto.createHash('sha256').update(ip + userAgent).digest('hex');
-    },
-    skip: (req) => {
-      // Skip rate limiting for health checks
-      return req.path === '/api/health';
-    },
-    onLimitReached: (req, res) => {
-      console.warn(`Rate limit exceeded for ${req.ip} on ${req.path}`);
+.music-player.no-track {
+    justify-content: center;
+    background: var(--primary-bg);
+}
+
+.no-track-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: var(--text-secondary);
+}
+
+.no-track-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--gradient-primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.no-track-text h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 4px 0;
+}
+
+.no-track-text p {
+    font-size: 14px;
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+/* Player Error */
+.player-error {
+    position: absolute;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ef4444;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    z-index: 1001;
+}
+
+.player-error button {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* Player Content */
+.player-content {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    gap: 16px;
+}
+
+/* Track Info Section */
+.track-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    max-width: 400px;
+}
+
+.track-artwork {
+    width: 56px;
+    height: 56px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--tertiary-bg);
+    flex-shrink: 0;
+    position: relative;
+}
+
+.track-artwork img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.artwork-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+.visualizer-overlay {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    right: 4px;
+    height: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.9;
+}
+
+.track-details {
+    min-width: 0;
+    flex: 1;
+}
+
+.track-title {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text-primary);
+    margin: 0 0 4px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+.track-artist {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+.track-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 8px;
+}
+
+.action-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.action-btn:hover {
+    color: var(--text-primary);
+}
+
+.like-btn.liked {
+    color: #ef4444;
+}
+
+/* Controls Section */
+.controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    max-width: 722px;
+    width: 100%;
+}
+
+.control-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+}
+
+.control-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.control-btn:hover:not(:disabled) {
+    color: var(--text-primary);
+    transform: scale(1.06);
+}
+
+.control-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.control-btn.active {
+    color: var(--accent-purple);
+}
+
+.control-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    background: var(--accent-purple);
+    border-radius: 50%;
+}
+
+.play-pause-btn {
+    width: 32px;
+    height: 32px;
+    background: var(--text-primary);
+    color: var(--primary-bg);
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.play-pause-btn:hover:not(:disabled) {
+    transform: scale(1.06);
+    background: var(--accent-purple);
+    color: white;
+}
+
+.play-pause-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Loading icon centered in play button */
+.play-pause-btn .animate-spin {
+    position: absolute;
+    top: 50%;
+    left: 30%;
+    transform: translate(-50%, -50%);
+}
+
+.repeat-one {
+    position: relative;
+}
+
+.repeat-indicator {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: var(--accent-purple);
+    color: white;
+    border-radius: 50%;
+    font-size: 6px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Progress Section */
+.progress-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.time-display {
+    font-size: 11px;
+    color: var(--text-secondary);
+    min-width: 40px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.progress-container {
+    flex: 1;
+    height: 12px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.progress-track {
+    width: 100%;
+    height: 4px;
+    background: var(--tertiary-bg);
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-container:hover .progress-track {
+    background: var(--border-color);
+}
+
+.progress-container:hover .progress-track {
+    background: var(--border-color);
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--accent-purple);
+    border-radius: 2px;
+    transition: width 0.1s ease;
+    position: relative;
+}
+
+.progress-handle {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translate(50%, -50%);
+    width: 12px;
+    height: 12px;
+    background: var(--accent-purple);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.progress-container:hover .progress-handle {
+    opacity: 1;
+}
+
+/* Volume Section */
+.volume-section {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 180px;
+}
+
+.volume-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.volume-btn:hover {
+    color: var(--text-primary);
+}
+
+.volume-slider-container {
+    width: 93px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 12px;
+}
+
+.volume-slider {
+    width: 100%;
+    height: 4px;
+    background: var(--tertiary-bg);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    position: relative;
+}
+
+.volume-slider:hover {
+    background: var(--border-color);
+}
+
+/* Volume slider track styling */
+.volume-slider::-webkit-slider-track {
+    width: 100%;
+    height: 4px;
+    background: var(--tertiary-bg);
+    border-radius: 2px;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    background: var(--accent-purple);
+    border-radius: 50%;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    position: relative;
+}
+
+.volume-slider:hover::-webkit-slider-thumb {
+    opacity: 1;
+}
+
+.volume-slider::-moz-range-track {
+    width: 100%;
+    height: 4px;
+    background: var(--tertiary-bg);
+    border-radius: 2px;
+    border: none;
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    background: var(--accent-purple);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.volume-slider:hover::-moz-range-thumb {
+    opacity: 1;
+}
+
+/* Volume fill effect */
+.volume-slider::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 4px;
+    background: var(--accent-purple);
+    border-radius: 2px;
+    width: var(--volume-percentage, 50%);
+    pointer-events: none;
+}
+
+/* Additional Controls */
+.additional-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.control-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.control-icon:hover {
+    color: var(--text-primary);
+}
+
+/* Minimized Player */
+.minimized-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 100%;
+    padding: 0 16px;
+}
+
+.minimized-track {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.minimized-artwork {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.minimized-info {
+    min-width: 0;
+}
+
+.minimized-title {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+
+.minimized-artist {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.minimized-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.expand-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.expand-btn:hover {
+    color: var(--text-primary);
+}
+
+.minimized-progress {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--tertiary-bg);
+}
+
+.minimized-progress .progress-bar {
+    height: 100%;
+    background: var(--accent-purple);
+    transition: width 0.1s ease;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .player-content {
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
     }
-  });
-};
 
-// Different rate limiters for different endpoints
-export const strictLimiter = createRateLimiter(
-  15 * 60 * 1000, // 15 minutes
-  5, // 5 requests
-  'Too many requests, please try again later'
-);
-
-export const authLimiter = createRateLimiter(
-  15 * 60 * 1000, // 15 minutes
-  10, // 10 requests
-  'Too many authentication attempts'
-);
-
-export const apiLimiter = createRateLimiter(
-  15 * 60 * 1000, // 15 minutes
-  1000, // 1000 requests
-  'API rate limit exceeded'
-);
-
-export const searchLimiter = createRateLimiter(
-  1 * 60 * 1000, // 1 minute
-  30, // 30 searches per minute
-  'Too many search requests'
-);
-
-// Enhanced security headers
-export const securityHeaders = helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", 'https:', 'https://fonts.googleapis.com'],
-      scriptSrc: ["'self'", 'https:'],
-      imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
-      mediaSrc: ["'self'", 'blob:', 'https:', 'https://*.amazonaws.com'],
-      connectSrc: ["'self'", 'wss:', 'ws:', 'https:', process.env.FRONTEND_URL],
-      fontSrc: ["'self'", 'https:', 'data:', 'https://fonts.gstatic.com'],
-      objectSrc: ["'none'"],
-      frameSrc: ["'none'"],
-      upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
-    },
-  },
-  crossOriginEmbedderPolicy: false,
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true
-  },
-  noSniff: true,
-  frameguard: { action: 'deny' },
-  xssFilter: true,
-  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-  permissionsPolicy: {
-    features: {
-      geolocation: ["'none'"],
-      microphone: ["'none'"],
-      camera: ["'none'"],
-      payment: ["'none'"],
-      usb: ["'none'"],
-    },
-  },
-});
-
-// Request sanitization middleware
-export const sanitizeRequest = (req, res, next) => {
-  // Remove potentially dangerous characters from query params
-  for (const key in req.query) {
-    if (typeof req.query[key] === 'string') {
-      req.query[key] = req.query[key].replace(/[<>\"']/g, '');
+    .track-info {
+        max-width: 300px;
     }
-  }
-  
-  // Limit request body size
-  if (req.body && JSON.stringify(req.body).length > 1024 * 1024) { // 1MB limit
-    return res.status(413).json({
-      message: 'Request body too large',
-      code: 'PAYLOAD_TOO_LARGE'
-    });
-  }
-  
-  next();
-};
 
-// IP whitelist for admin endpoints
-export const ipWhitelist = (allowedIPs = []) => {
-  return (req, res, next) => {
-    const clientIP = req.ip || req.connection.remoteAddress;
-    
-    if (allowedIPs.length > 0 && !allowedIPs.includes(clientIP)) {
-      return res.status(403).json({
-        message: 'Access denied from this IP address',
-        code: 'IP_BLOCKED'
-      });
+    .volume-section {
+        min-width: 140px;
     }
-    
-    next();
-  };
-};
 
-// Request logging for security monitoring
-export const securityLogger = (req, res, next) => {
-  const startTime = Date.now();
-  
-  res.on('finish', () => {
-    const duration = Date.now() - startTime;
-    const logData = {
-      timestamp: new Date().toISOString(),
-      method: req.method,
-      url: req.originalUrl,
-      ip: req.ip,
-      userAgent: req.get('User-Agent'),
-      statusCode: res.statusCode,
-      duration: `${duration}ms`,
-      userId: req.user?._id || 'anonymous'
-    };
-    
-    // Log suspicious activity
-    if (res.statusCode >= 400 || duration > 5000) {
-      console.warn('Security Alert:', logData);
+    .volume-slider-container {
+        width: 70px;
     }
-  });
-  
-  next();
-};
+}
 
-// Prevent parameter pollution
-export const preventParameterPollution = (req, res, next) => {
-  for (const key in req.query) {
-    if (Array.isArray(req.query[key])) {
-      req.query[key] = req.query[key][0]; // Take only the first value
+@media (max-width: 768px) {
+    .music-player {
+        height: 72px;
+        padding: 0 12px;
     }
-  }
-  next();
-};
 
-// CORS configuration with dynamic origin checking
-export const corsConfig = {
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:12000',
-      'http://localhost:3000',
-      'http://localhost:5173',
-      process.env.FRONTEND_URL
-    ].filter(Boolean);
-    
-    // Allow requests with no origin (mobile apps, etc.)
-    if (!origin) return callback(null, true);
-    
-    // Check if origin is in allowed list
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn(`CORS blocked origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+    .player-content {
+        grid-template-columns: 1fr;
+        gap: 8px;
     }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'X-Requested-With',
-    'X-CSRF-Token',
-    'Accept',
-    'Origin',
-    'Cache-Control',
-    'Pragma',
-    'X-API-Key'
-  ],
-  exposedHeaders: ['Content-Length', 'X-Request-ID'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204,
-  maxAge: 86400 // 24 hours
-};
+
+    .track-info {
+        order: 1;
+        max-width: none;
+        justify-content: center;
+    }
+
+    .controls {
+        order: 2;
+    }
+
+    .volume-section {
+        display: none;
+    }
+
+    .control-buttons {
+        gap: 20px;
+    }
+
+    .track-artwork {
+        width: 48px;
+        height: 48px;
+    }
+}
+
+@media (max-width: 480px) {
+    .music-player {
+        height: 64px;
+        padding: 0 8px;
+    }
+
+    .control-buttons {
+        gap: 16px;
+    }
+
+    .control-btn {
+        width: 28px;
+        height: 28px;
+    }
+
+    .play-pause-btn {
+        width: 28px;
+        height: 28px;
+    }
+
+    .track-artwork {
+        width: 40px;
+        height: 40px;
+    }
+
+    .track-title {
+        font-size: 13px;
+    }
+
+    .track-artist {
+        font-size: 10px;
+    }
+
+    .time-display {
+        font-size: 10px;
+        min-width: 35px;
+    }
+}
+
+/* Animations */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}

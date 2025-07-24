@@ -1,225 +1,699 @@
-import rateLimit from 'express-rate-limit';
-import { redisClient } from '../config/database.js';
-import crypto from 'crypto';
+.music-player {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--secondary-bg);
+    border-top: 1px solid var(--border-color);
+    z-index: 1000;
+    height: 90px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(20px);
+}
 
-class AdvancedRateLimiter {
-    constructor() {
-        this.store = new RedisStore();
+.music-player.no-track {
+    justify-content: center;
+    background: var(--primary-bg);
+}
+
+.no-track-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: var(--text-secondary);
+}
+
+.no-track-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--gradient-primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.no-track-text h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 4px 0;
+}
+
+.no-track-text p {
+    font-size: 14px;
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+/* Player Error */
+.player-error {
+    position: absolute;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ef4444;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    z-index: 1001;
+}
+
+.player-error button {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* Player Content */
+.player-content {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    gap: 16px;
+}
+
+/* Track Info Section */
+.track-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    max-width: 400px;
+}
+
+.track-artwork {
+    width: 56px;
+    height: 56px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--tertiary-bg);
+    flex-shrink: 0;
+    position: relative;
+}
+
+.track-artwork img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.artwork-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+.visualizer-overlay {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    right: 4px;
+    height: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.9;
+}
+
+.track-details {
+    min-width: 0;
+    flex: 1;
+}
+
+.track-title {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text-primary);
+    margin: 0 0 4px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+.track-artist {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+.track-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 8px;
+}
+
+.action-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.action-btn:hover {
+    color: var(--text-primary);
+}
+
+.like-btn.liked {
+    color: #ef4444;
+}
+
+/* Controls Section */
+.controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    max-width: 722px;
+    width: 100%;
+}
+
+.control-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+}
+
+.control-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.control-btn:hover:not(:disabled) {
+    color: var(--text-primary);
+    transform: scale(1.06);
+}
+
+.control-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.control-btn.active {
+    color: var(--accent-purple);
+}
+
+.control-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    background: var(--accent-purple);
+    border-radius: 50%;
+}
+
+.play-pause-btn {
+    width: 32px;
+    height: 32px;
+    background: var(--text-primary);
+    color: var(--primary-bg);
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.play-pause-btn:hover:not(:disabled) {
+    transform: scale(1.06);
+    background: var(--accent-purple);
+    color: white;
+}
+
+.play-pause-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Loading icon centered in play button */
+.play-pause-btn .animate-spin {
+    position: absolute;
+    top: 50%;
+    left: 30%;
+    transform: translate(-50%, -50%);
+}
+
+.repeat-one {
+    position: relative;
+}
+
+.repeat-indicator {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: var(--accent-purple);
+    color: white;
+    border-radius: 50%;
+    font-size: 6px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Progress Section */
+.progress-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.time-display {
+    font-size: 11px;
+    color: var(--text-secondary);
+    min-width: 40px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.progress-container {
+    flex: 1;
+    height: 12px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.progress-track {
+    width: 100%;
+    height: 4px;
+    background: var(--tertiary-bg);
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-container:hover .progress-track {
+    background: var(--border-color);
+}
+
+.progress-container:hover .progress-track {
+    background: var(--border-color);
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--accent-purple);
+    border-radius: 2px;
+    transition: width 0.1s ease;
+    position: relative;
+}
+
+.progress-handle {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translate(50%, -50%);
+    width: 12px;
+    height: 12px;
+    background: var(--accent-purple);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.progress-container:hover .progress-handle {
+    opacity: 1;
+}
+
+/* Volume Section */
+.volume-section {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 180px;
+}
+
+.volume-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.volume-btn:hover {
+    color: var(--text-primary);
+}
+
+.volume-slider-container {
+    width: 93px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 12px;
+}
+
+.volume-slider {
+    width: 100%;
+    height: 4px;
+    background: var(--tertiary-bg);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    position: relative;
+}
+
+.volume-slider:hover {
+    background: var(--border-color);
+}
+
+/* Volume slider track styling */
+.volume-slider::-webkit-slider-track {
+    width: 100%;
+    height: 4px;
+    background: var(--tertiary-bg);
+    border-radius: 2px;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    background: var(--accent-purple);
+    border-radius: 50%;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    position: relative;
+}
+
+.volume-slider:hover::-webkit-slider-thumb {
+    opacity: 1;
+}
+
+.volume-slider::-moz-range-track {
+    width: 100%;
+    height: 4px;
+    background: var(--tertiary-bg);
+    border-radius: 2px;
+    border: none;
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    background: var(--accent-purple);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.volume-slider:hover::-moz-range-thumb {
+    opacity: 1;
+}
+
+/* Volume fill effect */
+.volume-slider::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 4px;
+    background: var(--accent-purple);
+    border-radius: 2px;
+    width: var(--volume-percentage, 50%);
+    pointer-events: none;
+}
+
+/* Additional Controls */
+.additional-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.control-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.control-icon:hover {
+    color: var(--text-primary);
+}
+
+/* Minimized Player */
+.minimized-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 100%;
+    padding: 0 16px;
+}
+
+.minimized-track {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.minimized-artwork {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.minimized-info {
+    min-width: 0;
+}
+
+.minimized-title {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+
+.minimized-artist {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.minimized-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.expand-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.expand-btn:hover {
+    color: var(--text-primary);
+}
+
+.minimized-progress {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--tertiary-bg);
+}
+
+.minimized-progress .progress-bar {
+    height: 100%;
+    background: var(--accent-purple);
+    transition: width 0.1s ease;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .player-content {
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
     }
 
-    /**
-     * Create adaptive rate limiter based on user behavior
-     */
-    createAdaptiveLimit(baseConfig) {
-        return rateLimit({
-            ...baseConfig,
-            store: this.store,
-            keyGenerator: this.generateAdvancedKey,
-            skip: this.skipTrustedRequests,
-            onLimitReached: this.handleLimitReached,
-            standardHeaders: true,
-            legacyHeaders: false,
-        });
+    .track-info {
+        max-width: 300px;
     }
 
-    /**
-     * Generate advanced fingerprint for rate limiting
-     */
-    generateAdvancedKey(req) {
-        const ip = req.ip || req.connection.remoteAddress;
-        const userAgent = req.get('User-Agent') || '';
-        const acceptLanguage = req.get('Accept-Language') || '';
-        const acceptEncoding = req.get('Accept-Encoding') || '';
-        
-        // Create fingerprint
-        const fingerprint = crypto
-            .createHash('sha256')
-            .update(ip + userAgent + acceptLanguage + acceptEncoding)
-            .digest('hex')
-            .substring(0, 16);
-
-        // Include user ID if authenticated
-        const userId = req.user?._id || 'anonymous';
-        
-        return `${fingerprint}:${userId}`;
+    .volume-section {
+        min-width: 140px;
     }
 
-    /**
-     * Skip rate limiting for trusted requests
-     */
-    skipTrustedRequests(req) {
-        // Skip for health checks
-        if (req.path === '/api/health') return true;
-        
-        // Skip for successful authentication (set by auth middleware)
-        if (req.skipRateLimit === true) return true;
-        
-        // Skip for premium users on certain endpoints
-        if (req.user?.subscription?.type === 'premium' && req.path.includes('/music/')) {
-            return true;
-        }
-        
-        return false;
-    }
-
-    /**
-     * Handle rate limit exceeded
-     */
-    handleLimitReached(req, res, options) {
-        const key = this.generateAdvancedKey(req);
-        console.warn(`Rate limit exceeded for ${key} on ${req.path}`, {
-            ip: req.ip,
-            userAgent: req.get('User-Agent'),
-            path: req.path,
-            method: req.method,
-            userId: req.user?._id || 'anonymous'
-        });
-
-        // Log suspicious activity
-        if (req.path.includes('/auth/') || req.path.includes('/admin/')) {
-            console.error(`Suspicious activity detected: ${key}`, {
-                ip: req.ip,
-                path: req.path,
-                attempts: options.max
-            });
-        }
+    .volume-slider-container {
+        width: 70px;
     }
 }
 
-/**
- * Redis store for rate limiting
- */
-class RedisStore {
-    constructor() {
-        this.prefix = 'rl:';
-        this.resetTime = 60 * 1000; // 1 minute default
+@media (max-width: 768px) {
+    .music-player {
+        height: 72px;
+        padding: 0 12px;
     }
 
-    async increment(key, windowMs) {
-        try {
-            const redisKey = `${this.prefix}${key}`;
-            const current = await redisClient.incr(redisKey);
-            
-            if (current === 1) {
-                await redisClient.expire(redisKey, Math.ceil(windowMs / 1000));
-            }
-            
-            const ttl = await redisClient.ttl(redisKey);
-            const resetTime = new Date(Date.now() + (ttl * 1000));
-            
-            return {
-                totalHits: current,
-                resetTime
-            };
-        } catch (error) {
-            console.error('Rate limit store error:', error);
-            // Fallback to allow request if Redis fails
-            return {
-                totalHits: 0,
-                resetTime: new Date(Date.now() + windowMs)
-            };
-        }
+    .player-content {
+        grid-template-columns: 1fr;
+        gap: 8px;
     }
 
-    async decrement(key) {
-        try {
-            const redisKey = `${this.prefix}${key}`;
-            const current = await redisClient.decr(redisKey);
-            return Math.max(0, current);
-        } catch (error) {
-            console.error('Rate limit decrement error:', error);
-            return 0;
-        }
+    .track-info {
+        order: 1;
+        max-width: none;
+        justify-content: center;
     }
 
-    async resetKey(key) {
-        try {
-            const redisKey = `${this.prefix}${key}`;
-            await redisClient.del(redisKey);
-        } catch (error) {
-            console.error('Rate limit reset error:', error);
-        }
+    .controls {
+        order: 2;
+    }
+
+    .volume-section {
+        display: none;
+    }
+
+    .control-buttons {
+        gap: 20px;
+    }
+
+    .track-artwork {
+        width: 48px;
+        height: 48px;
     }
 }
 
-const rateLimiter = new AdvancedRateLimiter();
-
-// Different rate limiters for different endpoints
-export const strictLimiter = rateLimiter.createAdaptiveLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5,
-    message: {
-        error: 'Too many requests from this IP, please try again later.',
-        retryAfter: 15 * 60 * 1000
+@media (max-width: 480px) {
+    .music-player {
+        height: 64px;
+        padding: 0 8px;
     }
-});
 
-export const authLimiter = rateLimiter.createAdaptiveLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: (req) => {
-        // More lenient for OAuth callbacks
-        if (req.path.includes('/callback')) return 20;
-        // Stricter for login attempts
-        if (req.path.includes('/login')) return 8;
-        return 10;
-    },
-    message: {
-        error: 'Too many authentication attempts, please try again later.',
-        retryAfter: 15 * 60 * 1000
+    .control-buttons {
+        gap: 16px;
     }
-});
 
-export const apiLimiter = rateLimiter.createAdaptiveLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: (req) => {
-        // Higher limits for premium users
-        if (req.user?.subscription?.type === 'premium') return 2000;
-        // Standard limits for authenticated users
-        if (req.user) return 1000;
-        // Lower limits for anonymous users
-        return 500;
-    },
-    message: {
-        error: 'API rate limit exceeded. Upgrade to Premium for higher limits.',
-        retryAfter: 15 * 60 * 1000
+    .control-btn {
+        width: 28px;
+        height: 28px;
     }
-});
 
-export const searchLimiter = rateLimiter.createAdaptiveLimit({
-    windowMs: 1 * 60 * 1000, // 1 minute
-    max: (req) => {
-        if (req.user?.subscription?.type === 'premium') return 100;
-        if (req.user) return 50;
-        return 20;
-    },
-    message: {
-        error: 'Search rate limit exceeded. Please slow down.',
-        retryAfter: 1 * 60 * 1000
+    .play-pause-btn {
+        width: 28px;
+        height: 28px;
     }
-});
 
-export const uploadLimiter = rateLimiter.createAdaptiveLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: (req) => {
-        if (req.user?.subscription?.type === 'premium') return 100;
-        return 10;
-    },
-    message: {
-        error: 'Upload limit exceeded. Upgrade to Premium for more uploads.',
-        retryAfter: 60 * 60 * 1000
+    .track-artwork {
+        width: 40px;
+        height: 40px;
     }
-});
 
-// Progressive rate limiting for failed attempts
-export const progressiveLimiter = (attempts) => {
-    return rateLimiter.createAdaptiveLimit({
-        windowMs: 60 * 60 * 1000, // 1 hour
-        max: Math.max(1, 10 - attempts * 2), // Decrease limit with more failures
-        message: {
-            error: 'Account temporarily restricted due to multiple failed attempts.',
-            retryAfter: 60 * 60 * 1000
-        }
-    });
-};
+    .track-title {
+        font-size: 13px;
+    }
 
-export default rateLimiter;
+    .track-artist {
+        font-size: 10px;
+    }
+
+    .time-display {
+        font-size: 10px;
+        min-width: 35px;
+    }
+}
+
+/* Animations */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
