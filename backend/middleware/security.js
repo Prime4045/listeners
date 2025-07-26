@@ -20,8 +20,12 @@ export const createRateLimiter = (windowMs, max, message) => {
       // Skip rate limiting for health checks
       return req.path === '/api/health';
     },
-    onLimitReached: (req, res) => {
+    handler: (req, res, next) => {
       console.warn(`Rate limit exceeded for ${req.ip} on ${req.path}`);
+      res.status(429).json({
+        error: message,
+        retryAfter: windowMs
+      });
     }
   });
 };

@@ -16,7 +16,7 @@ class AdvancedRateLimiter {
             store: this.store,
             keyGenerator: this.generateAdvancedKey,
             skip: this.skipTrustedRequests,
-            onLimitReached: this.handleLimitReached,
+            handler: this.handleLimitReached,
             standardHeaders: true,
             legacyHeaders: false,
         });
@@ -65,7 +65,7 @@ class AdvancedRateLimiter {
     /**
      * Handle rate limit exceeded
      */
-    handleLimitReached(req, res, options) {
+    handleLimitReached(req, res, next, options) {
         const key = this.generateAdvancedKey(req);
         console.warn(`Rate limit exceeded for ${key} on ${req.path}`, {
             ip: req.ip,
@@ -80,9 +80,15 @@ class AdvancedRateLimiter {
             console.error(`Suspicious activity detected: ${key}`, {
                 ip: req.ip,
                 path: req.path,
-                attempts: options.max
+                attempts: options?.max || 'unknown'
             });
         }
+
+        // Send rate limit response
+        res.status(429).json({
+            error: 'Too many requests from this IP, please try again later.',
+            retryAfter: options?.windowMs || 15 * 60 * 1000
+        });
     }
 }
 
