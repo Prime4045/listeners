@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { 
-  Search, 
-  User, 
-  Settings, 
-  LogOut, 
-  Crown, 
-  Music, 
+import {
+  Search,
+  User,
+  Settings,
+  LogOut,
+  Crown,
+  Music,
   ChevronDown,
   Bell,
   Loader2,
@@ -164,7 +164,7 @@ const Header = () => {
             <div className="search-results">
               <div className="results-header">
                 <span>Quick Results</span>
-                <button onClick={() => handleSearchSubmit({ preventDefault: () => {} })}>
+                <button onClick={() => handleSearchSubmit({ preventDefault: () => { } })}>
                   View All
                 </button>
               </div>
@@ -206,7 +206,7 @@ const Header = () => {
               <Bell size={20} />
               <span className="notification-badge">3</span>
             </button>
-            
+
             <div className="user-menu-container" ref={userMenuRef}>
               <button
                 className="user-button"
@@ -248,7 +248,7 @@ const Header = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="dropdown-menu">
                     <button
                       className="dropdown-item"

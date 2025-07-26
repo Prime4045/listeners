@@ -46,7 +46,7 @@ function App() {
                 <Route path="/signin" element={<SignIn />} />
                 <Route path="/signup" element={<SignUp />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
-                
+
                 {/* Main App Routes */}
                 <Route path="/*" element={
                   <div className="app-layout">
@@ -65,7 +65,7 @@ function App() {
                         </Routes>
                       </main>
                     </div>
-                    <MusicPlayer 
+                    <MusicPlayer
                       isMinimized={isPlayerMinimized}
                       onToggleMinimize={() => setIsPlayerMinimized(!isPlayerMinimized)}
                     />
