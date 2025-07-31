@@ -184,6 +184,10 @@ io.on('connection', (socket) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+  
   console.error('Global error handler:', err);
 
   if (err.name === 'ValidationError') {
@@ -232,6 +236,7 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use('*', (req, res) => {
+  if (res.headersSent) return;
   res.status(404).json({
     message: 'Route not found',
     code: 'ROUTE_NOT_FOUND',
@@ -239,7 +244,7 @@ app.use('*', (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 12001;
 
 async function startServer() {
   try {

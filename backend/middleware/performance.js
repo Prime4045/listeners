@@ -78,17 +78,26 @@ export const cacheMiddleware = (duration = 300) => {
 export const timingMiddleware = (req, res, next) => {
   const startTime = process.hrtime.bigint();
   
-  res.on('finish', () => {
+  const onFinish = () => {
     const endTime = process.hrtime.bigint();
     const duration = Number(endTime - startTime) / 1000000; // Convert to milliseconds
     
-    res.set('X-Response-Time', `${duration.toFixed(2)}ms`);
+    if (!res.headersSent) {
+      try {
+        res.set('X-Response-Time', `${duration.toFixed(2)}ms`);
+      } catch (error) {
+        // Headers already sent, ignore
+      }
+    }
     
     // Log slow requests
     if (duration > 1000) {
       console.warn(`Slow request: ${req.method} ${req.originalUrl} - ${duration.toFixed(2)}ms`);
     }
-  });
+  };
+  
+  res.once('finish', onFinish);
+  res.once('close', onFinish);
   
   next();
 };
@@ -139,8 +148,14 @@ export const optimizeDbQueries = (req, res, next) => {
 export const optimizeResponse = (req, res, next) => {
   // Store original json method
   const originalJson = res.json;
+  const originalSend = res.send;
+  const originalEnd = res.end;
   
   res.json = function(data) {
+    if (res.headersSent) {
+      return originalJson.call(this, data);
+    }
+    
     // Remove null/undefined values to reduce payload size
     const optimizedData = removeNullValues(data);
     
@@ -148,6 +163,20 @@ export const optimizeResponse = (req, res, next) => {
     res.set('X-Content-Optimized', 'true');
     
     return originalJson.call(this, optimizedData);
+  };
+  
+  res.send = function(data) {
+    if (res.headersSent) {
+      return originalSend.call(this, data);
+    }
+    return originalSend.call(this, data);
+  };
+  
+  res.end = function(data) {
+    if (res.headersSent) {
+      return originalEnd.call(this, data);
+    }
+    return originalEnd.call(this, data);
   };
   
   next();

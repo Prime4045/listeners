@@ -8,6 +8,7 @@ import User from '../models/User.js';
 import spotifyService from '../services/spotifyService.js';
 import audioOptimizationService from '../services/audioOptimization.js';
 import cacheService from '../services/cacheService.js';
+import s3Service from '../config/s3.js';
 
 const router = express.Router();
 

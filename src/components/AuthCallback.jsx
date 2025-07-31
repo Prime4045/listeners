@@ -27,7 +27,7 @@ const AuthCallback = () => {
                     localStorage.setItem('refreshToken', refreshToken);
 
                     // Get user data
-                    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+                    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:12001/api';
                     const response = await fetch(`${apiUrl}/auth/me`, {
                         headers: {
                             'Authorization': `Bearer ${token}`

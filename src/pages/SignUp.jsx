@@ -14,7 +14,8 @@ import {
   AlertCircle,
   Music,
   Shield,
-  Heart
+  Heart,
+  ArrowLeft
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import './AuthPages.css';
@@ -192,7 +193,7 @@ const SignUp = () => {
   };
 
   const handleGoogleLogin = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:12001';
     const redirect = encodeURIComponent('/');
     window.location.href = `${apiUrl}/api/auth/google?redirect=${redirect}`;
   };
@@ -213,6 +214,14 @@ const SignUp = () => {
 
   return (
     <div className="auth-page">
+      <button 
+        className="auth-back-btn"
+        onClick={() => navigate('/')}
+        title="Back to home"
+      >
+        <ArrowLeft size={20} />
+      </button>
+      
       <div className="auth-container">
         {/* Left Column - Branding */}
         <div className="auth-branding">

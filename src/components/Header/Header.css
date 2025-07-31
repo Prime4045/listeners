@@ -133,7 +133,10 @@
 .search-loading {
   position: absolute;
   right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--accent-purple);
+  z-index: 2;
 }
 
 /* Search Results Dropdown */

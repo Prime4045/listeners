@@ -14,4 +14,3 @@ fi
 
 # Start the backend server
 echo "🚀 Starting backend server on port 12001..."
-PORT=12001 npm run dev
