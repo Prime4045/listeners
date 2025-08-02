@@ -79,15 +79,17 @@ export const timingMiddleware = (req, res, next) => {
   const startTime = process.hrtime.bigint();
   
   const onFinish = () => {
+    if (res.headersSent) {
+      return;
+    }
+    
     const endTime = process.hrtime.bigint();
     const duration = Number(endTime - startTime) / 1000000; // Convert to milliseconds
     
-    if (!res.headersSent) {
-      try {
-        res.set('X-Response-Time', `${duration.toFixed(2)}ms`);
-      } catch (error) {
-        // Headers already sent, ignore
-      }
+    try {
+      res.set('X-Response-Time', `${duration.toFixed(2)}ms`);
+    } catch (error) {
+      // Headers already sent, ignore
     }
     
     // Log slow requests
@@ -146,6 +148,11 @@ export const optimizeDbQueries = (req, res, next) => {
 
 // Response optimization middleware
 export const optimizeResponse = (req, res, next) => {
+  // Check if headers are already sent
+  if (res.headersSent) {
+    return next();
+  }
+  
   // Store original json method
   const originalJson = res.json;
   const originalSend = res.send;
@@ -160,7 +167,11 @@ export const optimizeResponse = (req, res, next) => {
     const optimizedData = removeNullValues(data);
     
     // Set optimization headers
-    res.set('X-Content-Optimized', 'true');
+    try {
+      res.set('X-Content-Optimized', 'true');
+    } catch (error) {
+      // Headers already sent, ignore
+    }
     
     return originalJson.call(this, optimizedData);
   };

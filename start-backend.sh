@@ -13,4 +13,5 @@ if [ ! -d "node_modules" ]; then
 fi
 
 # Start the backend server
-echo "🚀 Starting backend server on port 12001..."
+echo "🚀 Starting backend server on port 3001..."
+npm run dev

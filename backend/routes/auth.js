@@ -470,7 +470,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   router.get(
     '/google/callback',
     passport.authenticate('google', {
-      failureRedirect: `${process.env.FRONTEND_URL}/login?error=Oauth_failed&message=${encodeURIComponent('Authentication failed')}`,
+      failureRedirect: `${process.env.FRONTEND_URL}/signin?error=Oauth_failed&message=${encodeURIComponent('Authentication failed')}`,
       failureMessage: true,
     }),
     async (req, res) => {
@@ -479,7 +479,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         if (!user) {
           console.error('Google callback: No user returned');
           return res.redirect(
-            `${process.env.FRONTEND_URL}/login?error=Oauth_failed&message=${encodeURIComponent('No user found')}`
+            `${process.env.FRONTEND_URL}/signin?error=Oauth_failed&message=${encodeURIComponent('No user found')}`
           );
         }
 
@@ -505,13 +505,25 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       } catch (error) {
         console.error('Google OAuth callback error:', error);
         res.redirect(
-          `${process.env.FRONTEND_URL}/login?error=Oauth_failed&message=${encodeURIComponent(error.message || 'OAuth failed')}`
+          `${process.env.FRONTEND_URL}/signin?error=Oauth_failed&message=${encodeURIComponent(error.message || 'OAuth failed')}`
         );
       }
     }
   );
 } else {
   console.warn('Google OAuth not configured: Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
+  
+  // Add placeholder routes to prevent 404 errors
+  router.get('/google', (req, res) => {
+    res.status(501).json({
+      message: 'Google OAuth not configured',
+      code: 'OAUTH_NOT_CONFIGURED'
+    });
+  });
+  
+  router.get('/google/callback', (req, res) => {
+    res.redirect(`${process.env.FRONTEND_URL}/signin?error=oauth_not_configured`);
+  });
 }
 
 export default router;

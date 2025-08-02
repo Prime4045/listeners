@@ -193,9 +193,9 @@ const SignUp = () => {
   };
 
   const handleGoogleLogin = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:12001';
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
     const redirect = encodeURIComponent('/');
-    window.location.href = `${apiUrl}/api/auth/google?redirect=${redirect}`;
+    window.location.href = `${apiUrl}/auth/google?redirect=${redirect}`;
   };
 
   const getPasswordStrengthColor = () => {

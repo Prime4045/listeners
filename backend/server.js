@@ -244,7 +244,7 @@ app.use('*', (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 12001;
+const PORT = process.env.PORT || 3001;
 
 async function startServer() {
   try {
