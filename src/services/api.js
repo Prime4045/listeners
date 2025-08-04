@@ -130,6 +130,21 @@ const ApiService = {
     });
   },
 
+  // Password reset endpoints
+  async forgotPassword(email) {
+    return this.makeRequest('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async resetPassword(token, newPassword, confirmPassword) {
+    return this.makeRequest('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword, confirmPassword }),
+    });
+  },
+
   // User profile endpoints
   async getUserProfile() {
     return this.makeRequest('/users/profile');

@@ -135,7 +135,10 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
     const { spotifyId } = req.params;
     const { playDuration = 0, completedPercentage = 0 } = req.body;
 
-    console.log(`Play request for track: ${spotifyId}`);
+    console.log(`Play request for track: ${spotifyId}`, {
+      authenticated: !!req.user,
+      userId: req.user?._id
+    });
 
     // Check if song exists in database first
     let song = await Song.findOne({ spotifyId });
@@ -200,15 +203,18 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
     let audioExists = await cacheService.getCachedS3Check(s3CacheKey);
 
     if (audioExists === null) {
-      audioExists = await audioOptimizationService.checkFileExists(`${spotifyId}.mp3`);
+      audioExists = await s3Service.audioExists(spotifyId);
       await cacheService.cacheS3Check(s3CacheKey, audioExists, 60 * 60);
     }
 
     if (!audioExists) {
-      return res.status(404).json({
-        message: 'Audio file not found in our library. Song will be added soon!',
+      console.log(`Audio file not found for: ${spotifyId}`);
+      return res.status(200).json({
+        message: 'Audio file not available yet. We are working to add it soon!',
         code: 'AUDIO_NOT_FOUND',
-        spotifyId
+        spotifyId,
+        canPlay: false,
+        isInDatabase: false
       });
     }
 
@@ -217,8 +223,8 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
     const spotifyTrack = await spotifyService.getTrack(spotifyId);
 
     // Generate S3 signed URL
-    const audioUrl = await audioOptimizationService.getOptimizedAudioUrl(spotifyId, 'high');
-    const fileMetadata = await audioOptimizationService.getAudioMetadata(spotifyId);
+    const audioUrl = await s3Service.getAudioUrl(spotifyId);
+    const fileMetadata = await s3Service.getFileMetadata(spotifyId).catch(() => null);
 
     // Create new song in database with upsert to handle duplicates
     song = await Song.findOneAndUpdate(
@@ -358,7 +364,7 @@ router.get('/:spotifyId', optionalAuth, async (req, res) => {
       let audioExists = await cacheService.getCachedS3Check(s3CacheKey);
 
       if (audioExists === null) {
-        audioExists = await audioOptimizationService.checkFileExists(`${spotifyId}.mp3`);
+        audioExists = await s3Service.audioExists(spotifyId);
         await cacheService.cacheS3Check(s3CacheKey, audioExists, 60 * 60);
       }
 

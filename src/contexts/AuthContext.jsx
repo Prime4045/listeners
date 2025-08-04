@@ -95,7 +95,10 @@ export const AuthProvider = ({ children }) => {
       setUser(response.user);
       setIsAuthenticated(true);
     } catch (error) {
-      console.error('Auth check error:', error);
+      // Only log actual errors, not auth failures
+      if (error.code !== 'TOKEN_MISSING' && error.code !== 'TOKEN_EXPIRED') {
+        console.error('Auth check error:', error);
+      }
       // Clear invalid tokens
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');

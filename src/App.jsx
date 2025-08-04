@@ -10,6 +10,7 @@ import Search from './pages/Search/Search';
 import Library from './pages/Library/Library';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
+import ResetPassword from './pages/ResetPassword';
 import Profile from './components/Profile/Profile';
 import Dashboard from './components/Dashboard/Dashboard';
 import PlaylistView from './components/PlaylistView/PlaylistView';
@@ -45,6 +46,7 @@ function App() {
                 {/* Auth Routes */}
                 <Route path="/signin" element={<SignIn />} />
                 <Route path="/signup" element={<SignUp />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
 
                 {/* Main App Routes */}

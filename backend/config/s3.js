@@ -30,11 +30,8 @@ class S3Service {
                 console.log(`Audio file not found for track: ${spotifyId}`);
                 return false;
             }
-            console.error('Error checking S3 file existence:', {
-                spotifyId,
-                error: error.message,
-                code: error.code,
-            });
+            // Don't log as error for missing files, it's expected
+            console.log(`S3 check failed for track: ${spotifyId} - ${error.message}`);
             return false;
         }
     }
@@ -63,12 +60,8 @@ class S3Service {
             console.log(`Generated signed URL for track: ${spotifyId}`);
             return url;
         } catch (error) {
-            console.error('Error generating S3 signed URL:', {
-                spotifyId,
-                error: error.message,
-                bucket: this.bucketName,
-            });
-            throw new Error(`Failed to get audio URL for track: ${spotifyId}`);
+            console.log(`S3 URL generation failed for track: ${spotifyId} - ${error.message}`);
+            throw new Error(`Audio file not available for track: ${spotifyId}`);
         }
     }
 

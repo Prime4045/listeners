@@ -8,7 +8,7 @@ import crypto from 'crypto';
 // More lenient rate limiting for authentication endpoints
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Increased from 5 to 10 attempts per window
+  max: 50, // Much more lenient for development
   message: {
     error: 'Too many authentication attempts, please try again later.',
     retryAfter: 15 * 60 * 1000,
@@ -20,19 +20,14 @@ export const authLimiter = rateLimit({
   },
   skip: (req) => {
     // Skip rate limiting for successful requests
-    return req.skipRateLimit === true;
+    return req.skipRateLimit === true || req.path === '/api/auth/me';
   },
 });
 
 // Progressive rate limiting for failed login attempts
 export const progressiveAuthLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: (req) => {
-    const attempts = req.user?.loginAttempts || 0;
-    if (attempts >= 3) return 5; // Increased from 1 to 5 attempts per hour after 3 failures
-    if (attempts >= 2) return 8; // Increased from 3 to 8 attempts per hour after 2 failures
-    return 20; // Increased from 10 to 20 attempts per hour initially
-  },
+  max: 100, // Very lenient for development
   message: {
     error: 'Account temporarily locked due to multiple failed login attempts.',
     retryAfter: 60 * 60 * 1000,
@@ -50,7 +45,8 @@ const authenticateToken = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({
         message: 'Access token required',
-        code: 'TOKEN_MISSING'
+        code: 'TOKEN_MISSING',
+        requiresAuth: true
       });
     }
 

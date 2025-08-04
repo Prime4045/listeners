@@ -6,6 +6,7 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
+import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import {
   generateToken,
@@ -455,6 +456,145 @@ router.get('/verify-email', async (req, res) => {
     res.status(500).json({
       message: 'Email verification failed',
       code: 'VERIFICATION_FAILED',
+      error: error.message,
+    });
+  }
+});
+
+// Forgot password - Send reset email
+router.post('/forgot-password', [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please provide a valid email address'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      message: 'Validation failed',
+      code: 'VALIDATION_ERROR',
+      errors: errors.array(),
+    });
+  }
+
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    // Always return success to prevent email enumeration
+    if (!user) {
+      return res.json({
+        message: 'If an account with that email exists, a password reset link has been sent.',
+        code: 'RESET_EMAIL_SENT',
+      });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    user.passwordResetToken = resetToken;
+    user.passwordResetExpires = resetTokenExpiry;
+    await user.save();
+
+    // Send reset email if transporter is configured
+    if (transporter) {
+      try {
+        const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+        await transporter.sendMail({
+          from: process.env.FROM_EMAIL,
+          to: email,
+          subject: 'Password Reset - Listeners',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #8b5cf6;">Password Reset Request</h2>
+              <p>Hi ${user.firstName || user.username},</p>
+              <p>You requested to reset your password. Click the button below to set a new password:</p>
+              <a href="${resetUrl}" style="display: inline-block; background: #8b5cf6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">Reset Password</a>
+              <p>Or copy and paste this link in your browser:</p>
+              <p style="word-break: break-all; color: #666;">${resetUrl}</p>
+              <p>This link will expire in 1 hour.</p>
+              <p>If you didn't request this, please ignore this email.</p>
+              <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+              <p style="color: #666; font-size: 12px;">© 2024 Listeners. All rights reserved.</p>
+            </div>
+          `,
+        });
+      } catch (emailError) {
+        console.error('Failed to send reset email:', emailError);
+      }
+    }
+
+    res.json({
+      message: 'If an account with that email exists, a password reset link has been sent.',
+      code: 'RESET_EMAIL_SENT',
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      message: 'Failed to process password reset request',
+      code: 'RESET_REQUEST_FAILED',
+      error: error.message,
+    });
+  }
+});
+
+// Reset password with token
+router.post('/reset-password', [
+  body('token')
+    .notEmpty()
+    .withMessage('Reset token is required'),
+  body('newPassword')
+    .isLength({ min: 8 })
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+    .withMessage('Password must be at least 8 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special character'),
+  body('confirmPassword')
+    .custom((value, { req }) => {
+      if (value !== req.body.newPassword) {
+        throw new Error('Passwords do not match');
+      }
+      return true;
+    }),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      message: 'Validation failed',
+      code: 'VALIDATION_ERROR',
+      errors: errors.array(),
+    });
+  }
+
+  try {
+    const { token, newPassword } = req.body;
+
+    const user = await User.findOne({
+      passwordResetToken: token,
+      passwordResetExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        message: 'Invalid or expired reset token',
+        code: 'INVALID_RESET_TOKEN',
+      });
+    }
+
+    // Update password
+    user.password = newPassword;
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+    await user.save();
+
+    res.json({
+      message: 'Password reset successfully',
+      code: 'PASSWORD_RESET_SUCCESS',
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      message: 'Failed to reset password',
+      code: 'PASSWORD_RESET_FAILED',
       error: error.message,
     });
   }

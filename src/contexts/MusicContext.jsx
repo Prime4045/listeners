@@ -49,6 +49,9 @@ export const MusicProvider = ({ children }) => {
   // Play track function
   const playTrack = useCallback(async (track, trackList = null) => {
     try {
+      // Check if user is authenticated for premium features
+      // Note: We allow guest playback but with limitations
+      
       setError(null);
       setIsLoading(true);
 
@@ -69,7 +72,9 @@ export const MusicProvider = ({ children }) => {
 
       // Check if track can be played
       if (!track.canPlay) {
-        throw new Error('This track is not available for playback yet');
+        setError('This track is not available for playback yet. We are working to add it soon!');
+        setIsLoading(false);
+        return;
       }
 
       // Preload next tracks for better performance

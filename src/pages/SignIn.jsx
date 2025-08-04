@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, Shield, Loader2, AlertCircle, Music, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import ForgotPasswordModal from '../components/ForgotPasswordModal/ForgotPasswordModal';
 import './AuthPages.css';
 
 const SignIn = () => {
@@ -15,6 +16,7 @@ const SignIn = () => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [requiresMFA, setRequiresMFA] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -263,9 +265,7 @@ const SignIn = () => {
                 <button
                   type="button"
                   className="link-button"
-                  onClick={() => {
-                    /* TODO: Implement forgot password */
-                  }}
+                  onClick={() => setShowForgotPassword(true)}
                   disabled={isLoading}
                 >
                   Forgot password?
@@ -326,6 +326,11 @@ const SignIn = () => {
           </div>
         </div>
       </div>
+
+      <ForgotPasswordModal
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+      />
     </div>
   );
 };
