@@ -262,6 +262,49 @@ class SpotifyService {
             .filter(track => track !== null);
     }
 
+    /**
+     * Mock trending tracks for fallback
+     */
+    getMockTrendingTracks(limit = 20) {
+        const mockTracks = [
+            {
+                spotifyId: '4uLU6hMCjMI75M1A2tKUQC',
+                title: 'Blinding Lights',
+                artist: 'The Weeknd',
+                album: 'After Hours',
+                duration: 200040,
+                imageUrl: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300',
+                popularity: 95,
+                explicit: false,
+                spotifyData: { id: '4uLU6hMCjMI75M1A2tKUQC' }
+            },
+            {
+                spotifyId: '1mWdTewIgB3gtBM3TOSFhB',
+                title: 'Watermelon Sugar',
+                artist: 'Harry Styles',
+                album: 'Fine Line',
+                duration: 174000,
+                imageUrl: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300',
+                popularity: 90,
+                explicit: false,
+                spotifyData: { id: '1mWdTewIgB3gtBM3TOSFhB' }
+            },
+            {
+                spotifyId: '5PUXKVVVQ74C3gl5vKy9Li',
+                title: 'Heeriye (feat. Arijit Singh)',
+                artist: 'Jasleen Royal, Arijit Singh',
+                album: 'Heeriye',
+                duration: 245000,
+                imageUrl: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300',
+                popularity: 85,
+                explicit: false,
+                spotifyData: { id: '5PUXKVVVQ74C3gl5vKy9Li' }
+            }
+        ];
+        
+        return mockTracks.slice(0, limit);
+    }
+
     getAuthorizationUrl(state = null) {
         const scopes = [
             'user-read-private',
