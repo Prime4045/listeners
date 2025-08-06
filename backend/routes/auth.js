@@ -96,18 +96,21 @@ const loginValidation = [
 // Get current user
 router.get('/me', authenticateToken, async (req, res) => {
   try {
+    console.log('Getting user data for:', req.user._id);
+    
     const user = await User.findById(req.user._id)
-      .populate('recentlyPlayed.song')
-      .populate('likedSongs')
       .select('-password -mfaSecret -emailVerificationToken -passwordResetToken');
 
     if (!user) {
+      console.error('User not found in database:', req.user._id);
       return res.status(404).json({
         message: 'User not found',
         code: 'USER_NOT_FOUND',
       });
     }
 
+    console.log('User data retrieved successfully:', user.username);
+    
     res.json({
       user,
       permissions: {
@@ -602,7 +605,10 @@ router.post('/reset-password', [
 
 // Google OAuth routes
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  console.log('Setting up Google OAuth routes...');
+  
   router.get('/google', (req, res, next) => {
+    console.log('Google OAuth initiated');
     req.session.redirectTo = req.query.redirect || '/dashboard';
     passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
   });
@@ -610,19 +616,21 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   router.get(
     '/google/callback',
     passport.authenticate('google', {
-      failureRedirect: `${process.env.FRONTEND_URL}/signin?error=Oauth_failed&message=${encodeURIComponent('Authentication failed')}`,
+      failureRedirect: `http://localhost:12000/signin?error=oauth_failed&message=${encodeURIComponent('Authentication failed')}`,
       failureMessage: true,
     }),
     async (req, res) => {
       try {
+        console.log('Google OAuth callback received');
         const user = req.user;
         if (!user) {
           console.error('Google callback: No user returned');
           return res.redirect(
-            `${process.env.FRONTEND_URL}/signin?error=Oauth_failed&message=${encodeURIComponent('No user found')}`
+            `http://localhost:12000/signin?error=oauth_failed&message=${encodeURIComponent('No user found')}`
           );
         }
 
+        console.log('Generating tokens for user:', user.username);
         const token = generateToken(user._id);
         const refreshToken = generateRefreshToken(user._id);
 
@@ -637,15 +645,16 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         const redirectTo = req.session.redirectTo || '/dashboard';
         delete req.session.redirectTo;
 
+        console.log('Redirecting to frontend with tokens');
         res.redirect(
-          `${process.env.FRONTEND_URL}/auth/callback?token=${token}&refreshToken=${refreshToken}&redirect=${encodeURIComponent(
+          `http://localhost:12000/auth/callback?token=${token}&refreshToken=${refreshToken}&redirect=${encodeURIComponent(
             redirectTo
           )}`
         );
       } catch (error) {
         console.error('Google OAuth callback error:', error);
         res.redirect(
-          `${process.env.FRONTEND_URL}/signin?error=Oauth_failed&message=${encodeURIComponent(error.message || 'OAuth failed')}`
+          `http://localhost:12000/signin?error=oauth_failed&message=${encodeURIComponent(error.message || 'OAuth failed')}`
         );
       }
     }
@@ -662,7 +671,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   });
   
   router.get('/google/callback', (req, res) => {
-    res.redirect(`${process.env.FRONTEND_URL}/signin?error=oauth_not_configured`);
+    res.redirect(`http://localhost:12000/signin?error=oauth_not_configured`);
   });
 }
 

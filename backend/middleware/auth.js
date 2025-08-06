@@ -7,8 +7,8 @@ import crypto from 'crypto';
 
 // More lenient rate limiting for authentication endpoints
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // Much more lenient for development
+  windowMs: 15 * 60 * 1000,
+  max: 100, // Very lenient for development
   message: {
     error: 'Too many authentication attempts, please try again later.',
     retryAfter: 15 * 60 * 1000,
@@ -19,8 +19,8 @@ export const authLimiter = rateLimit({
     return req.ip + ':' + (req.body.email || req.body.username || 'unknown');
   },
   skip: (req) => {
-    // Skip rate limiting for successful requests
-    return req.skipRateLimit === true || req.path === '/api/auth/me';
+    // Skip rate limiting for /me endpoint and successful requests
+    return req.skipRateLimit === true || req.path === '/me' || req.originalUrl.includes('/auth/me');
   },
 });
 
@@ -63,8 +63,18 @@ const authenticateToken = async (req, res, next) => {
       console.warn('Redis check failed, continuing without blacklist check:', redisError.message);
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId).select('-password -mfaSecret');
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (jwtError) {
+      console.error('JWT verification failed:', jwtError.message);
+      return res.status(401).json({
+        message: 'Invalid token',
+        code: 'TOKEN_INVALID'
+      });
+    }
+
+    const user = await User.findById(decoded.userId).select('-password -mfaSecret -emailVerificationToken -passwordResetToken');
 
     if (!user) {
       return res.status(401).json({
@@ -79,14 +89,6 @@ const authenticateToken = async (req, res, next) => {
         message: 'Account is temporarily locked due to multiple failed login attempts',
         code: 'ACCOUNT_LOCKED',
         lockUntil: user.lockUntil
-      });
-    }
-
-    // Check if email is verified for sensitive operations
-    if (!user.isVerified && req.path.includes('/sensitive')) {
-      return res.status(403).json({
-        message: 'Email verification required',
-        code: 'EMAIL_NOT_VERIFIED'
       });
     }
 

@@ -299,6 +299,39 @@ class SpotifyService {
                 popularity: 85,
                 explicit: false,
                 spotifyData: { id: '5PUXKVVVQ74C3gl5vKy9Li' }
+            },
+            {
+                spotifyId: '6WrI0LAC5M1Rw2MnX2ZvEg',
+                title: 'Tum Hi Ho',
+                artist: 'Arijit Singh',
+                album: 'Aashiqui 2',
+                duration: 262000,
+                imageUrl: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300',
+                popularity: 88,
+                explicit: false,
+                spotifyData: { id: '6WrI0LAC5M1Rw2MnX2ZvEg' }
+            },
+            {
+                spotifyId: '1BxfuPKGuaTgP7aM0Bbdwr',
+                title: 'Tera Ban Jaunga',
+                artist: 'Akhil Sachdeva, Tulsi Kumar',
+                album: 'Kabir Singh',
+                duration: 234000,
+                imageUrl: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300',
+                popularity: 82,
+                explicit: false,
+                spotifyData: { id: '1BxfuPKGuaTgP7aM0Bbdwr' }
+            },
+            {
+                spotifyId: '2YpeDb67231RjR0MgVLzsG',
+                title: 'Kesariya',
+                artist: 'Arijit Singh, Amitabh Bhattacharya',
+                album: 'Brahmāstra',
+                duration: 268000,
+                imageUrl: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300',
+                popularity: 90,
+                explicit: false,
+                spotifyData: { id: '2YpeDb67231RjR0MgVLzsG' }
             }
         ];
         

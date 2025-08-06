@@ -91,13 +91,15 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
+      console.log('Checking authentication...');
       const response = await ApiService.getCurrentUser();
+      console.log('Auth check successful:', response.user.username);
       setUser(response.user);
       setIsAuthenticated(true);
     } catch (error) {
       // Only log actual errors, not auth failures
       if (error.code !== 'TOKEN_MISSING' && error.code !== 'TOKEN_EXPIRED') {
-        console.error('Auth check error:', error);
+        console.log('Auth check failed:', error.message);
       }
       // Clear invalid tokens
       localStorage.removeItem('token');
