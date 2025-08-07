@@ -137,7 +137,26 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
     });
 
     // For now, return mock audio data since S3 is not configured
-    const mockAudioUrl = 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav';
+    let audioUrl = null;
+    
+    // Try to get S3 URL first, fallback to mock if not available
+    try {
+      if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+        const s3Exists = await s3Service.audioExists(spotifyId);
+        if (s3Exists) {
+          audioUrl = await s3Service.getAudioUrl(spotifyId);
+          console.log('🎵 Using S3 audio for:', spotifyId);
+        }
+      }
+    } catch (s3Error) {
+      console.log('⚠️ S3 not available, using mock audio:', s3Error.message);
+    }
+    
+    // Fallback to mock audio if S3 not available
+    if (!audioUrl) {
+      audioUrl = 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav';
+      console.log('🔄 Using mock audio for:', spotifyId);
+    }
     
     // Check if song exists in database first
     let song = await Song.findOne({ spotifyId });
@@ -145,7 +164,7 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
     if (song) {
       // Song exists in database, use mock audio URL
       try {
-        song.audioUrl = mockAudioUrl;
+        song.audioUrl = audioUrl;
         await song.incrementPlayCount();
         await song.save();
 
@@ -172,7 +191,7 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
           album: song.album,
           duration: song.duration,
           imageUrl: song.imageUrl,
-          audioUrl: mockAudioUrl,
+          audioUrl: audioUrl,
           playCount: song.playCount,
           likeCount: song.likeCount,
           popularity: song.popularity,
@@ -205,7 +224,7 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
         album: spotifyTrack.album,
         duration: spotifyTrack.duration,
         imageUrl: spotifyTrack.imageUrl,
-        audioUrl: mockAudioUrl,
+        audioUrl: audioUrl,
         genre: spotifyTrack.genre || null,
         releaseDate: spotifyTrack.releaseDate,
         popularity: spotifyTrack.popularity,
@@ -245,7 +264,7 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
       album: song.album,
       duration: song.duration,
       imageUrl: song.imageUrl,
-      audioUrl: mockAudioUrl,
+      audioUrl: audioUrl,
       playCount: song.playCount,
       likeCount: song.likeCount,
       popularity: song.popularity,

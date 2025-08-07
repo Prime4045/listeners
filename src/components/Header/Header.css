@@ -130,15 +130,6 @@
   transform: scale(1.1);
 }
 
-.search-loading {
-  position: absolute;
-  right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--accent-purple);
-  z-index: 2;
-}
-
 /* Search Results Dropdown */
 .search-results {
   position: absolute;
@@ -544,11 +535,11 @@
 
 @keyframes spin {
   from {
-    transform: rotate(0deg);
+    transform: translateY(-50%) rotate(0deg);
   }
 
   to {
-    transform: rotate(360deg);
+    transform: translateY(-50%) rotate(360deg);
   }
 }
 

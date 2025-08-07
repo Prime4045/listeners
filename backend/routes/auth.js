@@ -1,6 +1,7 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
 import passport from 'passport';
+import jwt from 'jsonwebtoken';
 import { redisClient } from '../config/database.js';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
@@ -94,22 +95,40 @@ const loginValidation = [
 ];
 
 // Get current user
-router.get('/me', authenticateToken, async (req, res) => {
+router.get('/me', async (req, res) => {
   try {
-    console.log('Getting user data for:', req.user._id);
-    
-    const user = await User.findById(req.user._id)
-      .select('-password -mfaSecret -emailVerificationToken -passwordResetToken');
+    // Manual token verification for /me endpoint to avoid rate limiting issues
+    const authHeader = req.headers.authorization || req.header('Authorization');
+    const token = authHeader && authHeader.split(' ')[1];
 
-    if (!user) {
-      console.error('User not found in database:', req.user._id);
-      return res.status(404).json({
-        message: 'User not found',
-        code: 'USER_NOT_FOUND',
+    if (!token) {
+      return res.status(401).json({
+        message: 'Access token required',
+        code: 'TOKEN_MISSING',
+        requiresAuth: true
       });
     }
 
-    console.log('User data retrieved successfully:', user.username);
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (jwtError) {
+      return res.status(401).json({
+        message: 'Invalid token',
+        code: 'TOKEN_INVALID'
+      });
+    }
+
+    const user = await User.findById(decoded.userId).select('-password -mfaSecret -emailVerificationToken -passwordResetToken');
+
+    if (!user) {
+      return res.status(401).json({
+        message: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    console.log('✅ Getting user data for:', user.username);
     
     res.json({
       user,
@@ -120,7 +139,7 @@ router.get('/me', authenticateToken, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Get user error:', error);
+    console.error('❌ Get user error:', error);
     res.status(500).json({
       message: 'Failed to get user',
       code: 'GET_USER_FAILED',
@@ -605,39 +624,46 @@ router.post('/reset-password', [
 
 // Google OAuth routes
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-  console.log('Setting up Google OAuth routes...');
+  console.log('✅ Setting up Google OAuth routes...');
   
   router.get('/google', (req, res, next) => {
-    console.log('Google OAuth initiated');
+    console.log('🚀 Google OAuth initiated from IP:', req.ip);
     req.session.redirectTo = req.query.redirect || '/dashboard';
-    passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+    passport.authenticate('google', { 
+      scope: ['profile', 'email'],
+      prompt: 'select_account'
+    })(req, res, next);
   });
 
   router.get(
     '/google/callback',
-    passport.authenticate('google', {
-      failureRedirect: `http://localhost:12000/signin?error=oauth_failed&message=${encodeURIComponent('Authentication failed')}`,
-      failureMessage: true,
-    }),
+    (req, res, next) => {
+      console.log('📥 Google OAuth callback received');
+      passport.authenticate('google', {
+        failureRedirect: `http://localhost:12000/signin?error=oauth_failed&message=${encodeURIComponent('Authentication failed')}`,
+        failureMessage: true,
+      })(req, res, next);
+    },
     async (req, res) => {
       try {
-        console.log('Google OAuth callback received');
+        console.log('✅ Google OAuth callback processing...');
         const user = req.user;
         if (!user) {
-          console.error('Google callback: No user returned');
+          console.error('❌ Google callback: No user returned');
           return res.redirect(
             `http://localhost:12000/signin?error=oauth_failed&message=${encodeURIComponent('No user found')}`
           );
         }
 
-        console.log('Generating tokens for user:', user.username);
+        console.log('🔑 Generating tokens for user:', user.username);
         const token = generateToken(user._id);
         const refreshToken = generateRefreshToken(user._id);
 
         try {
           await redisClient.setEx(`refreshToken:${user._id}`, 7 * 24 * 60 * 60, refreshToken);
+          console.log('💾 Tokens stored in Redis');
         } catch (redisError) {
-          console.warn('Redis set failed during OAuth callback:', redisError.message);
+          console.warn('⚠️ Redis set failed during OAuth callback:', redisError.message);
         }
 
         await user.addLoginHistory(req.ip, req.get('User-Agent'), true);
@@ -645,14 +671,14 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         const redirectTo = req.session.redirectTo || '/dashboard';
         delete req.session.redirectTo;
 
-        console.log('Redirecting to frontend with tokens');
+        console.log('🔄 Redirecting to frontend with tokens');
         res.redirect(
           `http://localhost:12000/auth/callback?token=${token}&refreshToken=${refreshToken}&redirect=${encodeURIComponent(
             redirectTo
           )}`
         );
       } catch (error) {
-        console.error('Google OAuth callback error:', error);
+        console.error('❌ Google OAuth callback error:', error);
         res.redirect(
           `http://localhost:12000/signin?error=oauth_failed&message=${encodeURIComponent(error.message || 'OAuth failed')}`
         );
@@ -660,10 +686,11 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     }
   );
 } else {
-  console.warn('Google OAuth not configured: Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
+  console.warn('⚠️ Google OAuth not configured: Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
   
   // Add placeholder routes to prevent 404 errors
   router.get('/google', (req, res) => {
+    console.log('❌ Google OAuth attempted but not configured');
     res.status(501).json({
       message: 'Google OAuth not configured',
       code: 'OAUTH_NOT_CONFIGURED'
@@ -671,6 +698,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   });
   
   router.get('/google/callback', (req, res) => {
+    console.log('❌ Google OAuth callback attempted but not configured');
     res.redirect(`http://localhost:12000/signin?error=oauth_not_configured`);
   });
 }

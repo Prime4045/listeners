@@ -26,7 +26,7 @@ const AuthCallback = () => {
         }
 
         if (token && refreshToken) {
-          console.log('Storing tokens and getting user data...');
+          console.log('🔑 Storing tokens and getting user data...');
           
           // Store tokens first
           localStorage.setItem('token', token);
@@ -35,22 +35,22 @@ const AuthCallback = () => {
           // Get user data using ApiService
           try {
             const userData = await ApiService.getCurrentUser();
-            console.log('User data retrieved:', userData.user.username);
+            console.log('✅ User data retrieved:', userData.user.username);
             updateUser(userData.user);
             navigate(decodeURIComponent(redirect));
           } catch (userError) {
-            console.error('Failed to get user data:', userError);
+            console.error('❌ Failed to get user data:', userError);
             // Clear invalid tokens
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
             navigate('/signin?error=' + encodeURIComponent('Failed to get user data'));
           }
         } else {
-          console.error('Missing tokens in callback');
+          console.error('❌ Missing tokens in callback');
           navigate('/signin?error=' + encodeURIComponent('Missing authentication tokens'));
         }
       } catch (err) {
-        console.error('Auth callback error:', err);
+        console.error('❌ Auth callback error:', err);
         navigate('/signin?error=' + encodeURIComponent('Authentication failed'));
       }
     };

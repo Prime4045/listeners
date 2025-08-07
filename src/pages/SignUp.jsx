@@ -193,10 +193,12 @@ const SignUp = () => {
   };
 
   const handleGoogleLogin = () => {
-    console.log('Initiating Google signup...');
-    const apiUrl = 'http://localhost:3001/api';
+    console.log('🚀 Initiating Google signup...');
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
     const redirect = encodeURIComponent('/');
-    window.location.href = `${apiUrl}/auth/google?redirect=${redirect}`;
+    const googleAuthUrl = `${apiUrl}/auth/google?redirect=${redirect}`;
+    console.log('🔗 Redirecting to:', googleAuthUrl);
+    window.location.href = googleAuthUrl;
   };
 
   const getPasswordStrengthColor = () => {

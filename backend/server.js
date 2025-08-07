@@ -248,6 +248,16 @@ const PORT = process.env.PORT || 3001;
 
 async function startServer() {
   try {
+    console.log('🚀 Starting Listeners Backend Server...');
+    console.log('📊 Environment Variables Check:');
+    console.log('- MongoDB URI:', process.env.MONGODB_URI ? '✅ Configured' : '❌ Missing');
+    console.log('- Redis URL:', process.env.REDIS_URL ? '✅ Configured' : '❌ Missing');
+    console.log('- JWT Secret:', process.env.JWT_SECRET ? '✅ Configured' : '❌ Missing');
+    console.log('- Google Client ID:', process.env.GOOGLE_CLIENT_ID ? '✅ Configured' : '❌ Missing');
+    console.log('- Google Client Secret:', process.env.GOOGLE_CLIENT_SECRET ? '✅ Configured' : '❌ Missing');
+    console.log('- AWS Access Key:', process.env.AWS_ACCESS_KEY_ID ? '✅ Configured' : '❌ Missing');
+    console.log('- Spotify Client ID:', process.env.SPOTIFY_CLIENT_ID ? '✅ Configured' : '❌ Missing');
+    
     await connectMongoDB();
 
     // Initialize Redis with error handling

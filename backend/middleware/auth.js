@@ -8,7 +8,7 @@ import crypto from 'crypto';
 // More lenient rate limiting for authentication endpoints
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100, // Very lenient for development
+  max: 200, // Very lenient for development
   message: {
     error: 'Too many authentication attempts, please try again later.',
     retryAfter: 15 * 60 * 1000,
@@ -20,20 +20,27 @@ export const authLimiter = rateLimit({
   },
   skip: (req) => {
     // Skip rate limiting for /me endpoint and successful requests
-    return req.skipRateLimit === true || req.path === '/me' || req.originalUrl.includes('/auth/me');
+    return req.skipRateLimit === true || 
+            req.path === '/me' || 
+            req.originalUrl.includes('/auth/me') ||
+            req.originalUrl.includes('/auth/google') ||
+            req.method === 'GET';
   },
 });
 
 // Progressive rate limiting for failed login attempts
 export const progressiveAuthLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 100, // Very lenient for development
+  max: 200, // Very lenient for development
   message: {
     error: 'Account temporarily locked due to multiple failed login attempts.',
     retryAfter: 60 * 60 * 1000,
   },
   keyGenerator: (req) => {
     return req.body.email || req.body.username || req.ip;
+  },
+  skip: (req) => {
+    return req.originalUrl.includes('/auth/google') || req.method === 'GET';
   },
 });
 

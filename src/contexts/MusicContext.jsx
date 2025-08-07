@@ -1,10 +1,12 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { Howl } from 'howler';
 import ApiService from '../services/api';
+import { useAuth } from './AuthContext';
 
 const MusicContext = createContext({});
 
 export const MusicProvider = ({ children }) => {
+  const { isAuthenticated } = useAuth();
   const [currentTrack, setCurrentTrack] = useState(null);
   const [playlist, setPlaylist] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -49,13 +51,17 @@ export const MusicProvider = ({ children }) => {
   // Play track function
   const playTrack = useCallback(async (track, trackList = null) => {
     try {
-      // Check if user is authenticated for premium features
-      // Note: We allow guest playback but with limitations
+      // Check if user is authenticated - require login for audio playback
+      if (!isAuthenticated) {
+        setError('Please sign in to play music');
+        setIsLoading(false);
+        return;
+      }
       
       setError(null);
       setIsLoading(true);
 
-      console.log('Playing track:', track.title, 'by', track.artist);
+      console.log('🎵 Playing track:', track.title, 'by', track.artist);
 
       // If it's the same track, just toggle play/pause
       if (currentTrack?.spotifyId === track.spotifyId) {
@@ -174,7 +180,7 @@ export const MusicProvider = ({ children }) => {
       setIsLoading(false);
       setError(err.message || 'Failed to play track');
     }
-  }, [currentTrack, volume]);
+  }, [currentTrack, volume, isAuthenticated]);
 
   // Handle track end
   const handleTrackEnd = useCallback(() => {
