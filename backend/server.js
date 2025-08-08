@@ -271,27 +271,20 @@ async function startServer() {
     const serverInstance = server.listen(PORT, '0.0.0.0', () => {
       console.log(`🎵 Listeners Backend Server running on port ${PORT}`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-      console.log(`🔗 Frontend URL: ${process.env.FRONTEND_URL}`);
-      console.log(`🔗 Google OAuth: ${process.env.GOOGLE_CLIENT_ID ? '✅ Configured' : '❌ Not configured'}`);
-      console.log(`🔗 AWS S3: ${process.env.AWS_ACCESS_KEY_ID ? '✅ Configured' : '❌ Not configured'}`);
-      console.log(`🔗 Spotify API: ${process.env.SPOTIFY_CLIENT_ID ? '✅ Configured' : '❌ Not configured'}`);
-      console.log(`🔒 Enhanced Security: Rate limiting, CORS, Helmet, CSRF, Request sanitization`);
-      console.log(`🔐 Authentication: JWT with refresh tokens, MFA support, Google OAuth`);
-      console.log(`⚡ Performance: Compression, Caching, Request optimization`);
-      console.log(`📧 Email service: ${process.env.SMTP_HOST ? 'Configured' : 'Not configured'}`);
-      console.log(`🎶 Music Player: ${process.env.SPOTIFY_CLIENT_ID ? 'Spotify API + ' : ''}${process.env.AWS_ACCESS_KEY_ID ? 'Amazon S3 + ' : ''}MongoDB`);
-      console.log(`🚀 Server ready for production use!`);
+      console.log(`🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:12000'}`);
+      console.log(`🔗 Google OAuth: ${process.env.GOOGLE_CLIENT_ID ? '✅ Configured' : '⚠️ Not configured (add to .env)'}`);
+      console.log(`🔗 AWS S3: ${process.env.AWS_ACCESS_KEY_ID ? '✅ Configured' : '⚠️ Not configured (using mock audio)'}`);
+      console.log(`🔗 Spotify API: ${process.env.SPOTIFY_CLIENT_ID ? '✅ Configured' : '⚠️ Not configured (using mock data)'}`);
+      console.log(`📧 Email service: ${process.env.SMTP_HOST ? '✅ Configured' : '⚠️ Not configured (password reset disabled)'}`);
+      console.log(`🚀 Server ready!`);
       console.log('');
-      console.log('📋 Setup Instructions:');
-      if (!process.env.GOOGLE_CLIENT_ID) {
-        console.log('🔗 Google OAuth: Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env');
-      }
-      if (!process.env.AWS_ACCESS_KEY_ID) {
-        console.log('☁️ Amazon S3: Add AWS credentials to .env for audio storage');
-      }
-      if (!process.env.SPOTIFY_CLIENT_ID) {
-        console.log('🎵 Spotify API: Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to .env');
-      }
+      console.log('📋 To enable full functionality, add to backend/.env:');
+      console.log('   GOOGLE_CLIENT_ID=your_google_client_id');
+      console.log('   GOOGLE_CLIENT_SECRET=your_google_client_secret');
+      console.log('   AWS_ACCESS_KEY_ID=your_aws_access_key');
+      console.log('   AWS_SECRET_ACCESS_KEY=your_aws_secret_key');
+      console.log('   SPOTIFY_CLIENT_ID=your_spotify_client_id');
+      console.log('   SPOTIFY_CLIENT_SECRET=your_spotify_client_secret');
     });
 
     // Setup graceful shutdown

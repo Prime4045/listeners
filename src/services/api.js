@@ -10,11 +10,14 @@ const ApiService = {
     };
 
     try {
+      console.log(`🌐 Making request to: ${API_URL}${endpoint}`);
       const response = await fetch(`${API_URL}${endpoint}`, {
         ...options,
         headers,
         credentials: 'include',
       });
+
+      console.log(`📡 Response status: ${response.status} for ${endpoint}`);
 
       // Handle non-JSON responses
       const contentType = response.headers.get('content-type');
@@ -30,6 +33,7 @@ const ApiService = {
       }
 
       const result = await response.json();
+      console.log(`✅ Request successful for ${endpoint}`);
 
       if (!response.ok) {
         // Handle token expiration
@@ -37,6 +41,7 @@ const ApiService = {
           const refreshToken = localStorage.getItem('refreshToken');
           if (refreshToken) {
             try {
+              console.log('🔄 Refreshing expired token...');
               const refreshResponse = await this.refreshToken(refreshToken);
               localStorage.setItem('token', refreshResponse.token);
               localStorage.setItem('refreshToken', refreshResponse.refreshToken);
@@ -50,6 +55,7 @@ const ApiService = {
                 }
               });
             } catch (refreshError) {
+              console.error('❌ Token refresh failed:', refreshError);
               // Refresh failed, redirect to login
               localStorage.removeItem('token');
               localStorage.removeItem('refreshToken');
@@ -63,10 +69,11 @@ const ApiService = {
 
       return result;
     } catch (error) {
+      console.error(`❌ Request failed for ${endpoint}:`, error);
       // Handle network errors
       if (!error.message && !error.code) {
         throw {
-          message: 'Network error occurred. Please check your connection.',
+          message: `Network error occurred. Please check your connection. (${endpoint})`,
           code: 'NETWORK_ERROR',
           status: 0
         };

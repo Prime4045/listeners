@@ -20,7 +20,7 @@ const AuthCallback = () => {
         console.log('Auth callback params:', { token: !!token, refreshToken: !!refreshToken, error });
 
         if (error) {
-          console.error('Auth callback error:', error);
+          console.error('❌ Auth callback error:', error);
           navigate('/signin?error=' + encodeURIComponent(error));
           return;
         }
@@ -34,8 +34,11 @@ const AuthCallback = () => {
 
           // Get user data using ApiService
           try {
-            const userData = await ApiService.getCurrentUser();
-            console.log('✅ User data retrieved:', userData.user.username);
+          // Wait a moment for tokens to be stored properly
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Trigger auth check
+          checkAuth();
             updateUser(userData.user);
             navigate(decodeURIComponent(redirect));
           } catch (userError) {
@@ -43,8 +46,11 @@ const AuthCallback = () => {
             // Clear invalid tokens
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
+          // Navigate immediately since checkAuth will update the context
             navigate('/signin?error=' + encodeURIComponent('Failed to get user data'));
-          }
+          setTimeout(() => {
+            navigate(decodeURIComponent(redirect));
+          }, 1000);
         } else {
           console.error('❌ Missing tokens in callback');
           navigate('/signin?error=' + encodeURIComponent('Missing authentication tokens'));

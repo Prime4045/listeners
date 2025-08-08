@@ -93,13 +93,28 @@ export const AuthProvider = ({ children }) => {
       }
 
       console.log('🔍 Checking authentication...');
-      const response = await ApiService.getCurrentUser();
-      console.log('✅ Auth check successful:', response.user.username);
-      setUser(response.user);
-      setIsAuthenticated(true);
+      
+      // Add retry logic for auth check
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          const response = await ApiService.getCurrentUser();
+          console.log('✅ Auth check successful:', response.user.username);
+          setUser(response.user);
+          setIsAuthenticated(true);
+          break;
+        } catch (error) {
+          retries--;
+          if (retries === 0) {
+            throw error;
+          }
+          console.log(`⚠️ Auth check failed, retrying... (${retries} attempts left)`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
     } catch (error) {
       // Only log actual errors, not auth failures
-      if (error.code !== 'TOKEN_MISSING' && error.code !== 'TOKEN_EXPIRED') {
+      if (error.code !== 'TOKEN_MISSING' && error.code !== 'TOKEN_EXPIRED' && error.code !== 'TOKEN_INVALID') {
         console.log('⚠️ Auth check failed:', error.message);
       }
       // Clear invalid tokens

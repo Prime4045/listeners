@@ -28,9 +28,13 @@ redisClient.on('connect', () => {
 
 const initializeRedis = async () => {
   try {
+    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+    console.log('🔗 Connecting to Redis:', redisUrl);
     await redisClient.connect();
+    console.log('✅ Redis connected successfully');
   } catch (error) {
-    console.error('Redis connection error:', error);
+    console.error('❌ Redis connection error:', error.message);
+    console.log('⚠️ Continuing without Redis...');
   }
 };
 

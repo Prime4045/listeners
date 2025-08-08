@@ -277,6 +277,7 @@ userSchema.methods.toJSON = function () {
   delete userObject.mfaSecret;
   delete userObject.loginAttempts;
   delete userObject.lockUntil;
+  delete userObject.loginHistory; // Remove to prevent circular references
   return userObject;
 };
 

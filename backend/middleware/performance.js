@@ -148,48 +148,8 @@ export const optimizeDbQueries = (req, res, next) => {
 
 // Response optimization middleware
 export const optimizeResponse = (req, res, next) => {
-  // Check if headers are already sent
-  if (res.headersSent) {
-    return next();
-  }
-  
-  // Store original json method
-  const originalJson = res.json;
-  const originalSend = res.send;
-  const originalEnd = res.end;
-  
-  res.json = function(data) {
-    if (res.headersSent) {
-      return originalJson.call(this, data);
-    }
-    
-    // Remove null/undefined values to reduce payload size
-    const optimizedData = removeNullValues(data);
-    
-    // Set optimization headers
-    try {
-      res.set('X-Content-Optimized', 'true');
-    } catch (error) {
-      // Headers already sent, ignore
-    }
-    
-    return originalJson.call(this, optimizedData);
-  };
-  
-  res.send = function(data) {
-    if (res.headersSent) {
-      return originalSend.call(this, data);
-    }
-    return originalSend.call(this, data);
-  };
-  
-  res.end = function(data) {
-    if (res.headersSent) {
-      return originalEnd.call(this, data);
-    }
-    return originalEnd.call(this, data);
-  };
-  
+  // Disable response optimization to prevent circular reference issues
+  console.log('Response optimization middleware - skipping for stability');
   next();
 };
 

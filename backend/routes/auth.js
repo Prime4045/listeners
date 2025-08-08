@@ -25,7 +25,7 @@ const router = express.Router();
 // Email transporter setup (optional)
 let transporter = null;
 if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-  transporter = nodemailer.createTransport({
+  transporter = nodemailer.createTransporter({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT) || 587,
     secure: false,
@@ -689,16 +689,15 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         delete req.session.redirectTo;
 
         console.log('🔄 Redirecting to frontend with tokens');
-        res.redirect(
-          `http://localhost:12000/auth/callback?token=${token}&refreshToken=${refreshToken}&redirect=${encodeURIComponent(
-            redirectTo
-          )}`
-        );
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:12000';
+        const callbackUrl = `${frontendUrl}/auth/callback?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}&redirect=${encodeURIComponent(redirectTo)}`;
+        
+        console.log('🔗 Redirecting to:', callbackUrl);
+        res.redirect(callbackUrl);
       } catch (error) {
         console.error('❌ Google OAuth callback error:', error);
-        res.redirect(
-          `http://localhost:12000/signin?error=oauth_failed&message=${encodeURIComponent(error.message || 'OAuth failed')}`
-        );
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:12000';
+        res.redirect(`${frontendUrl}/signin?error=oauth_failed&message=${encodeURIComponent(error.message || 'OAuth failed')}`);
       }
     }
   );
