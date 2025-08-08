@@ -12,11 +12,12 @@ import {
     AlertCircle,
     Minimize2,
     Maximize2,
-    PictureInPicture2
+    PictureInPicture2,
+    ListMusic,
+    Monitor
 } from 'lucide-react';
 import { useMusic } from '../../contexts/MusicContext';
 import { useAuth } from '../../contexts/AuthContext';
-import AudioVisualizer from '../AudioVisualizer/AudioVisualizer';
 import ApiService from '../../services/api';
 import './MusicPlayer.css';
 
@@ -139,10 +140,10 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
         try {
             await ApiService.likeTrack(currentTrack.spotifyId);
             setIsLiked(!isLiked);
-            
+
             // Dispatch custom event to update dashboard
             window.dispatchEvent(new CustomEvent('liked_songs_updated'));
-            
+
             // Also trigger storage event for cross-tab communication
             localStorage.setItem('liked_songs_updated', Date.now().toString());
             localStorage.removeItem('liked_songs_updated');
@@ -195,10 +196,6 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                         <div className="minimized-info">
                             <div className="minimized-title">{currentTrack.title}</div>
                             <div className="minimized-artist">{currentTrack.artist}</div>
-                            <PictureInPicture2
-                                className="control-icon"
-                                title="Picture in picture"
-                            />
                         </div>
                     </div>
 
@@ -279,19 +276,7 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                         />
                         {isLoading && (
                             <div className="artwork-overlay">
-                                <AlertCircle size={20} />
-                            </div>
-                        )}
-                        
-                        {/* Audio Visualizer Overlay */}
-                        {isPlaying && (
-                            <div className="visualizer-overlay">
-                                <AudioVisualizer 
-                                    type="bars" 
-                                    size="small" 
-                                    color="purple" 
-                                    animated={true} 
-                                />
+                                <Loader2 className="animate-spin" size={20} />
                             </div>
                         )}
                     </div>
@@ -300,35 +285,35 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                         <h3 className="track-title">{currentTrack.title}</h3>
                         <p className="track-artist">{currentTrack.artist}</p>
                     </div>
-
-                    {/* Like Button */}
-                    {isAuthenticated && (
-                        <div className="track-actions">
-                            <button
-                                className={`action-btn like-btn ${isLiked ? 'liked' : ''}`}
-                                onClick={handleLikeToggle}
-                                title={isLiked ? 'Remove from liked songs' : 'Add to liked songs'}
-                            >
-                                <svg
-                                    width="16"
-                                    height="16"
-                                    viewBox="0 0 24 24"
-                                    fill={isLiked ? "currentColor" : "none"}
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                                </svg>
-                            </button>
-                        </div>
-                    )}
                 </div>
 
                 {/* Controls Section */}
                 <div className="controls">
                     <div className="control-buttons">
+                        {/* Like Button */}
+                        {isAuthenticated && (
+                            <div className="track-actions">
+                                <button
+                                    className={`action-btn like-btn ${isLiked ? 'liked' : ''}`}
+                                    onClick={handleLikeToggle}
+                                    title={isLiked ? 'Remove from liked songs' : 'Add to liked songs'}
+                                >
+                                    <svg
+                                        width="16"
+                                        height="16"
+                                        viewBox="0 0 24 24"
+                                        fill={isLiked ? "currentColor" : "none"}
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    >
+                                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                                    </svg>
+                                </button>
+                            </div>
+                        )}
+
                         <button
                             className={`control-btn ${isShuffled ? 'active' : ''}`}
                             onClick={toggleShuffle}
@@ -429,6 +414,9 @@ const MusicPlayer = ({ isMinimized = false, onToggleMinimize }) => {
                     </div>
 
                     <div className="additional-controls">
+                        <PictureInPicture2 className="control-icon" title="Picture-in-picture" />
+                        <ListMusic className="control-icon" title="Queue" />
+                        <Monitor className="control-icon" title="Connect to a device" />
                         {onToggleMinimize && (
                             <Minimize2
                                 className="control-icon"

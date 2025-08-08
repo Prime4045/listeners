@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       const response = await ApiService.login(loginData);
-      
+
       if (response.requiresMFA) {
         return response; // Return MFA requirement
       }
@@ -85,38 +85,17 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      
+
       if (!token) {
-        console.log('🔍 No token found, skipping auth check');
         setLoading(false);
         return;
       }
 
-      console.log('🔍 Checking authentication...');
-      
-      // Add retry logic for auth check
-      let retries = 3;
-      while (retries > 0) {
-        try {
-          const response = await ApiService.getCurrentUser();
-          console.log('✅ Auth check successful:', response.user.username);
-          setUser(response.user);
-          setIsAuthenticated(true);
-          break;
-        } catch (error) {
-          retries--;
-          if (retries === 0) {
-            throw error;
-          }
-          console.log(`⚠️ Auth check failed, retrying... (${retries} attempts left)`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
+      const response = await ApiService.getCurrentUser();
+      setUser(response.user);
+      setIsAuthenticated(true);
     } catch (error) {
-      // Only log actual errors, not auth failures
-      if (error.code !== 'TOKEN_MISSING' && error.code !== 'TOKEN_EXPIRED' && error.code !== 'TOKEN_INVALID') {
-        console.log('⚠️ Auth check failed:', error.message);
-      }
+      console.error('Auth check error:', error);
       // Clear invalid tokens
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');

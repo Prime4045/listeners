@@ -70,6 +70,7 @@
 .track-list-body {
   max-height: 600px;
   overflow-y: auto;
+  overflow-x: hidden;
   width: 100%;
 }
 
@@ -297,7 +298,6 @@
   gap: 0.5rem;
   opacity: 1;
   transition: opacity 0.2s ease;
-  width: 100%;
 }
 
 .action-btn {
@@ -644,7 +644,8 @@
 .track-list,
 .track-list-header,
 .track-row,
-  grid-template-columns: 60px 1fr 200px 140px 80px 140px;
+grid-template-columns: 60px 1fr 200px 140px 80px 140px;
+
 .track-details,
 .track-main-info {
   max-width: 100%;

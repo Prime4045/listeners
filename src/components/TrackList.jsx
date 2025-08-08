@@ -34,7 +34,7 @@ const TrackList = ({
   const handlePlayTrack = async (track) => {
     try {
       await playTrack(track, tracks);
-      
+
       // Trigger song played event for dashboard update
       window.dispatchEvent(new CustomEvent('song_played'));
     } catch (error) {

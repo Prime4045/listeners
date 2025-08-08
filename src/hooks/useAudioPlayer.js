@@ -9,7 +9,7 @@ export const useAudioPlayer = () => {
   const [volume, setVolume] = useState(0.8);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  
+
   const howlRef = useRef(null);
   const intervalRef = useRef(null);
 
@@ -146,7 +146,7 @@ export const useAudioPlayer = () => {
   // Format time helper
   const formatTime = useCallback((time) => {
     if (isNaN(time)) return '0:00';
-    
+
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
@@ -171,7 +171,7 @@ export const useAudioPlayer = () => {
     volume,
     isLoading,
     error,
-    
+
     // Actions
     playTrack,
     togglePlayPause,
@@ -180,10 +180,10 @@ export const useAudioPlayer = () => {
     stop,
     previousTrack,
     nextTrack,
-    
+
     // Helpers
     formatTime,
-    
+
     // Progress percentage
     progress: duration > 0 ? (currentTime / duration) * 100 : 0
   };

@@ -1,12 +1,10 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { Howl } from 'howler';
 import ApiService from '../services/api';
-import { useAuth } from './AuthContext';
 
 const MusicContext = createContext({});
 
 export const MusicProvider = ({ children }) => {
-  const { isAuthenticated } = useAuth();
   const [currentTrack, setCurrentTrack] = useState(null);
   const [playlist, setPlaylist] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -51,17 +49,10 @@ export const MusicProvider = ({ children }) => {
   // Play track function
   const playTrack = useCallback(async (track, trackList = null) => {
     try {
-      // Check if user is authenticated - require login for audio playback
-      if (!isAuthenticated) {
-        setError('Please sign in to play music');
-        setIsLoading(false);
-        return;
-      }
-      
       setError(null);
       setIsLoading(true);
 
-      console.log('🎵 Playing track:', track.title, 'by', track.artist);
+      console.log('Playing track:', track.title, 'by', track.artist);
 
       // If it's the same track, just toggle play/pause
       if (currentTrack?.spotifyId === track.spotifyId) {
@@ -78,22 +69,9 @@ export const MusicProvider = ({ children }) => {
 
       // Check if track can be played
       if (!track.canPlay) {
-        setError('This track is not available for playback yet. We are working to add it soon!');
-        setIsLoading(false);
-        return;
+        throw new Error('This track is not available for playback yet');
       }
 
-      // Preload next tracks for better performance
-      if (trackList && trackList.length > 1) {
-        const currentIndex = trackList.findIndex(t => t.spotifyId === track.spotifyId);
-        const nextTracks = trackList.slice(currentIndex + 1, currentIndex + 4); // Preload next 3 tracks
-        nextTracks.forEach(nextTrack => {
-          if (nextTrack.canPlay) {
-            // Preload in background
-            ApiService.playTrack(nextTrack.spotifyId, { preload: true }).catch(() => {});
-          }
-        });
-      }
       // Call API to play track (this stores it in database and gets audio URL)
       const songData = await ApiService.playTrack(track.spotifyId, {
         playDuration: 0,
@@ -118,26 +96,15 @@ export const MusicProvider = ({ children }) => {
       // Create new Howl instance with the audio URL from S3
       howlRef.current = new Howl({
         src: [songData.audioUrl],
-        html5: false, // Use Web Audio API for better performance
+        html5: true,
         preload: true,
         volume: volume,
         format: ['mp3'],
-        pool: 5, // Connection pooling
-        autoplay: false,
-        xhr: {
-          method: 'GET',
-          headers: {
-            'Range': 'bytes=0-', // Enable range requests for progressive loading
-          },
-        },
         onload: () => {
           console.log('Audio loaded successfully');
           setIsLoading(false);
           setDuration(howlRef.current.duration());
           setError(null);
-          
-          // Start playing immediately after load
-          howlRef.current.play();
         },
         onplay: () => {
           console.log('Audio playback started');
@@ -174,13 +141,20 @@ export const MusicProvider = ({ children }) => {
         }
       });
 
+      // Start playing after a short delay
+      setTimeout(() => {
+        if (howlRef.current) {
+          console.log('Starting audio playback...');
+          howlRef.current.play();
+        }
+      }, 100);
 
     } catch (err) {
       console.error('Play track error:', err);
       setIsLoading(false);
       setError(err.message || 'Failed to play track');
     }
-  }, [currentTrack, volume, isAuthenticated]);
+  }, [currentTrack, volume]);
 
   // Handle track end
   const handleTrackEnd = useCallback(() => {

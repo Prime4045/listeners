@@ -10,16 +10,12 @@ const ApiService = {
     };
 
     try {
-      console.log(`🌐 Making request to: ${API_URL}${endpoint}`);
       const response = await fetch(`${API_URL}${endpoint}`, {
         ...options,
         headers,
         credentials: 'include',
       });
 
-      console.log(`📡 Response status: ${response.status} for ${endpoint}`);
-
-      // Handle non-JSON responses
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         if (!response.ok) {
@@ -33,7 +29,6 @@ const ApiService = {
       }
 
       const result = await response.json();
-      console.log(`✅ Request successful for ${endpoint}`);
 
       if (!response.ok) {
         // Handle token expiration
@@ -41,11 +36,10 @@ const ApiService = {
           const refreshToken = localStorage.getItem('refreshToken');
           if (refreshToken) {
             try {
-              console.log('🔄 Refreshing expired token...');
               const refreshResponse = await this.refreshToken(refreshToken);
               localStorage.setItem('token', refreshResponse.token);
               localStorage.setItem('refreshToken', refreshResponse.refreshToken);
-              
+
               // Retry original request with new token
               return this.makeRequest(endpoint, {
                 ...options,
@@ -55,8 +49,6 @@ const ApiService = {
                 }
               });
             } catch (refreshError) {
-              console.error('❌ Token refresh failed:', refreshError);
-              // Refresh failed, redirect to login
               localStorage.removeItem('token');
               localStorage.removeItem('refreshToken');
               window.location.href = '/login';
@@ -69,11 +61,9 @@ const ApiService = {
 
       return result;
     } catch (error) {
-      console.error(`❌ Request failed for ${endpoint}:`, error);
-      // Handle network errors
       if (!error.message && !error.code) {
         throw {
-          message: `Network error occurred. Please check your connection. (${endpoint})`,
+          message: 'Network error occurred. Please check your connection.',
           code: 'NETWORK_ERROR',
           status: 0
         };
@@ -84,7 +74,6 @@ const ApiService = {
 
   // Authentication endpoints
   async login(data) {
-    // Ensure required fields are present
     if (!data.emailOrUsername || !data.password) {
       throw {
         message: 'Email/username and password are required',
@@ -95,7 +84,6 @@ const ApiService = {
         ]
       };
     }
-
     return this.makeRequest('/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -134,21 +122,6 @@ const ApiService = {
     return this.makeRequest('/auth/refresh-token', {
       method: 'POST',
       body: JSON.stringify({ refreshToken }),
-    });
-  },
-
-  // Password reset endpoints
-  async forgotPassword(email) {
-    return this.makeRequest('/auth/forgot-password', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    });
-  },
-
-  async resetPassword(token, newPassword, confirmPassword) {
-    return this.makeRequest('/auth/reset-password', {
-      method: 'POST',
-      body: JSON.stringify({ token, newPassword, confirmPassword }),
     });
   },
 
@@ -200,7 +173,6 @@ const ApiService = {
 
   async getNewReleases(limit = 20) {
     // For now, return trending songs as new releases
-    // This can be updated when the backend supports new releases
     return this.makeRequest(`/music/database/trending?limit=${limit}`);
   },
 
