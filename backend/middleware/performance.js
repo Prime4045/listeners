@@ -195,17 +195,34 @@ export const optimizeResponse = (req, res, next) => {
 
 // Helper function to remove null/undefined values
 function removeNullValues(obj) {
-  if (Array.isArray(obj)) {
-    return obj.map(removeNullValues).filter(item => item !== null && item !== undefined);
-  } else if (obj !== null && typeof obj === 'object') {
-    const cleaned = {};
-    for (const [key, value] of Object.entries(obj)) {
-      if (value !== null && value !== undefined) {
-        cleaned[key] = removeNullValues(value);
-      }
-    }
-    return cleaned;
+  if (obj === null || obj === undefined) {
+    return undefined;
   }
+  
+  // Handle Mongoose objects and circular references
+  if (obj && typeof obj === 'object') {
+    // Check for circular references or Mongoose objects
+    if (obj.constructor && (obj.constructor.name === 'ObjectId' || obj.constructor.name === 'model')) {
+      return obj;
+    }
+    
+    // Handle arrays
+    if (Array.isArray(obj)) {
+      return obj.filter(item => item !== null && item !== undefined);
+    }
+    
+    // Handle plain objects only
+    if (obj.constructor === Object) {
+      const cleaned = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (value !== null && value !== undefined) {
+          cleaned[key] = value;
+        }
+      }
+      return cleaned;
+    }
+  }
+  
   return obj;
 }
 

@@ -119,7 +119,9 @@ router.get('/me', async (req, res) => {
       });
     }
 
-    const user = await User.findById(decoded.userId).select('-password -mfaSecret -emailVerificationToken -passwordResetToken');
+    const user = await User.findById(decoded.userId)
+      .select('-password -mfaSecret -emailVerificationToken -passwordResetToken -loginHistory')
+      .lean(); // Use lean() to get plain object
 
     if (!user) {
       return res.status(401).json({
@@ -130,12 +132,28 @@ router.get('/me', async (req, res) => {
 
     console.log('✅ Getting user data for:', user.username);
     
+    // Send clean user data without circular references
+    const cleanUser = {
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      avatar: user.avatar,
+      isVerified: user.isVerified,
+      preferences: user.preferences,
+      subscription: user.subscription,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      lastLogin: user.lastLogin
+    };
+    
     res.json({
-      user,
+      user: cleanUser,
       permissions: {
         canUpload: user.subscription.type === 'premium',
         canCreatePlaylists: true,
-        maxPlaylists: user.subscription.type === 'premium' ? -1 : 10,
+        maxPlaylists: user.subscription?.type === 'premium' ? -1 : 10,
       },
     });
   } catch (error) {
@@ -143,7 +161,6 @@ router.get('/me', async (req, res) => {
     res.status(500).json({
       message: 'Failed to get user',
       code: 'GET_USER_FAILED',
-      error: error.message,
     });
   }
 });
