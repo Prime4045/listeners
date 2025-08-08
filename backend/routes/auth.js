@@ -1,13 +1,11 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
 import passport from 'passport';
-import jwt from 'jsonwebtoken';
 import { redisClient } from '../config/database.js';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
-import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import {
   generateToken,
@@ -25,7 +23,7 @@ const router = express.Router();
 // Email transporter setup (optional)
 let transporter = null;
 if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-  transporter = nodemailer.createTransporter({
+  transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT) || 587,
     secure: false,
@@ -95,72 +93,34 @@ const loginValidation = [
 ];
 
 // Get current user
-router.get('/me', async (req, res) => {
+router.get('/me', authenticateToken, async (req, res) => {
   try {
-    // Manual token verification for /me endpoint to avoid rate limiting issues
-    const authHeader = req.headers.authorization || req.header('Authorization');
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-      return res.status(401).json({
-        message: 'Access token required',
-        code: 'TOKEN_MISSING',
-        requiresAuth: true
-      });
-    }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (jwtError) {
-      return res.status(401).json({
-        message: 'Invalid token',
-        code: 'TOKEN_INVALID'
-      });
-    }
-
-    const user = await User.findById(decoded.userId)
-      .select('-password -mfaSecret -emailVerificationToken -passwordResetToken -loginHistory')
-      .lean(); // Use lean() to get plain object
+    const user = await User.findById(req.user._id)
+      .populate('recentlyPlayed.song')
+      .populate('likedSongs')
+      .select('-password -mfaSecret -emailVerificationToken -passwordResetToken');
 
     if (!user) {
-      return res.status(401).json({
+      return res.status(404).json({
         message: 'User not found',
-        code: 'USER_NOT_FOUND'
+        code: 'USER_NOT_FOUND',
       });
     }
 
-    console.log('✅ Getting user data for:', user.username);
-    
-    // Send clean user data without circular references
-    const cleanUser = {
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      avatar: user.avatar,
-      isVerified: user.isVerified,
-      preferences: user.preferences,
-      subscription: user.subscription,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      lastLogin: user.lastLogin
-    };
-    
     res.json({
-      user: cleanUser,
+      user,
       permissions: {
         canUpload: user.subscription.type === 'premium',
         canCreatePlaylists: true,
-        maxPlaylists: user.subscription?.type === 'premium' ? -1 : 10,
+        maxPlaylists: user.subscription.type === 'premium' ? -1 : 10,
       },
     });
   } catch (error) {
-    console.error('❌ Get user error:', error);
+    console.error('Get user error:', error);
     res.status(500).json({
       message: 'Failed to get user',
       code: 'GET_USER_FAILED',
+      error: error.message,
     });
   }
 });
@@ -500,187 +460,36 @@ router.get('/verify-email', async (req, res) => {
   }
 });
 
-// Forgot password - Send reset email
-router.post('/forgot-password', [
-  body('email')
-    .isEmail()
-    .normalizeEmail()
-    .withMessage('Please provide a valid email address'),
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      message: 'Validation failed',
-      code: 'VALIDATION_ERROR',
-      errors: errors.array(),
-    });
-  }
-
-  try {
-    const { email } = req.body;
-    const user = await User.findOne({ email: email.toLowerCase() });
-
-    // Always return success to prevent email enumeration
-    if (!user) {
-      return res.json({
-        message: 'If an account with that email exists, a password reset link has been sent.',
-        code: 'RESET_EMAIL_SENT',
-      });
-    }
-
-    // Generate reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
-    user.passwordResetToken = resetToken;
-    user.passwordResetExpires = resetTokenExpiry;
-    await user.save();
-
-    // Send reset email if transporter is configured
-    if (transporter) {
-      try {
-        const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
-        await transporter.sendMail({
-          from: process.env.FROM_EMAIL,
-          to: email,
-          subject: 'Password Reset - Listeners',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #8b5cf6;">Password Reset Request</h2>
-              <p>Hi ${user.firstName || user.username},</p>
-              <p>You requested to reset your password. Click the button below to set a new password:</p>
-              <a href="${resetUrl}" style="display: inline-block; background: #8b5cf6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">Reset Password</a>
-              <p>Or copy and paste this link in your browser:</p>
-              <p style="word-break: break-all; color: #666;">${resetUrl}</p>
-              <p>This link will expire in 1 hour.</p>
-              <p>If you didn't request this, please ignore this email.</p>
-              <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-              <p style="color: #666; font-size: 12px;">© 2024 Listeners. All rights reserved.</p>
-            </div>
-          `,
-        });
-      } catch (emailError) {
-        console.error('Failed to send reset email:', emailError);
-      }
-    }
-
-    res.json({
-      message: 'If an account with that email exists, a password reset link has been sent.',
-      code: 'RESET_EMAIL_SENT',
-    });
-  } catch (error) {
-    console.error('Forgot password error:', error);
-    res.status(500).json({
-      message: 'Failed to process password reset request',
-      code: 'RESET_REQUEST_FAILED',
-      error: error.message,
-    });
-  }
-});
-
-// Reset password with token
-router.post('/reset-password', [
-  body('token')
-    .notEmpty()
-    .withMessage('Reset token is required'),
-  body('newPassword')
-    .isLength({ min: 8 })
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
-    .withMessage('Password must be at least 8 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special character'),
-  body('confirmPassword')
-    .custom((value, { req }) => {
-      if (value !== req.body.newPassword) {
-        throw new Error('Passwords do not match');
-      }
-      return true;
-    }),
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      message: 'Validation failed',
-      code: 'VALIDATION_ERROR',
-      errors: errors.array(),
-    });
-  }
-
-  try {
-    const { token, newPassword } = req.body;
-
-    const user = await User.findOne({
-      passwordResetToken: token,
-      passwordResetExpires: { $gt: new Date() },
-    });
-
-    if (!user) {
-      return res.status(400).json({
-        message: 'Invalid or expired reset token',
-        code: 'INVALID_RESET_TOKEN',
-      });
-    }
-
-    // Update password
-    user.password = newPassword;
-    user.passwordResetToken = null;
-    user.passwordResetExpires = null;
-    await user.save();
-
-    res.json({
-      message: 'Password reset successfully',
-      code: 'PASSWORD_RESET_SUCCESS',
-    });
-  } catch (error) {
-    console.error('Reset password error:', error);
-    res.status(500).json({
-      message: 'Failed to reset password',
-      code: 'PASSWORD_RESET_FAILED',
-      error: error.message,
-    });
-  }
-});
-
 // Google OAuth routes
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-  console.log('✅ Setting up Google OAuth routes...');
-  
   router.get('/google', (req, res, next) => {
-    console.log('🚀 Google OAuth initiated from IP:', req.ip);
     req.session.redirectTo = req.query.redirect || '/dashboard';
-    passport.authenticate('google', { 
-      scope: ['profile', 'email'],
-      prompt: 'select_account'
-    })(req, res, next);
+    passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
   });
 
   router.get(
     '/google/callback',
-    (req, res, next) => {
-      console.log('📥 Google OAuth callback received');
-      passport.authenticate('google', {
-        failureRedirect: `http://localhost:12000/signin?error=oauth_failed&message=${encodeURIComponent('Authentication failed')}`,
-        failureMessage: true,
-      })(req, res, next);
-    },
+    passport.authenticate('google', {
+      failureRedirect: `${process.env.FRONTEND_URL}/login?error=Oauth_failed&message=${encodeURIComponent('Authentication failed')}`,
+      failureMessage: true,
+    }),
     async (req, res) => {
       try {
-        console.log('✅ Google OAuth callback processing...');
         const user = req.user;
         if (!user) {
-          console.error('❌ Google callback: No user returned');
+          console.error('Google callback: No user returned');
           return res.redirect(
-            `http://localhost:12000/signin?error=oauth_failed&message=${encodeURIComponent('No user found')}`
+            `${process.env.FRONTEND_URL}/login?error=Oauth_failed&message=${encodeURIComponent('No user found')}`
           );
         }
 
-        console.log('🔑 Generating tokens for user:', user.username);
         const token = generateToken(user._id);
         const refreshToken = generateRefreshToken(user._id);
 
         try {
           await redisClient.setEx(`refreshToken:${user._id}`, 7 * 24 * 60 * 60, refreshToken);
-          console.log('💾 Tokens stored in Redis');
         } catch (redisError) {
-          console.warn('⚠️ Redis set failed during OAuth callback:', redisError.message);
+          console.warn('Redis set failed during OAuth callback:', redisError.message);
         }
 
         await user.addLoginHistory(req.ip, req.get('User-Agent'), true);
@@ -688,35 +497,21 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         const redirectTo = req.session.redirectTo || '/dashboard';
         delete req.session.redirectTo;
 
-        console.log('🔄 Redirecting to frontend with tokens');
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:12000';
-        const callbackUrl = `${frontendUrl}/auth/callback?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}&redirect=${encodeURIComponent(redirectTo)}`;
-        
-        console.log('🔗 Redirecting to:', callbackUrl);
-        res.redirect(callbackUrl);
+        res.redirect(
+          `${process.env.FRONTEND_URL}/auth/callback?token=${token}&refreshToken=${refreshToken}&redirect=${encodeURIComponent(
+            redirectTo
+          )}`
+        );
       } catch (error) {
-        console.error('❌ Google OAuth callback error:', error);
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:12000';
-        res.redirect(`${frontendUrl}/signin?error=oauth_failed&message=${encodeURIComponent(error.message || 'OAuth failed')}`);
+        console.error('Google OAuth callback error:', error);
+        res.redirect(
+          `${process.env.FRONTEND_URL}/login?error=Oauth_failed&message=${encodeURIComponent(error.message || 'OAuth failed')}`
+        );
       }
     }
   );
 } else {
-  console.warn('⚠️ Google OAuth not configured: Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
-  
-  // Add placeholder routes to prevent 404 errors
-  router.get('/google', (req, res) => {
-    console.log('❌ Google OAuth attempted but not configured');
-    res.status(501).json({
-      message: 'Google OAuth not configured',
-      code: 'OAUTH_NOT_CONFIGURED'
-    });
-  });
-  
-  router.get('/google/callback', (req, res) => {
-    console.log('❌ Google OAuth callback attempted but not configured');
-    res.redirect(`http://localhost:12000/signin?error=oauth_not_configured`);
-  });
+  console.warn('Google OAuth not configured: Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
 }
 
 export default router;

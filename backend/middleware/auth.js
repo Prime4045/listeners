@@ -7,8 +7,8 @@ import crypto from 'crypto';
 
 // More lenient rate limiting for authentication endpoints
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200, // Very lenient for development
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Increased from 5 to 10 attempts per window
   message: {
     error: 'Too many authentication attempts, please try again later.',
     retryAfter: 15 * 60 * 1000,
@@ -19,28 +19,26 @@ export const authLimiter = rateLimit({
     return req.ip + ':' + (req.body.email || req.body.username || 'unknown');
   },
   skip: (req) => {
-    // Skip rate limiting for /me endpoint and successful requests
-    return req.skipRateLimit === true || 
-            req.path === '/me' || 
-            req.originalUrl.includes('/auth/me') ||
-            req.originalUrl.includes('/auth/google') ||
-            req.method === 'GET';
+    // Skip rate limiting for successful requests
+    return req.skipRateLimit === true;
   },
 });
 
 // Progressive rate limiting for failed login attempts
 export const progressiveAuthLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 200, // Very lenient for development
+  max: (req) => {
+    const attempts = req.user?.loginAttempts || 0;
+    if (attempts >= 3) return 5; // Increased from 1 to 5 attempts per hour after 3 failures
+    if (attempts >= 2) return 8; // Increased from 3 to 8 attempts per hour after 2 failures
+    return 20; // Increased from 10 to 20 attempts per hour initially
+  },
   message: {
     error: 'Account temporarily locked due to multiple failed login attempts.',
     retryAfter: 60 * 60 * 1000,
   },
   keyGenerator: (req) => {
     return req.body.email || req.body.username || req.ip;
-  },
-  skip: (req) => {
-    return req.originalUrl.includes('/auth/google') || req.method === 'GET';
   },
 });
 
@@ -52,8 +50,7 @@ const authenticateToken = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({
         message: 'Access token required',
-        code: 'TOKEN_MISSING',
-        requiresAuth: true
+        code: 'TOKEN_MISSING'
       });
     }
 
@@ -70,18 +67,8 @@ const authenticateToken = async (req, res, next) => {
       console.warn('Redis check failed, continuing without blacklist check:', redisError.message);
     }
 
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (jwtError) {
-      console.error('JWT verification failed:', jwtError.message);
-      return res.status(401).json({
-        message: 'Invalid token',
-        code: 'TOKEN_INVALID'
-      });
-    }
-
-    const user = await User.findById(decoded.userId).select('-password -mfaSecret -emailVerificationToken -passwordResetToken');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId).select('-password -mfaSecret');
 
     if (!user) {
       return res.status(401).json({
@@ -96,6 +83,14 @@ const authenticateToken = async (req, res, next) => {
         message: 'Account is temporarily locked due to multiple failed login attempts',
         code: 'ACCOUNT_LOCKED',
         lockUntil: user.lockUntil
+      });
+    }
+
+    // Check if email is verified for sensitive operations
+    if (!user.isVerified && req.path.includes('/sensitive')) {
+      return res.status(403).json({
+        message: 'Email verification required',
+        code: 'EMAIL_NOT_VERIFIED'
       });
     }
 

@@ -6,9 +6,8 @@ import UserLibrary from '../models/UserLibrary.js';
 import PlayHistory from '../models/PlayHistory.js';
 import User from '../models/User.js';
 import spotifyService from '../services/spotifyService.js';
-import audioOptimizationService from '../services/audioOptimization.js';
-import cacheService from '../services/cacheService.js';
 import s3Service from '../config/s3.js';
+import cacheService from '../services/cacheService.js';
 
 const router = express.Router();
 
@@ -84,34 +83,38 @@ router.get('/search', optionalAuth, async (req, res) => {
     let spotifyTracks = await cacheService.getCachedSpotifySearch(cacheKey);
 
     if (!spotifyTracks) {
-      try {
-        spotifyTracks = await spotifyService.searchTracks(query.trim(), searchLimit);
-        await cacheService.cacheSpotifySearch(cacheKey, spotifyTracks, 15 * 60);
-      } catch (spotifyError) {
-        console.log('Spotify search failed, using mock data');
-        spotifyTracks = spotifyService.getMockTrendingTracks(searchLimit).filter(track => 
-          track.title.toLowerCase().includes(query.toLowerCase()) ||
-          track.artist.toLowerCase().includes(query.toLowerCase())
-        );
-      }
+      spotifyTracks = await spotifyService.searchTracks(query.trim(), searchLimit);
+      await cacheService.cacheSpotifySearch(cacheKey, spotifyTracks, 15 * 60);
     } else {
       console.log('Using cached Spotify search results:', { query, count: spotifyTracks.length });
     }
 
-    // Mark all tracks as playable with mock audio
-    const tracksWithPlayability = spotifyTracks.map(track => ({
-      ...track,
-      isInDatabase: false,
-      canPlay: true, // All tracks playable with mock audio
-      message: null
-    }));
+    // Check S3 availability for each track
+    const tracksWithS3Check = await Promise.all(
+      spotifyTracks.map(async (track) => {
+        const s3CacheKey = `s3_check:${track.spotifyId}`;
+        let audioExists = await cacheService.getCachedS3Check(s3CacheKey);
+
+        if (audioExists === null) {
+          audioExists = await s3Service.audioExists(track.spotifyId);
+          await cacheService.cacheS3Check(s3CacheKey, audioExists, 60 * 60);
+        }
+
+        return {
+          ...track,
+          isInDatabase: false,
+          canPlay: audioExists,
+          message: audioExists ? null : 'Song not available for playback yet'
+        };
+      })
+    );
 
     res.json({
-      songs: tracksWithPlayability,
+      songs: tracksWithS3Check,
       source: 'spotify',
       query: query.trim(),
-      total: tracksWithPlayability.length,
-      availableCount: tracksWithPlayability.length,
+      total: tracksWithS3Check.length,
+      availableCount: tracksWithS3Check.filter(t => t.canPlay).length,
     });
   } catch (error) {
     console.error('Search error:', {
@@ -131,39 +134,15 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
     const { spotifyId } = req.params;
     const { playDuration = 0, completedPercentage = 0 } = req.body;
 
-    console.log(`Play request for track: ${spotifyId}`, {
-      authenticated: !!req.user,
-      userId: req.user?._id
-    });
+    console.log(`Play request for track: ${spotifyId}`);
 
-    // For now, return mock audio data since S3 is not configured
-    let audioUrl = null;
-    
-    // Try to get S3 URL first, fallback to mock if not available
-    try {
-      if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
-        const s3Exists = await s3Service.audioExists(spotifyId);
-        if (s3Exists) {
-          audioUrl = await s3Service.getAudioUrl(spotifyId);
-          console.log('🎵 Using S3 audio for:', spotifyId);
-        }
-      }
-    } catch (s3Error) {
-      console.log('⚠️ S3 not available, using mock audio:', s3Error.message);
-    }
-    
-    // Fallback to mock audio if S3 not available
-    if (!audioUrl) {
-      audioUrl = 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav';
-      console.log('🔄 Using mock audio for:', spotifyId);
-    }
-    
     // Check if song exists in database first
     let song = await Song.findOne({ spotifyId });
 
     if (song) {
-      // Song exists in database, use mock audio URL
+      // Song exists in database, generate fresh S3 URL
       try {
+        const audioUrl = await s3Service.getAudioUrl(spotifyId);
         song.audioUrl = audioUrl;
         await song.incrementPlayCount();
         await song.save();
@@ -191,7 +170,7 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
           album: song.album,
           duration: song.duration,
           imageUrl: song.imageUrl,
-          audioUrl: audioUrl,
+          audioUrl: song.audioUrl,
           playCount: song.playCount,
           likeCount: song.likeCount,
           popularity: song.popularity,
@@ -205,14 +184,40 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
 
         await cacheService.cacheSong(spotifyId, songData);
         return res.json(songData);
-      } catch (error) {
-        console.error('Error playing existing song:', error.message);
+      } catch (s3Error) {
+        console.error('S3 error for existing song:', s3Error.message);
+        return res.status(404).json({
+          message: 'Audio file not available',
+          code: 'AUDIO_NOT_FOUND',
+          spotifyId
+        });
       }
+    }
+
+    // Song not in database, check S3 availability
+    const s3CacheKey = `s3_check:${spotifyId}`;
+    let audioExists = await cacheService.getCachedS3Check(s3CacheKey);
+
+    if (audioExists === null) {
+      audioExists = await s3Service.audioExists(spotifyId);
+      await cacheService.cacheS3Check(s3CacheKey, audioExists, 60 * 60);
+    }
+
+    if (!audioExists) {
+      return res.status(404).json({
+        message: 'Audio file not found in our library. Song will be added soon!',
+        code: 'AUDIO_NOT_FOUND',
+        spotifyId
+      });
     }
 
     // Fetch track metadata from Spotify
     console.log('Fetching track metadata from Spotify:', spotifyId);
     const spotifyTrack = await spotifyService.getTrack(spotifyId);
+
+    // Generate S3 signed URL
+    const audioUrl = await s3Service.getAudioUrl(spotifyId);
+    const fileMetadata = await s3Service.getFileMetadata(spotifyId);
 
     // Create new song in database with upsert to handle duplicates
     song = await Song.findOneAndUpdate(
@@ -231,7 +236,7 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
         explicit: spotifyTrack.explicit,
         spotifyData: spotifyTrack.spotifyData,
         s3Key: spotifyId,
-        audioMetadata: null,
+        audioMetadata: fileMetadata,
         $inc: { playCount: 1 },
       },
       {
@@ -264,7 +269,7 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
       album: song.album,
       duration: song.duration,
       imageUrl: song.imageUrl,
-      audioUrl: audioUrl,
+      audioUrl: song.audioUrl,
       playCount: song.playCount,
       likeCount: song.likeCount,
       popularity: song.popularity,
@@ -398,33 +403,42 @@ router.get('/database/trending', optionalAuth, async (req, res) => {
       return res.json(cachedSongs.slice(0, limit));
     }
 
-    // Try to get trending from Spotify, fallback to mock data
-    let formattedSongs = [];
-    
-    try {
-      const spotifyTracks = await spotifyService.getTrendingTracks(limit);
-      
-      formattedSongs = spotifyTracks.map(track => ({
-        spotifyId: track.spotifyId,
-        title: track.title,
-        artist: track.artist,
-        album: track.album,
-        duration: track.duration,
-        imageUrl: track.imageUrl,
-        playCount: 0,
-        likeCount: 0,
-        popularity: track.popularity,
-        explicit: track.explicit,
-        releaseDate: track.releaseDate,
-        genre: track.genre,
-        isInDatabase: false,
-        canPlay: true, // Allow all tracks to be playable with mock audio
-        spotifyData: track.spotifyData,
-      }));
-    } catch (spotifyError) {
-      console.log('Spotify API failed, using mock trending data');
-      formattedSongs = spotifyService.getMockTrendingTracks(limit);
-    }
+    // Get trending from Spotify
+    const spotifyTracks = await spotifyService.getTrendingTracks(limit);
+
+    // Check S3 availability and database status
+    const formattedSongs = await Promise.all(
+      spotifyTracks.map(async (track) => {
+        const s3CacheKey = `s3_check:${track.spotifyId}`;
+        let audioExists = await cacheService.getCachedS3Check(s3CacheKey);
+
+        if (audioExists === null) {
+          audioExists = await s3Service.audioExists(track.spotifyId);
+          await cacheService.cacheS3Check(s3CacheKey, audioExists, 60 * 60);
+        }
+
+        const song = await Song.findOne({ spotifyId: track.spotifyId });
+
+        return {
+          spotifyId: track.spotifyId,
+          title: track.title,
+          artist: track.artist,
+          album: track.album,
+          duration: track.duration,
+          imageUrl: track.imageUrl,
+          playCount: song ? song.playCount : 0,
+          likeCount: song ? song.likeCount : 0,
+          popularity: track.popularity,
+          explicit: track.explicit,
+          releaseDate: track.releaseDate,
+          genre: track.genre,
+          isInDatabase: !!song,
+          canPlay: audioExists,
+          spotifyData: track.spotifyData,
+          message: audioExists ? null : 'Song not available for playback yet'
+        };
+      })
+    );
 
     await cacheService.cachePopularSongs(formattedSongs, cacheKey, 60 * 60);
     res.json(formattedSongs.slice(0, limit));
@@ -641,9 +655,9 @@ router.get('/user/history', authenticateToken, async (req, res) => {
 // Health check endpoint
 router.get('/health', async (req, res) => {
   try {
-    const [spotifyHealth, audioHealth, cacheHealth] = await Promise.allSettled([
+    const [spotifyHealth, s3Health, cacheHealth] = await Promise.allSettled([
       spotifyService.healthCheck(),
-      audioOptimizationService.healthCheck(),
+      s3Service.healthCheck(),
       cacheService.healthCheck(),
     ]);
 
@@ -652,7 +666,7 @@ router.get('/health', async (req, res) => {
       timestamp: new Date().toISOString(),
       services: {
         spotify: spotifyHealth.status === 'fulfilled' ? spotifyHealth.value : { status: 'unhealthy', error: spotifyHealth.reason?.message },
-        audio: audioHealth.status === 'fulfilled' ? audioHealth.value : { status: 'unhealthy', error: audioHealth.reason?.message },
+        s3: s3Health.status === 'fulfilled' ? s3Health.value : { status: 'unhealthy', error: s3Health.reason?.message },
         cache: cacheHealth.status === 'fulfilled' ? cacheHealth.value : { status: 'unhealthy', error: cacheHealth.reason?.message },
       }
     };

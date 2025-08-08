@@ -1,39 +1,22 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import passport from 'passport';
 import './config/passport.js'; // Initialize passport configuration
-import { authenticateToken } from './middleware/auth.js';
+import { authenticateToken, securityHeaders } from './middleware/auth.js';
 import { connectMongoDB, initializeRedis } from './config/database.js';
-import {
-  securityHeaders,
-  corsConfig,
-  apiLimiter,
-  authLimiter,
-  searchLimiter,
-  sanitizeRequest,
-  securityLogger,
-  preventParameterPollution
-} from './middleware/security.js';
-import {
-  compressionMiddleware,
-  timingMiddleware,
-  memoryMonitor,
-  requestIdMiddleware,
-  optimizeResponse,
-  gracefulShutdown
-} from './middleware/performance.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import musicRoutes from './routes/music.js';
 import playlistRoutes from './routes/playlists.js';
-import songsRoutes from './routes/songs.js';
 
 const app = express();
 const server = createServer(app);
@@ -54,20 +37,87 @@ const io = new Server(server, {
 // Trust proxy for rate limiting
 app.set('trust proxy', 1);
 
-// Enhanced middleware stack
-app.use(cors(corsConfig));
-app.use(securityHeaders);
-app.use(requestIdMiddleware);
-app.use(timingMiddleware);
-app.use(memoryMonitor);
-app.use(securityLogger);
-app.use(preventParameterPollution);
-app.use(sanitizeRequest);
-app.use(compressionMiddleware);
-app.use(optimizeResponse);
+// CORS configuration - FIXED and moved to top
+const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:12000',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      process.env.FRONTEND_URL || 'http://localhost:12000'
+    ];
+
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('CORS allowed origin:', origin);
+      callback(null, true); // Allow all origins in development
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'X-CSRF-Token',
+    'Accept',
+    'Origin',
+    'Cache-Control',
+    'Pragma'
+  ],
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
 
 // Handle preflight requests explicitly
-app.options('*', cors(corsConfig));
+app.options('*', cors(corsOptions));
+
+// Security middleware - moved after CORS
+app.use(helmet({
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
+      scriptSrc: ["'self'", 'https:'],
+      imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+      mediaSrc: ["'self'", 'blob:', 'https:', 'https://storage.googleapis.com'],
+      connectSrc: ["'self'", 'wss:', 'ws:', 'https:', 'http://localhost:12000'],
+      fontSrc: ["'self'", 'https:', 'data:'],
+      objectSrc: ["'none'"],
+      frameSrc: ["'none'"],
+    },
+  },
+}));
+
+// More lenient rate limiting
+const limiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 500, // Increased from 100 to 500
+  message: {
+    error: 'Too many requests from this IP, please try again later.',
+    retryAfter: 15 * 60 * 1000,
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    return req.ip || req.connection.remoteAddress || 'unknown';
+  },
+  skip: (req) => {
+    // Skip rate limiting for health checks and static assets
+    return req.path === '/api/health' || req.path.startsWith('/static');
+  }
+});
+
+// Apply rate limiting only to API routes, not all routes
+app.use('/api/', limiter);
 
 // Session configuration
 app.use(session({
@@ -92,6 +142,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Body parsing middleware
+app.use(compression());
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -107,12 +158,10 @@ app.use(async (req, res, next) => {
 });
 
 // API routes
-app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/users', apiLimiter, userRoutes);
-app.use('/api/music', apiLimiter, musicRoutes);
-app.use('/api/music/search', searchLimiter); // Special rate limit for search
-app.use('/api/playlists', apiLimiter, playlistRoutes);
-app.use('/api/songs', apiLimiter, songsRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/music', musicRoutes);
+app.use('/api/playlists', playlistRoutes);
 
 // CSRF token endpoint
 app.get('/api/csrf-token', (req, res) => {
@@ -184,10 +233,6 @@ io.on('connection', (socket) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  if (res.headersSent) {
-    return next(err);
-  }
-  
   console.error('Global error handler:', err);
 
   if (err.name === 'ValidationError') {
@@ -236,7 +281,6 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use('*', (req, res) => {
-  if (res.headersSent) return;
   res.status(404).json({
     message: 'Route not found',
     code: 'ROUTE_NOT_FOUND',
@@ -248,16 +292,6 @@ const PORT = process.env.PORT || 3001;
 
 async function startServer() {
   try {
-    console.log('🚀 Starting Listeners Backend Server...');
-    console.log('📊 Environment Variables Check:');
-    console.log('- MongoDB URI:', process.env.MONGODB_URI ? '✅ Configured' : '❌ Missing');
-    console.log('- Redis URL:', process.env.REDIS_URL ? '✅ Configured' : '❌ Missing');
-    console.log('- JWT Secret:', process.env.JWT_SECRET ? '✅ Configured' : '❌ Missing');
-    console.log('- Google Client ID:', process.env.GOOGLE_CLIENT_ID ? '✅ Configured' : '❌ Missing');
-    console.log('- Google Client Secret:', process.env.GOOGLE_CLIENT_SECRET ? '✅ Configured' : '❌ Missing');
-    console.log('- AWS Access Key:', process.env.AWS_ACCESS_KEY_ID ? '✅ Configured' : '❌ Missing');
-    console.log('- Spotify Client ID:', process.env.SPOTIFY_CLIENT_ID ? '✅ Configured' : '❌ Missing');
-    
     await connectMongoDB();
 
     // Initialize Redis with error handling
@@ -268,28 +302,18 @@ async function startServer() {
       console.warn('⚠️ Redis connection failed, continuing without Redis:', redisError.message);
     }
 
-    const serverInstance = server.listen(PORT, '0.0.0.0', () => {
+    server.listen(PORT, '0.0.0.0', () => {
       console.log(`🎵 Listeners Backend Server running on port ${PORT}`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-      console.log(`🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:12000'}`);
-      console.log(`🔗 Google OAuth: ${process.env.GOOGLE_CLIENT_ID ? '✅ Configured' : '⚠️ Not configured (add to .env)'}`);
-      console.log(`🔗 AWS S3: ${process.env.AWS_ACCESS_KEY_ID ? '✅ Configured' : '⚠️ Not configured (using mock audio)'}`);
-      console.log(`🔗 Spotify API: ${process.env.SPOTIFY_CLIENT_ID ? '✅ Configured' : '⚠️ Not configured (using mock data)'}`);
-      console.log(`📧 Email service: ${process.env.SMTP_HOST ? '✅ Configured' : '⚠️ Not configured (password reset disabled)'}`);
-      console.log(`🚀 Server ready!`);
-      console.log('');
-      console.log('📋 To enable full functionality, add to backend/.env:');
-      console.log('   GOOGLE_CLIENT_ID=your_google_client_id');
-      console.log('   GOOGLE_CLIENT_SECRET=your_google_client_secret');
-      console.log('   AWS_ACCESS_KEY_ID=your_aws_access_key');
-      console.log('   AWS_SECRET_ACCESS_KEY=your_aws_secret_key');
-      console.log('   SPOTIFY_CLIENT_ID=your_spotify_client_id');
-      console.log('   SPOTIFY_CLIENT_SECRET=your_spotify_client_secret');
+      console.log(`🔗 Frontend URL: ${process.env.FRONTEND_URL}`);
+      console.log(`🔒 Security features enabled: Rate limiting, CORS, Helmet, CSRF protection`);
+      console.log(`🔐 Authentication: JWT with refresh tokens, MFA support, Google OAuth`);
+      console.log(`📧 Email service: ${process.env.SMTP_HOST ? 'Configured' : 'Not configured'}`);
+      console.log(`🎶 Music Player: Spotify API + Amazon S3 + MongoDB`);
+      console.log(`☁️ Amazon S3: ${process.env.AWS_ACCESS_KEY_ID ? 'Configured' : 'Not configured'}`);
+      console.log(`🎵 Spotify API: ${process.env.SPOTIFY_CLIENT_ID ? 'Configured' : 'Not configured'}`);
+      console.log(`🚀 Server ready for production use!`);
     });
-
-    // Setup graceful shutdown
-    gracefulShutdown(serverInstance);
-
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);
