@@ -236,11 +236,11 @@ body.light {
 
 @keyframes spin {
   from {
-    transform: translateY(-50%) rotate(0deg);
+    transform: rotate(0deg);
   }
 
   to {
-    transform: translateY(-50%) rotate(360deg);
+    transform: rotate(360deg);
   }
 }
 
@@ -302,9 +302,10 @@ body.light {
 
 .main-content {
   width: 100%;
-  height: 100%;
+  height: 87%;
   overflow-y: auto;
   overflow-x: hidden;
+  padding-right: 0.5rem;
 }
 
 .user-avatar {

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Search, 
-  Library, 
-  Plus, 
-  Heart, 
-  Music, 
+import {
+  Home,
+  Search,
+  Library,
+  Plus,
+  Heart,
+  Music,
   User,
   TrendingUp,
   Clock,
@@ -63,7 +63,7 @@ const Sidebar = () => {
   const handlePlaylistCreated = (playlist) => {
     setPlaylists(prev => [playlist, ...prev]);
     setShowCreateModal(false);
-    
+
     // Dispatch events
     window.dispatchEvent(new CustomEvent('playlist_created'));
   };
@@ -125,17 +125,6 @@ const Sidebar = () => {
       {/* Library Section */}
       {isAuthenticated && (
         <div className="library-section">
-          <div className="library-header">
-            <h3>Your Library</h3>
-            <button
-              className="create-playlist-btn"
-              onClick={() => setShowCreateModal(true)}
-              title="Create playlist"
-            >
-              <Plus size={16} />
-            </button>
-          </div>
-
           <div className="library-nav">
             {libraryItems.map((item) => (
               <button
@@ -181,7 +170,7 @@ const Sidebar = () => {
                       className="playlist-item"
                       onClick={() => navigate(`/playlist/${playlist._id}`)}
                     >
-                      <div 
+                      <div
                         className="playlist-cover"
                         style={{ background: getPlaylistGradient(index) }}
                       >

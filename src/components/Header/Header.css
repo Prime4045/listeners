@@ -127,7 +127,6 @@
 
 .clear-search:hover {
   background: var(--text-secondary);
-  transform: scale(1.1);
 }
 
 /* Search Results Dropdown */
