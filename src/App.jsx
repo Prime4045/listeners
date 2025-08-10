@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { MusicProvider } from './contexts/MusicContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import Header from './components/Header/Header';
 import Sidebar from './components/Sidebar/Sidebar';
@@ -39,44 +40,46 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <MusicProvider>
-          <Router>
-            <div className="app">
-              <Routes>
-                {/* Auth Routes */}
-                <Route path="/signin" element={<SignIn />} />
-                <Route path="/signup" element={<SignUp />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
+        <NotificationProvider>
+          <MusicProvider>
+            <Router>
+              <div className="app">
+                <Routes>
+                  {/* Auth Routes */}
+                  <Route path="/signin" element={<SignIn />} />
+                  <Route path="/signup" element={<SignUp />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/auth/callback" element={<AuthCallback />} />
 
-                {/* Main App Routes */}
-                <Route path="/*" element={
-                  <div className="app-layout">
-                    <Header />
-                    <div className="main-layout">
-                      <Sidebar />
-                      <main className="main-content">
-                        <Routes>
-                          <Route path="/" element={<Home />} />
-                          <Route path="/search" element={<Search />} />
-                          <Route path="/library" element={<Library />} />
-                          <Route path="/profile" element={<Profile />} />
-                          <Route path="/dashboard" element={<Dashboard />} />
-                          <Route path="/playlist/:id" element={<PlaylistView />} />
-                          <Route path="*" element={<Navigate to="/" replace />} />
-                        </Routes>
-                      </main>
+                  {/* Main App Routes */}
+                  <Route path="/*" element={
+                    <div className="app-layout">
+                      <Header />
+                      <div className="main-layout">
+                        <Sidebar />
+                        <main className="main-content">
+                          <Routes>
+                            <Route path="/" element={<Home />} />
+                            <Route path="/search" element={<Search />} />
+                            <Route path="/library" element={<Library />} />
+                            <Route path="/profile" element={<Profile />} />
+                            <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/playlist/:id" element={<PlaylistView />} />
+                            <Route path="*" element={<Navigate to="/" replace />} />
+                          </Routes>
+                        </main>
+                      </div>
+                      <MusicPlayer
+                        isMinimized={isPlayerMinimized}
+                        onToggleMinimize={() => setIsPlayerMinimized(!isPlayerMinimized)}
+                      />
                     </div>
-                    <MusicPlayer
-                      isMinimized={isPlayerMinimized}
-                      onToggleMinimize={() => setIsPlayerMinimized(!isPlayerMinimized)}
-                    />
-                  </div>
-                } />
-              </Routes>
-            </div>
-          </Router>
-        </MusicProvider>
+                  } />
+                </Routes>
+              </div>
+            </Router>
+          </MusicProvider>
+        </NotificationProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

@@ -1,10 +1,12 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { Howl } from 'howler';
+import { useNotifications } from './NotificationContext';
 import ApiService from '../services/api';
 
 const MusicContext = createContext({});
 
 export const MusicProvider = ({ children }) => {
+  const { addNotification } = useNotifications?.() || { addNotification: () => {} };
   const [currentTrack, setCurrentTrack] = useState(null);
   const [playlist, setPlaylist] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -148,6 +150,16 @@ export const MusicProvider = ({ children }) => {
           howlRef.current.play();
         }
       }, 100);
+
+      // Add notification for new song
+      if (songData.isNewlyAdded) {
+        addNotification({
+          type: 'song_added',
+          title: 'New Song Added',
+          message: `"${track.title}" by ${track.artist} is now available`,
+          data: { songId: track.spotifyId }
+        });
+      }
 
     } catch (err) {
       console.error('Play track error:', err);

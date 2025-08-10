@@ -10,9 +10,13 @@ import {
   ChevronDown,
   Bell,
   Loader2,
-  X
+  X,
+  Clock,
+  Heart,
+  Plus
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import ApiService from '../../services/api';
 import './Header.css';
 
@@ -20,14 +24,17 @@ const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAuthenticated, logout } = useAuth();
+  const { notifications, markAsRead, clearAll } = useNotifications();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const searchTimeoutRef = useRef(null);
   const searchRef = useRef(null);
   const userMenuRef = useRef(null);
+  const notificationRef = useRef(null);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -37,6 +44,9 @@ const Header = () => {
       }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setShowUserMenu(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
       }
     };
 
@@ -118,6 +128,29 @@ const Header = () => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const handleNotificationClick = (notification) => {
+    markAsRead(notification.id);
+    
+    // Navigate based on notification type
+    switch (notification.type) {
+      case 'song_added':
+        navigate('/library');
+        break;
+      case 'playlist_created':
+        navigate(`/playlist/${notification.data?.playlistId}`);
+        break;
+      case 'song_liked':
+        navigate('/library');
+        break;
+      default:
+        break;
+    }
+    
+    setShowNotifications(false);
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
   return (
     <header className="header">
       <div className="header-left">
@@ -151,11 +184,11 @@ const Header = () => {
                   <X size={16} />
                 </button>
               )}
-              {isSearching && (
-                <div className="search-loading">
-                  <Loader2 className="animate-spin" size={16} />
-                </div>
-              )}
+              <div className="search-status">
+                {isSearching && (
+                  <Loader2 className="search-loading animate-spin" size={16} />
+                )}
+              </div>
             </div>
           </form>
 
@@ -202,10 +235,67 @@ const Header = () => {
       <div className="header-right">
         {isAuthenticated ? (
           <div className="user-section">
-            <button className="notification-btn">
+            <div className="notification-container" ref={notificationRef}>
+              <button 
+                className="notification-btn"
+                onClick={() => setShowNotifications(!showNotifications)}
+              >
               <Bell size={20} />
-              <span className="notification-badge">3</span>
-            </button>
+                {unreadCount > 0 && (
+                  <span className="notification-badge">{unreadCount}</span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div className="notification-dropdown">
+                  <div className="notification-header">
+                    <h3>Notifications</h3>
+                    {notifications.length > 0 && (
+                      <button 
+                        className="clear-all-btn"
+                        onClick={clearAll}
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="notification-list">
+                    {notifications.length > 0 ? (
+                      notifications.slice(0, 10).map((notification) => (
+                        <div
+                          key={notification.id}
+                          className={`notification-item ${!notification.read ? 'unread' : ''}`}
+                          onClick={() => handleNotificationClick(notification)}
+                        >
+                          <div className="notification-icon">
+                            {notification.type === 'song_added' && <Music size={16} />}
+                            {notification.type === 'playlist_created' && <Plus size={16} />}
+                            {notification.type === 'song_liked' && <Heart size={16} />}
+                            {notification.type === 'app_update' && <Bell size={16} />}
+                          </div>
+                          <div className="notification-content">
+                            <div className="notification-title">{notification.title}</div>
+                            <div className="notification-message">{notification.message}</div>
+                            <div className="notification-time">
+                              <Clock size={12} />
+                              {new Date(notification.createdAt).toLocaleTimeString()}
+                            </div>
+                          </div>
+                          {!notification.read && <div className="unread-indicator" />}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="empty-notifications">
+                        <Bell size={32} />
+                        <p>No notifications yet</p>
+                        <span>We'll notify you about new songs and updates</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="user-menu-container" ref={userMenuRef}>
               <button

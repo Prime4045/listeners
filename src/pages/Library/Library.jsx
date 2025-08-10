@@ -9,18 +9,25 @@ import {
   Play,
   Pause,
   Plus,
-  Filter,
+  Search,
   Grid3X3,
   List,
-  Search,
-  MoreHorizontal,
   Shuffle,
   Users,
   Globe,
-  Lock
+  Lock,
+  MoreHorizontal,
+  Filter,
+  SortAsc,
+  Calendar,
+  Star,
+  Headphones,
+  Radio,
+  Disc3
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMusic } from '../../contexts/MusicContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import TrackList from '../../components/TrackList';
 import CreatePlaylistModal from '../../components/CreatePlaylistModal/CreatePlaylistModal';
 import ApiService from '../../services/api';
@@ -30,9 +37,11 @@ const Library = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const { currentTrack, isPlaying, playTrack } = useMusic();
+  const { addNotification } = useNotifications();
   
   const [activeTab, setActiveTab] = useState('playlists');
   const [viewMode, setViewMode] = useState('grid');
+  const [sortBy, setSortBy] = useState('recent');
   const [playlists, setPlaylists] = useState([]);
   const [likedSongs, setLikedSongs] = useState([]);
   const [recentlyPlayed, setRecentlyPlayed] = useState([]);
@@ -40,6 +49,12 @@ const Library = () => {
   const [error, setError] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [stats, setStats] = useState({
+    totalPlaylists: 0,
+    totalLikedSongs: 0,
+    totalListeningTime: 0,
+    recentActivity: 0
+  });
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -77,15 +92,28 @@ const Library = () => {
       ]);
 
       if (playlistsResponse.status === 'fulfilled') {
-        setPlaylists(playlistsResponse.value.playlists || []);
+        const playlists = playlistsResponse.value.playlists || [];
+        setPlaylists(playlists);
+        setStats(prev => ({ ...prev, totalPlaylists: playlists.length }));
       }
 
       if (likedResponse.status === 'fulfilled') {
-        setLikedSongs(likedResponse.value || []);
+        const liked = likedResponse.value || [];
+        setLikedSongs(liked);
+        setStats(prev => ({ ...prev, totalLikedSongs: liked.length }));
       }
 
       if (historyResponse.status === 'fulfilled') {
-        setRecentlyPlayed(historyResponse.value || []);
+        const history = historyResponse.value || [];
+        setRecentlyPlayed(history);
+        
+        // Calculate total listening time (in minutes)
+        const totalTime = history.reduce((acc, track) => acc + (track.playDuration || 0), 0);
+        setStats(prev => ({ 
+          ...prev, 
+          totalListeningTime: Math.round(totalTime / 60000),
+          recentActivity: history.length
+        }));
       }
 
     } catch (err) {
@@ -99,6 +127,14 @@ const Library = () => {
   const handlePlaylistCreated = (playlist) => {
     setPlaylists(prev => [playlist, ...prev]);
     setShowCreateModal(false);
+    
+    // Add notification
+    addNotification({
+      type: 'playlist_created',
+      title: 'Playlist Created',
+      message: `"${playlist.name}" has been created successfully`,
+      data: { playlistId: playlist._id }
+    });
   };
 
   const handlePlayAll = async (tracks) => {
@@ -111,6 +147,23 @@ const Library = () => {
       await playTrack(playableTracks[0], playableTracks);
     } catch (error) {
       console.error('Failed to play tracks:', error);
+    }
+  };
+
+  const handleLikeSong = async (song) => {
+    try {
+      await ApiService.likeTrack(song.spotifyId);
+      loadLibraryData();
+      
+      // Add notification
+      addNotification({
+        type: 'song_liked',
+        title: 'Song Liked',
+        message: `Added "${song.title}" to your liked songs`,
+        data: { songId: song.spotifyId }
+      });
+    } catch (error) {
+      console.error('Failed to like song:', error);
     }
   };
 
@@ -134,7 +187,19 @@ const Library = () => {
     return <Lock size={12} />;
   };
 
-  const filteredPlaylists = playlists.filter(playlist =>
+  const sortPlaylists = (playlists) => {
+    switch (sortBy) {
+      case 'name':
+        return [...playlists].sort((a, b) => a.name.localeCompare(b.name));
+      case 'songs':
+        return [...playlists].sort((a, b) => (b.songs?.length || 0) - (a.songs?.length || 0));
+      case 'recent':
+      default:
+        return [...playlists].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+  };
+
+  const filteredPlaylists = sortPlaylists(playlists).filter(playlist =>
     playlist.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -155,7 +220,15 @@ const Library = () => {
       <div className="library-page">
         <div className="library-loading">
           <div className="loading-content">
-            <div className="loading-spinner"></div>
+            <div className="loading-animation">
+              <div className="music-wave">
+                <div className="wave-bar"></div>
+                <div className="wave-bar"></div>
+                <div className="wave-bar"></div>
+                <div className="wave-bar"></div>
+                <div className="wave-bar"></div>
+              </div>
+            </div>
             <h3>Loading your library...</h3>
             <p>Getting your music collection ready</p>
           </div>
@@ -166,41 +239,64 @@ const Library = () => {
 
   return (
     <div className="library-page">
-      {/* Header */}
-      <div className="library-header">
-        <div className="header-content">
-          <div className="header-left">
-            <h1>Your Library</h1>
-            <p>Your music collection and playlists</p>
-          </div>
-          <div className="header-actions">
-            <button
-              className="create-playlist-btn"
-              onClick={() => setShowCreateModal(true)}
-            >
-              <Plus size={16} />
-              Create Playlist
-            </button>
+      {/* Hero Header */}
+      <div className="library-hero">
+        <div className="hero-background">
+          <div className="floating-elements">
+            <div className="floating-disc disc-1">
+              <Disc3 size={32} />
+            </div>
+            <div className="floating-disc disc-2">
+              <Headphones size={28} />
+            </div>
+            <div className="floating-disc disc-3">
+              <Radio size={24} />
+            </div>
           </div>
         </div>
-
-        {/* Search Bar */}
-        <div className="library-search">
-          <div className="search-container">
-            <Search className="search-icon" size={16} />
-            <input
-              type="text"
-              placeholder="Search in your library"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-input"
-            />
+        
+        <div className="hero-content">
+          <div className="hero-text">
+            <h1>Your Music Library</h1>
+            <p>Your personal collection of playlists, liked songs, and listening history</p>
+          </div>
+          
+          <div className="hero-stats">
+            <div className="stat-card">
+              <div className="stat-icon">
+                <Music size={20} />
+              </div>
+              <div className="stat-content">
+                <span className="stat-number">{stats.totalPlaylists}</span>
+                <span className="stat-label">Playlists</span>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">
+                <Heart size={20} />
+              </div>
+              <div className="stat-content">
+                <span className="stat-number">{stats.totalLikedSongs}</span>
+                <span className="stat-label">Liked Songs</span>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">
+                <Clock size={20} />
+              </div>
+              <div className="stat-content">
+                <span className="stat-number">{stats.totalListeningTime}</span>
+                <span className="stat-label">Minutes</span>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Tabs */}
-        <div className="library-tabs">
-          <div className="tabs-container">
+      {/* Controls Bar */}
+      <div className="library-controls">
+        <div className="controls-left">
+          <div className="tab-selector">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -213,26 +309,68 @@ const Library = () => {
               </button>
             ))}
           </div>
+        </div>
 
-          {/* View Controls */}
-          <div className="view-controls">
-            <div className="view-mode-toggle">
+        <div className="controls-center">
+          <div className="search-container">
+            <Search className="search-icon" size={16} />
+            <input
+              type="text"
+              placeholder={`Search in ${tabs.find(t => t.id === activeTab)?.label.toLowerCase()}...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+            {searchQuery && (
               <button
-                className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
-                onClick={() => setViewMode('grid')}
-                title="Grid view"
+                className="clear-search"
+                onClick={() => setSearchQuery('')}
               >
-                <Grid3X3 size={16} />
+                <X size={14} />
               </button>
-              <button
-                className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
-                onClick={() => setViewMode('list')}
-                title="List view"
-              >
-                <List size={16} />
-              </button>
-            </div>
+            )}
           </div>
+        </div>
+
+        <div className="controls-right">
+          <div className="view-controls">
+            <button
+              className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
+              onClick={() => setViewMode('grid')}
+              title="Grid view"
+            >
+              <Grid3X3 size={16} />
+            </button>
+            <button
+              className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+              title="List view"
+            >
+              <List size={16} />
+            </button>
+          </div>
+
+          <div className="sort-controls">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="sort-select"
+            >
+              <option value="recent">Recently Added</option>
+              <option value="name">Alphabetical</option>
+              <option value="songs">Song Count</option>
+            </select>
+          </div>
+
+          {activeTab === 'playlists' && (
+            <button
+              className="create-playlist-btn"
+              onClick={() => setShowCreateModal(true)}
+            >
+              <Plus size={16} />
+              Create
+            </button>
+          )}
         </div>
       </div>
 
@@ -245,36 +383,48 @@ const Library = () => {
                 <div className="section-header">
                   <div className="section-info">
                     <h2>Your Playlists</h2>
-                    <p>{filteredPlaylists.length} playlists</p>
+                    <p>{filteredPlaylists.length} playlists • {stats.totalListeningTime} minutes played</p>
                   </div>
-                  {filteredPlaylists.length > 0 && (
+                  <div className="section-actions">
                     <button
-                      className="shuffle-all-btn"
+                      className="action-btn primary"
                       onClick={() => {
-                        // Shuffle all playlists
-                        const allSongs = filteredPlaylists.flatMap(p => p.songs || []);
+                        const allSongs = filteredPlaylists.flatMap(p => p.songs?.map(s => s.song) || []);
                         handlePlayAll(allSongs);
                       }}
                     >
-                      <Shuffle size={16} />
-                      Shuffle all
+                      <Play size={16} />
+                      Play All
                     </button>
-                  )}
+                    <button
+                      className="action-btn secondary"
+                      onClick={() => {
+                        const allSongs = filteredPlaylists.flatMap(p => p.songs?.map(s => s.song) || []);
+                        const shuffled = [...allSongs].sort(() => Math.random() - 0.5);
+                        handlePlayAll(shuffled);
+                      }}
+                    >
+                      <Shuffle size={16} />
+                      Shuffle All
+                    </button>
+                  </div>
                 </div>
 
                 <div className={`playlists-${viewMode}`}>
                   {filteredPlaylists.map((playlist, index) => (
                     <div
                       key={playlist._id}
-                      className="playlist-card"
+                      className="playlist-card modern"
                       onClick={() => navigate(`/playlist/${playlist._id}`)}
                     >
-                      <div 
-                        className="playlist-cover"
-                        style={{ background: getPlaylistGradient(index) }}
-                      >
-                        <Music size={viewMode === 'grid' ? 32 : 24} />
-                        <div className="play-overlay">
+                      <div className="playlist-cover">
+                        <div 
+                          className="cover-gradient"
+                          style={{ background: getPlaylistGradient(index) }}
+                        >
+                          <Music size={viewMode === 'grid' ? 32 : 24} />
+                        </div>
+                        <div className="cover-overlay">
                           <button
                             className="play-btn"
                             onClick={(e) => {
@@ -286,29 +436,47 @@ const Library = () => {
                             <Play size={20} />
                           </button>
                         </div>
+                        <div className="playlist-badge">
+                          {getPlaylistIcon(playlist)}
+                        </div>
                       </div>
                       
                       <div className="playlist-info">
-                        <h3 className="playlist-name">{playlist.name}</h3>
+                        <div className="playlist-header">
+                          <h3 className="playlist-name">{playlist.name}</h3>
+                          <button 
+                            className="playlist-menu"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal size={16} />
+                          </button>
+                        </div>
+                        
                         <div className="playlist-meta">
-                          {getPlaylistIcon(playlist)}
-                          <span>{playlist.songs?.length || 0} songs</span>
+                          <span className="song-count">{playlist.songs?.length || 0} songs</span>
                           {playlist.playCount > 0 && (
                             <>
-                              <span>•</span>
-                              <span>{playlist.playCount} plays</span>
+                              <span className="separator">•</span>
+                              <span className="play-count">{playlist.playCount} plays</span>
                             </>
                           )}
                         </div>
-                        {playlist.description && (
-                          <p className="playlist-description">{playlist.description}</p>
-                        )}
-                      </div>
-
-                      <div className="playlist-actions">
-                        <button className="action-btn" title="More options">
-                          <MoreHorizontal size={16} />
-                        </button>
+                        
+                        <div className="playlist-description">
+                          {playlist.description || 'No description'}
+                        </div>
+                        
+                        <div className="playlist-actions">
+                          <button className="action-btn" title="Add to favorites">
+                            <Heart size={14} />
+                          </button>
+                          <button className="action-btn" title="Share playlist">
+                            <Users size={14} />
+                          </button>
+                          <button className="action-btn" title="Download">
+                            <Download size={14} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -342,18 +510,18 @@ const Library = () => {
                 <div className="section-header">
                   <div className="section-info">
                     <h2>Liked Songs</h2>
-                    <p>{filteredLikedSongs.length} songs</p>
+                    <p>{filteredLikedSongs.length} songs • Your favorite tracks</p>
                   </div>
                   <div className="section-actions">
                     <button
-                      className="play-all-btn"
+                      className="action-btn primary"
                       onClick={() => handlePlayAll(filteredLikedSongs)}
                     >
                       <Play size={16} />
-                      Play all
+                      Play All
                     </button>
                     <button
-                      className="shuffle-btn"
+                      className="action-btn secondary"
                       onClick={() => {
                         const shuffled = [...filteredLikedSongs].sort(() => Math.random() - 0.5);
                         handlePlayAll(shuffled);
@@ -368,14 +536,7 @@ const Library = () => {
                 <TrackList
                   tracks={filteredLikedSongs}
                   onAuthRequired={() => navigate('/signin')}
-                  onLikeSong={async (song) => {
-                    try {
-                      await ApiService.likeTrack(song.spotifyId);
-                      loadLibraryData();
-                    } catch (error) {
-                      console.error('Failed to like song:', error);
-                    }
-                  }}
+                  onLikeSong={handleLikeSong}
                   onAddToLibrary={async (song) => {
                     try {
                       await ApiService.addToLibrary(song.spotifyId);
@@ -415,15 +576,15 @@ const Library = () => {
                 <div className="section-header">
                   <div className="section-info">
                     <h2>Recently Played</h2>
-                    <p>{recentlyPlayed.length} songs</p>
+                    <p>{recentlyPlayed.length} songs • Your listening history</p>
                   </div>
                   <div className="section-actions">
                     <button
-                      className="play-all-btn"
+                      className="action-btn primary"
                       onClick={() => handlePlayAll(recentlyPlayed)}
                     >
                       <Play size={16} />
-                      Play all
+                      Play All
                     </button>
                   </div>
                 </div>
@@ -431,13 +592,7 @@ const Library = () => {
                 <TrackList
                   tracks={recentlyPlayed}
                   onAuthRequired={() => navigate('/signin')}
-                  onLikeSong={async (song) => {
-                    try {
-                      await ApiService.likeTrack(song.spotifyId);
-                    } catch (error) {
-                      console.error('Failed to like song:', error);
-                    }
-                  }}
+                  onLikeSong={handleLikeSong}
                   onAddToLibrary={async (song) => {
                     try {
                       await ApiService.addToLibrary(song.spotifyId);
@@ -478,14 +633,9 @@ const Library = () => {
                   <Download size={64} />
                 </div>
                 <h3>No downloaded music</h3>
-                <p>Download songs for offline listening</p>
-                <button
-                  className="premium-btn"
-                  onClick={() => {
-                    // Navigate to premium page
-                  }}
-                >
-                  <TrendingUp size={16} />
+                <p>Download songs for offline listening with Premium</p>
+                <button className="premium-btn">
+                  <Star size={16} />
                   Get Premium
                 </button>
               </div>
