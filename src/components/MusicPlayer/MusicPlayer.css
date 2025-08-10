@@ -3,7 +3,7 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background: var(--secondary-bg);
+    background: var(--primary-bg);
     border-top: 1px solid var(--border-color);
     z-index: 1000;
     height: 80px;
@@ -281,7 +281,6 @@
 /* Loading icon centered in play button */
 .play-pause-btn .animate-spin {
     position: absolute;
-    top: 50%;
     transform: translate(-50%, -50%);
 }
 
@@ -407,7 +406,7 @@
 }
 
 .volume-slider {
-    width: 100%;
+    width: 90%;
     height: 4px;
     background: var(--tertiary-bg);
     border-radius: 2px;

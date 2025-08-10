@@ -100,7 +100,6 @@ const Sidebar = () => {
     { path: '/liked', icon: Heart, label: 'Liked Songs', gradient: true },
     { path: '/downloaded', icon: Download, label: 'Downloaded' },
     { path: '/recently-played', icon: Clock, label: 'Recently Played' },
-    { path: '/made-for-you', icon: TrendingUp, label: 'Made For You' },
   ] : [];
 
   return (

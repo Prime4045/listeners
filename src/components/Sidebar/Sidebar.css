@@ -246,7 +246,7 @@
   display: flex;
   align-items: center;
   gap: 0.875rem;
-  padding: 0.75rem 1rem;
+  padding: 0.25rem;
   border-radius: 8px;
   background: none;
   border: none;
@@ -255,7 +255,7 @@
   transition: all 0.3s ease;
   text-align: left;
   width: 100%;
-  min-height: 64px;
+  min-height: 45px;
 }
 
 .playlist-item:hover {

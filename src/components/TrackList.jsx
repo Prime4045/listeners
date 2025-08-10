@@ -138,10 +138,10 @@ const TrackList = ({
                 <div className="header-number">#</div>
                 <div className="header-title">Title</div>
                 <div className="header-album">Album</div>
-                {showAddedDate && <div className="header-added">Date added</div>}
                 <div className="header-duration">
                   <i className='bx bx-hourglass' style={{ fontSize: '16px' }}></i>
                 </div>
+                <div className="header-album">Actions</div>
               </div>
 
               <div className="track-list-body">
@@ -197,12 +197,6 @@ const TrackList = ({
                     </div>
 
                     <div className="track-album">{track.album || '—'}</div>
-
-                    {showAddedDate && (
-                      <div className="track-added">
-                        {track.addedAt ? new Date(track.addedAt).toLocaleDateString() : '—'}
-                      </div>
-                    )}
 
                     <div className="track-duration">
                       {formatDuration(track.duration)}
