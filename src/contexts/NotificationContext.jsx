@@ -62,8 +62,8 @@ export const NotificationProvider = ({ children }) => {
 
   // Add system notifications
   useEffect(() => {
-    // Welcome notification for new users
-    const hasWelcomeNotification = notifications.some(n => n.type === 'welcome');
+    // Add welcome notification only once
+    const hasWelcomeNotification = localStorage.getItem('welcome_notification_shown');
     if (!hasWelcomeNotification) {
       addNotification({
         type: 'welcome',
@@ -71,6 +71,7 @@ export const NotificationProvider = ({ children }) => {
         message: 'Start exploring music and create your first playlist',
         icon: '🎵'
       });
+      localStorage.setItem('welcome_notification_shown', 'true');
     }
   }, []);
 

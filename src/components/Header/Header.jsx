@@ -13,7 +13,8 @@ import {
   X,
   Clock,
   Heart,
-  Plus
+  Plus,
+  AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -31,6 +32,7 @@ const Header = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [searchError, setSearchError] = useState(null);
   const searchTimeoutRef = useRef(null);
   const searchRef = useRef(null);
   const userMenuRef = useRef(null);
@@ -60,6 +62,8 @@ const Header = () => {
       clearTimeout(searchTimeoutRef.current);
     }
 
+    setSearchError(null);
+    
     if (searchQuery.trim().length >= 2) {
       searchTimeoutRef.current = setTimeout(() => {
         performSearch(searchQuery.trim());
@@ -67,6 +71,7 @@ const Header = () => {
     } else {
       setSearchResults([]);
       setShowSearchResults(false);
+      setIsSearching(false);
     }
 
     return () => {
@@ -77,14 +82,21 @@ const Header = () => {
   }, [searchQuery]);
 
   const performSearch = async (query) => {
-    try {
+    if (!query || !query.trim()) return;
       setIsSearching(true);
-      const response = await ApiService.searchMusic(query, 5);
+      setSearchError(null);
+      const response = await ApiService.searchMusic(query.trim(), 8);
       setSearchResults(response.songs || []);
-      setShowSearchResults(true);
+      if (response.songs && response.songs.length > 0) {
+        setShowSearchResults(true);
+      } else {
+        setShowSearchResults(false);
+      }
     } catch (error) {
       console.error('Search error:', error);
+      setSearchError('Search failed. Please try again.');
       setSearchResults([]);
+      setShowSearchResults(false);
     } finally {
       setIsSearching(false);
     }
@@ -119,6 +131,8 @@ const Header = () => {
     setSearchQuery('');
     setSearchResults([]);
     setShowSearchResults(false);
+    setSearchError(null);
+    setIsSearching(false);
   };
 
   const formatDuration = (ms) => {
@@ -165,7 +179,7 @@ const Header = () => {
       <div className="header-center">
         <div className="search-container" ref={searchRef}>
           <form onSubmit={handleSearchSubmit} className="search-form">
-            <div className="search-input-wrapper">
+            <div className={`search-input-wrapper ${searchError ? 'error' : ''}`}>
               <Search className="search-icon" size={18} />
               <input
                 type="text"
@@ -187,6 +201,9 @@ const Header = () => {
               <div className="search-status">
                 {isSearching && (
                   <Loader2 className="search-loading animate-spin" size={16} />
+                )}
+                {searchError && (
+                  <AlertCircle className="search-error" size={16} />
                 )}
               </div>
             </div>
@@ -220,6 +237,9 @@ const Header = () => {
                     <div className="result-info">
                       <div className="result-title">{track.title}</div>
                       <div className="result-artist">{track.artist}</div>
+                      {track.isInDatabase && (
+                        <div className="result-badge">Available</div>
+                      )}
                     </div>
                     <div className="result-duration">
                       {formatDuration(track.duration)}

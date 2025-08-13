@@ -130,7 +130,7 @@ const Library = () => {
     setShowCreateModal(false);
     
     // Add notification
-    addNotification({
+    addNotification?.({
       type: 'playlist_created',
       title: 'Playlist Created',
       message: `"${playlist.name}" has been created successfully`,
@@ -157,7 +157,7 @@ const Library = () => {
       loadLibraryData();
       
       // Add notification
-      addNotification({
+      addNotification?.({
         type: 'song_liked',
         title: 'Song Liked',
         message: `Added "${song.title}" to your liked songs`,

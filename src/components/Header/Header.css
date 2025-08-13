@@ -80,6 +80,7 @@
   transition: all 0.3s ease;
   width: 60%;
   overflow: hidden;
+  min-height: 44px;
 }
 
 .search-input-wrapper:focus-within {
@@ -88,11 +89,21 @@
   background: var(--secondary-bg);
 }
 
+.search-input-wrapper.error {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
 .search-icon {
   position: absolute;
   left: 1rem;
   color: var(--text-muted);
   z-index: 1;
+  transition: all 0.2s ease;
+}
+
+.search-input-wrapper:focus-within .search-icon {
+  color: var(--accent-purple);
 }
 
 .search-input {
@@ -104,6 +115,7 @@
   font-size: 0.875rem;
   outline: none;
   font-weight: 400;
+  line-height: 1.4;
 }
 
 .search-input::placeholder {
@@ -138,10 +150,16 @@
   justify-content: center;
   width: 20px;
   height: 20px;
+  z-index: 2;
 }
 
 .search-loading {
   color: var(--accent-purple);
+  animation: spin 1s linear infinite;
+}
+
+.search-error {
+  color: #ef4444;
 }
 
 /* Search Results Dropdown */
@@ -246,6 +264,16 @@
   font-size: 0.75rem;
   color: var(--text-muted);
   flex-shrink: 0;
+}
+
+.result-badge {
+  font-size: 0.65rem;
+  background: var(--gradient-primary);
+  color: white;
+  padding: 0.125rem 0.375rem;
+  border-radius: 8px;
+  font-weight: 600;
+  margin-top: 0.125rem;
 }
 
 /* User Section */

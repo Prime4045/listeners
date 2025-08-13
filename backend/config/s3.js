@@ -115,6 +115,43 @@ class S3Service {
     }
 
     /**
+     * Get file metadata from S3
+     */
+    async getFileMetadata(spotifyId) {
+        if (!this.isConfigured) {
+            throw new Error('S3 service not configured');
+        }
+
+        try {
+            const params = {
+                Bucket: this.bucketName,
+                Key: spotifyId,
+            };
+
+            const metadata = await this.s3.headObject(params).promise();
+            console.log(`✅ Retrieved metadata for track: ${spotifyId}`);
+            
+            return {
+                size: metadata.ContentLength,
+                lastModified: metadata.LastModified,
+                contentType: metadata.ContentType || 'audio/mpeg',
+                etag: metadata.ETag,
+            };
+        } catch (error) {
+            console.error('❌ Error getting S3 metadata:', {
+                spotifyId,
+                error: error.message,
+            });
+            return {
+                size: 0,
+                lastModified: new Date(),
+                contentType: 'audio/mpeg',
+                etag: null,
+            };
+        }
+    }
+
+    /**
      * List all audio files in bucket with pagination
      */
     async listAudioFiles(maxKeys = 1000, continuationToken = null) {

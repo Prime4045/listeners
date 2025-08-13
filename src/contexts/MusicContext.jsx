@@ -153,7 +153,7 @@ export const MusicProvider = ({ children }) => {
 
       // Add notification for new song
       if (songData.isNewlyAdded) {
-        addNotification({
+        addNotification?.({
           type: 'song_added',
           title: 'New Song Added',
           message: `"${track.title}" by ${track.artist} is now available`,
