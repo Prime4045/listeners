@@ -136,6 +136,9 @@ const Library = () => {
       message: `"${playlist.name}" has been created successfully`,
       data: { playlistId: playlist._id }
     });
+    
+    // Update stats
+    setStats(prev => ({ ...prev, totalPlaylists: prev.totalPlaylists + 1 }));
   };
 
   const handlePlayAll = async (tracks) => {

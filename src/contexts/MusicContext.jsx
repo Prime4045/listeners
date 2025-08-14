@@ -165,6 +165,14 @@ export const MusicProvider = ({ children }) => {
       console.error('Play track error:', err);
       setIsLoading(false);
       setError(err.message || 'Failed to play track');
+      
+      // Add error notification
+      addNotification?.({
+        type: 'error',
+        title: 'Playback Error',
+        message: err.message || 'Failed to play track',
+        data: { songId: track.spotifyId }
+      });
     }
   }, [currentTrack, volume]);
 
