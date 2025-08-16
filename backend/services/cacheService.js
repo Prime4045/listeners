@@ -123,13 +123,14 @@ class CacheService {
      * Cache Spotify search results
      */
     async cacheSpotifySearch(query, results, ttl = 15 * 60) {
-        const key = this.generateKey('spotify', `search:${query.toLowerCase()}`);
+        const key = query; // Use the full cache key passed from the route
         const dataWithTimestamp = {
             results,
             query,
             cachedAt: new Date().toISOString(),
             count: results.length,
         };
+        console.log('💾 Caching Spotify search:', { key, count: results.length });
         return await this.set(key, dataWithTimestamp, ttl);
     }
 
@@ -137,8 +138,13 @@ class CacheService {
      * Get cached Spotify search
      */
     async getCachedSpotifySearch(query) {
-        const key = this.generateKey('spotify', `search:${query.toLowerCase()}`);
+        const key = query; // Use the full cache key passed from the route
         const cached = await this.get(key);
+        if (cached) {
+            console.log('🎯 Cache hit for search:', { key, count: cached.results?.length });
+        } else {
+            console.log('❌ Cache miss for search:', key);
+        }
         return cached?.results || null;
     }
 

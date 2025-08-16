@@ -71,6 +71,7 @@ router.get('/search', optionalAuth, async (req, res) => {
   try {
     const { q: query, limit = 20 } = req.query;
 
+    console.log('🔍 Search request received:', { query, limit, user: req.user?.username || 'guest' });
     if (!query || query.trim().length < 2) {
       return res.status(400).json({
         message: 'Query parameter is required and must be at least 2 characters long'
@@ -78,18 +79,24 @@ router.get('/search', optionalAuth, async (req, res) => {
     }
 
     const searchLimit = Math.min(parseInt(limit) || 20, 50);
-    const cacheKey = `spotify_search:${query.trim()}:${searchLimit}`;
+    const cacheKey = `spotify_search:${query.trim().toLowerCase()}:${searchLimit}`;
+    
+    console.log('🔍 Using cache key:', cacheKey);
+    
     // Check cache first
     let spotifyTracks = await cacheService.getCachedSpotifySearch(cacheKey);
 
     if (!spotifyTracks) {
+      console.log('🌐 Fetching from Spotify API...');
       spotifyTracks = await spotifyService.searchTracks(query.trim(), searchLimit);
       await cacheService.cacheSpotifySearch(cacheKey, spotifyTracks, 15 * 60);
+      console.log('✅ Spotify search completed:', spotifyTracks.length, 'tracks');
     } else {
       console.log('Using cached Spotify search results:', { query, count: spotifyTracks.length });
     }
 
     // Check S3 availability for each track
+    console.log('🔍 Checking S3 availability for', spotifyTracks.length, 'tracks...');
     const tracksWithS3Check = await Promise.all(
       spotifyTracks.map(async (track) => {
         const s3CacheKey = `s3_check:${track.spotifyId}`;
@@ -109,12 +116,17 @@ router.get('/search', optionalAuth, async (req, res) => {
           ...track,
           isInDatabase: false,
           canPlay: audioExists,
-          audioUrl, // <-- Add this line
+          audioUrl,
           message: audioExists ? null : 'Song not available for playback yet'
         };
       })
     );
 
+    console.log('✅ Search completed:', {
+      query: query.trim(),
+      totalTracks: tracksWithS3Check.length,
+      availableTracks: tracksWithS3Check.filter(t => t.canPlay).length
+    });
     res.json({
       songs: tracksWithS3Check,
       source: 'spotify',
@@ -123,7 +135,7 @@ router.get('/search', optionalAuth, async (req, res) => {
       availableCount: tracksWithS3Check.filter(t => t.canPlay).length,
     });
   } catch (error) {
-    console.error('Search error:', {
+    console.error('❌ Search error:', {
       message: error.message,
       stack: error.stack
     });

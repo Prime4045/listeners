@@ -25,7 +25,6 @@ const Search = () => {
   const { isAuthenticated } = useAuth();
   const { playTrack } = useMusic();
 
-  const [query, setQuery] = useState(searchParams.get('q') || '');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -33,33 +32,23 @@ const Search = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [activeFilter, setActiveFilter] = useState('all');
   const [hasSearched, setHasSearched] = useState(false);
+  const [currentQuery, setCurrentQuery] = useState('');
 
-  // Debounced search
-  const [debouncedQuery, setDebouncedQuery] = useState(query);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedQuery(query);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [query]);
+  // Get query from URL params
+  const urlQuery = searchParams.get('q') || '';
 
   useEffect(() => {
-    if (debouncedQuery.trim().length >= 2) {
-      performSearch(debouncedQuery.trim());
-    } else {
+    if (urlQuery && urlQuery !== currentQuery) {
+      setCurrentQuery(urlQuery);
+      performSearch(urlQuery);
+    } else if (!urlQuery) {
       setResults([]);
       setHasSearched(false);
+      setCurrentQuery('');
     }
-  }, [debouncedQuery]);
+  }, [urlQuery]);
 
   useEffect(() => {
-    const initialQuery = searchParams.get('q');
-    if (initialQuery) {
-      setQuery(initialQuery);
-      setHasSearched(true);
-    }
     loadSearchHistory();
     loadSuggestions();
   }, []);
@@ -88,24 +77,35 @@ const Search = () => {
   };
 
   const performSearch = async (searchQuery) => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery.trim()) {
+      setResults([]);
+      setHasSearched(false);
+      return;
+    }
 
     try {
       setLoading(true);
       setError(null);
       setHasSearched(true);
 
-      const response = await ApiService.searchMusic(searchQuery, 50);
-      setResults(response.songs || []);
+      console.log('🔍 Performing search for:', searchQuery);
 
-      // Update URL
-      setSearchParams({ q: searchQuery });
+      const response = await ApiService.searchMusic(searchQuery.trim(), 50);
+      
+      console.log('🎵 Search response received:', {
+        query: searchQuery,
+        songsCount: response.songs?.length || 0,
+        source: response.source
+      });
+
+      setResults(response.songs || []);
+      setActiveFilter('all'); // Reset filter when new search
 
       // Save to search history
       saveToHistory(searchQuery);
 
     } catch (err) {
-      console.error('Search error:', err);
+      console.error('❌ Search error:', err);
       setError('Failed to search. Please try again.');
       setResults([]);
     } finally {
@@ -121,8 +121,8 @@ const Search = () => {
   };
 
   const handleSuggestionClick = (suggestion) => {
-    setQuery(suggestion);
-    performSearch(suggestion);
+    console.log('🎯 Suggestion clicked:', suggestion);
+    setSearchParams({ q: suggestion });
   };
 
   const filteredResults = results.filter(track => {
@@ -135,11 +135,20 @@ const Search = () => {
   const playableCount = results.filter(track => track.canPlay).length;
   const unavailableCount = results.filter(track => !track.canPlay).length;
 
+  console.log('🎵 Current search state:', {
+    urlQuery,
+    currentQuery,
+    hasSearched,
+    resultsCount: results.length,
+    filteredCount: filteredResults.length,
+    loading
+  });
+
   return (
     <div className="search-page">
       <div className="search-container">
-        {!hasSearched ? (
-          /* Browse Section - FULL WIDTH USAGE */
+        {!hasSearched || !urlQuery ? (
+          /* Browse Section */
           <div className="browse-section">
             <div className="browse-content">
               {/* Search History */}
@@ -224,7 +233,7 @@ const Search = () => {
             </div>
           </div>
         ) : (
-          /* Results Section - FULL WIDTH USAGE */
+          /* Results Section */
           <div className="results-section">
             {error ? (
               <div className="error-state">
@@ -232,7 +241,7 @@ const Search = () => {
                   <Sparkles size={48} />
                   <h3>Something went wrong</h3>
                   <p>{error}</p>
-                  <button onClick={() => performSearch(query)} className="retry-btn">
+                  <button onClick={() => performSearch(urlQuery)} className="retry-btn">
                     Try again
                   </button>
                 </div>
@@ -242,7 +251,7 @@ const Search = () => {
                 {/* Results Header */}
                 <div className="results-header">
                   <div className="results-info">
-                    <h1>Search results for "{query}"</h1>
+                    <h1>Search results for "{urlQuery}"</h1>
                     <div className="results-stats">
                       <span>{results.length} songs found</span>
                       {playableCount > 0 && <span>• {playableCount} available</span>}
@@ -283,7 +292,7 @@ const Search = () => {
                   )}
                 </div>
 
-                {/* Results Content - SCROLLABLE WHEN OVERFLOW */}
+                {/* Results Content */}
                 <div className="results-content">
                   {loading ? (
                     <div className="loading-results">
@@ -319,7 +328,7 @@ const Search = () => {
                           }
                         }}
                         isAuthenticated={isAuthenticated}
-                        searchQuery={query}
+                        searchQuery={urlQuery}
                       />
                     </div>
                   ) : (
@@ -328,7 +337,7 @@ const Search = () => {
                         <div className="no-results-icon">
                           <Music size={64} />
                         </div>
-                        <h3>No results found for "{query}"</h3>
+                        <h3>No results found for "{urlQuery}"</h3>
                         <p>Try different keywords or check your spelling</p>
                         <div className="suggestions">
                           <p>Try searching for:</p>

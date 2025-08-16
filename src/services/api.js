@@ -177,12 +177,15 @@ const ApiService = {
   },
 
   async searchMusic(query, limit = 20, offset = 0) {
+    console.log('🔍 API Service search:', { query, limit, offset });
     const params = new URLSearchParams({
       q: query,
       limit: limit.toString(),
       offset: offset.toString()
     });
-    return this.makeRequest(`/music/search?${params}`);
+    const response = await this.makeRequest(`/music/search?${params}`);
+    console.log('📊 API Service search response:', response);
+    return response;
   },
 
   async playTrack(spotifyId, playData = {}) {

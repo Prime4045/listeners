@@ -62,6 +62,8 @@ const Header = () => {
 
   // Handle search with proper debouncing
   useEffect(() => {
+    console.log('🔍 Search query changed:', searchQuery);
+    
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
@@ -72,18 +74,20 @@ const Header = () => {
 
       debounceRef.current = setTimeout(async () => {
         try {
+          console.log('🎯 Executing search for:', searchQuery.trim());
           const response = await ApiService.searchMusic(searchQuery.trim(), 8);
+          console.log('📊 Search response:', response);
           setSearchResults(response.songs || []);
           setShowResults(true);
           setSearchError(false);
         } catch (error) {
-          console.error('Search error:', error);
+          console.error('❌ Search error:', error);
           setSearchError(true);
           setSearchResults([]);
         } finally {
           setSearchLoading(false);
         }
-      }, 300);
+      }, 500); // Increased debounce time
     } else {
       setSearchResults([]);
       setShowResults(false);
@@ -101,12 +105,15 @@ const Header = () => {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      console.log('🔍 Header search submit:', searchQuery.trim());
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
       setShowResults(false);
+      setSearchQuery(''); // Clear search input after navigation
     }
   };
 
   const handleResultClick = async (track) => {
+    console.log('🎵 Search result clicked:', track.title);
     setShowResults(false);
     setSearchQuery('');
 
@@ -122,6 +129,7 @@ const Header = () => {
   };
 
   const clearSearch = () => {
+    console.log('🧹 Clearing search');
     setSearchQuery('');
     setSearchResults([]);
     setShowResults(false);
