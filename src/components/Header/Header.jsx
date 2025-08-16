@@ -1,46 +1,52 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Search,
+  X,
+  Music,
+  ChevronDown,
+  Bell,
   User,
   Settings,
   LogOut,
   Crown,
-  Music,
-  ChevronDown,
-  Bell,
   Loader2,
-  X,
+  AlertCircle,
   Clock,
-  Heart,
-  Plus
+  Play,
+  TrendingUp
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
+import { useMusic } from '../../contexts/MusicContext';
 import ApiService from '../../services/api';
 import './Header.css';
 
 const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isAuthenticated, logout } = useAuth();
-  const { notifications, markAsRead, clearAll } = useNotifications();
+  const { isAuthenticated, user, logout } = useAuth();
+  const { notifications, markAsRead, markAllAsRead, clearAll } = useNotifications();
+  const { playTrack } = useMusic();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showSearchResults, setShowSearchResults] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const searchTimeoutRef = useRef(null);
+
   const searchRef = useRef(null);
   const userMenuRef = useRef(null);
   const notificationRef = useRef(null);
+  const debounceRef = useRef(null);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
-        setShowSearchResults(false);
+        setShowResults(false);
       }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setShowUserMenu(false);
@@ -54,56 +60,72 @@ const Header = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Debounced search
+  // Handle search with proper debouncing
   useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
     }
 
     if (searchQuery.trim().length >= 2) {
-      searchTimeoutRef.current = setTimeout(() => {
-        performSearch(searchQuery.trim());
-        setShowSearchResults(true);
+      setSearchLoading(true);
+      setSearchError(false);
+
+      debounceRef.current = setTimeout(async () => {
+        try {
+          const response = await ApiService.searchMusic(searchQuery.trim(), 8);
+          setSearchResults(response.songs || []);
+          setShowResults(true);
+          setSearchError(false);
+        } catch (error) {
+          console.error('Search error:', error);
+          setSearchError(true);
+          setSearchResults([]);
+        } finally {
+          setSearchLoading(false);
+        }
       }, 300);
     } else {
       setSearchResults([]);
-      setShowSearchResults(false);
+      setShowResults(false);
+      setSearchLoading(false);
+      setSearchError(false);
     }
 
     return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
       }
     };
   }, [searchQuery]);
-
-  const performSearch = async (query) => {
-    try {
-      setIsSearching(true);
-      const response = await ApiService.searchMusic(query, 5);
-      setSearchResults(response.songs || []);
-      setShowSearchResults(true);
-    } catch (error) {
-      console.error('Search error:', error);
-      setSearchResults([]);
-      setShowSearchResults(false);
-    } finally {
-      setIsSearching(false);
-    }
-  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-      setShowSearchResults(false);
+      setShowResults(false);
     }
   };
 
-  const handleSearchResultClick = (track) => {
+  const handleResultClick = async (track) => {
+    setShowResults(false);
     setSearchQuery('');
-    setShowSearchResults(false);
-    navigate(`/search?q=${encodeURIComponent(track.title)}`);
+
+    if (track.canPlay) {
+      try {
+        await playTrack(track);
+      } catch (error) {
+        console.error('Failed to play track from search:', error);
+      }
+    } else {
+      navigate(`/search?q=${encodeURIComponent(track.title)}`);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowResults(false);
+    setSearchError(false);
   };
 
   const handleLogout = async () => {
@@ -116,68 +138,75 @@ const Header = () => {
     setShowUserMenu(false);
   };
 
-  const clearSearch = () => {
-    setSearchQuery('');
-    setSearchResults([]);
-    setShowSearchResults(false);
-  };
-
-  const formatDuration = (ms) => {
-    if (!ms) return '0:00';
-    const minutes = Math.floor(ms / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
   const handleNotificationClick = (notification) => {
     markAsRead(notification.id);
-
-    switch (notification.type) {
-      case 'song_added':
-        navigate('/library');
-        break;
-      case 'playlist_created':
-        navigate(`/playlist/${notification.data?.playlistId}`);
-        break;
-      case 'song_liked':
-        navigate('/library');
-        break;
-      default:
-        break;
-    }
-
     setShowNotifications(false);
+
+    // Navigate based on notification type
+    if (notification.type === 'song_added' && notification.data?.songId) {
+      navigate(`/search?q=${encodeURIComponent(notification.data.songId)}`);
+    } else if (notification.type === 'playlist_created' && notification.data?.playlistId) {
+      navigate(`/playlist/${notification.data.playlistId}`);
+    }
+  };
+
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+
+    return date.toLocaleDateString();
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'song_added':
+        return <Music size={16} />;
+      case 'playlist_created':
+        return <Play size={16} />;
+      case 'song_liked':
+        return <TrendingUp size={16} />;
+      default:
+        return <Bell size={16} />;
+    }
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
     <header className="header">
+      {/* Logo */}
       <div className="header-left">
         <div className="logo" onClick={() => navigate('/')}>
           <div className="logo-icon">
-            <Music size={24} />
+            <Music size={20} />
           </div>
           <span className="logo-text">Listeners</span>
         </div>
       </div>
 
+      {/* Search */}
       <div className="header-center">
         <div className="search-container" ref={searchRef}>
           <form onSubmit={handleSearchSubmit} className="search-form">
-            <div className="search-input-wrapper">
-              <Search className="search-icon" size={18} />
+            <div className={`search-input-wrapper ${searchError ? 'error' : ''}`}>
+              <Search className="search-icon" size={16} />
               <input
                 type="text"
-                placeholder="Search for songs, artists, albums..."
+                placeholder="What do you want to listen to?"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="search-input"
-                onFocus={() => {
-                  if (searchQuery.trim().length >= 2 && searchResults.length > 0) {
-                    setShowSearchResults(true);
-                  }
-                }}
+                autoComplete="off"
               />
               {searchQuery && (
                 <button
@@ -185,29 +214,27 @@ const Header = () => {
                   className="clear-search"
                   onClick={clearSearch}
                 >
-                  <X size={16} />
+                  <X size={14} />
                 </button>
               )}
               <div className="search-status">
-                {isSearching && (
-                  <Loader2 className="search-loading animate-spin" size={16} />
+                {searchLoading && (
+                  <Loader2 className="search-loading" size={16} />
+                )}
+                {searchError && (
+                  <AlertCircle className="search-error" size={16} />
                 )}
               </div>
             </div>
           </form>
 
           {/* Search Results Dropdown */}
-          {showSearchResults && searchResults.length > 0 && (
+          {showResults && searchResults.length > 0 && (
             <div className="search-results">
               <div className="results-header">
-                <span>Quick Results</span>
-                <button
-                  type="submit"
-                  className="view-all-btn"
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={handleSearchSubmit}
-                >
-                  View All
+                <span>Search Results</span>
+                <button onClick={() => navigate(`/search?q=${encodeURIComponent(searchQuery)}`)}>
+                  View all
                 </button>
               </div>
               <div className="results-list">
@@ -215,7 +242,7 @@ const Header = () => {
                   <div
                     key={track.spotifyId}
                     className="result-item"
-                    onClick={() => handleSearchResultClick(track)}
+                    onClick={() => handleResultClick(track)}
                   >
                     <div className="result-image">
                       <img
@@ -229,9 +256,13 @@ const Header = () => {
                     <div className="result-info">
                       <div className="result-title">{track.title}</div>
                       <div className="result-artist">{track.artist}</div>
+                      {track.isInDatabase && (
+                        <div className="result-badge">Available</div>
+                      )}
                     </div>
                     <div className="result-duration">
-                      {formatDuration(track.duration)}
+                      {track.duration ? Math.floor(track.duration / 60000) + ':' +
+                        Math.floor((track.duration % 60000) / 1000).toString().padStart(2, '0') : ''}
                     </div>
                   </div>
                 ))}
@@ -241,15 +272,17 @@ const Header = () => {
         </div>
       </div>
 
+      {/* User Section */}
       <div className="header-right">
-        {isAuthenticated ? (
-          <div className="user-section">
+        <div className="user-section">
+          {/* Notifications */}
+          {isAuthenticated && (
             <div className="notification-container" ref={notificationRef}>
               <button
                 className="notification-btn"
                 onClick={() => setShowNotifications(!showNotifications)}
               >
-                <Bell size={20} />
+                <Bell size={18} />
                 {unreadCount > 0 && (
                   <span className="notification-badge">{unreadCount}</span>
                 )}
@@ -260,10 +293,7 @@ const Header = () => {
                   <div className="notification-header">
                     <h3>Notifications</h3>
                     {notifications.length > 0 && (
-                      <button
-                        className="clear-all-btn"
-                        onClick={clearAll}
-                      >
+                      <button className="clear-all-btn" onClick={clearAll}>
                         Clear all
                       </button>
                     )}
@@ -278,17 +308,14 @@ const Header = () => {
                           onClick={() => handleNotificationClick(notification)}
                         >
                           <div className="notification-icon">
-                            {notification.type === 'song_added' && <Music size={16} />}
-                            {notification.type === 'playlist_created' && <Plus size={16} />}
-                            {notification.type === 'song_liked' && <Heart size={16} />}
-                            {notification.type === 'app_update' && <Bell size={16} />}
+                            {getNotificationIcon(notification.type)}
                           </div>
                           <div className="notification-content">
                             <div className="notification-title">{notification.title}</div>
                             <div className="notification-message">{notification.message}</div>
                             <div className="notification-time">
                               <Clock size={12} />
-                              {new Date(notification.createdAt).toLocaleTimeString()}
+                              {formatTime(notification.createdAt)}
                             </div>
                           </div>
                           {!notification.read && <div className="unread-indicator" />}
@@ -296,16 +323,19 @@ const Header = () => {
                       ))
                     ) : (
                       <div className="empty-notifications">
-                        <Bell size={32} />
+                        <Bell size={48} />
                         <p>No notifications yet</p>
-                        <span>We'll notify you about new songs and updates</span>
+                        <span>We'll notify you when something happens</span>
                       </div>
                     )}
                   </div>
                 </div>
               )}
             </div>
+          )}
 
+          {/* User Menu */}
+          {isAuthenticated ? (
             <div className="user-menu-container" ref={userMenuRef}>
               <button
                 className="user-button"
@@ -315,11 +345,14 @@ const Header = () => {
                   {user?.avatar ? (
                     <img src={user.avatar} alt={user.username} />
                   ) : (
-                    <User size={20} />
+                    <User size={16} />
                   )}
                 </div>
                 <span className="username">{user?.username}</span>
-                <ChevronDown size={16} className={`chevron ${showUserMenu ? 'rotated' : ''}`} />
+                <ChevronDown
+                  className={`chevron ${showUserMenu ? 'rotated' : ''}`}
+                  size={16}
+                />
               </button>
 
               {showUserMenu && (
@@ -370,7 +403,12 @@ const Header = () => {
                       Dashboard
                     </button>
                     {user?.subscription?.type !== 'premium' && (
-                      <button className="dropdown-item premium">
+                      <button
+                        className="dropdown-item premium"
+                        onClick={() => {
+                          setShowUserMenu(false);
+                        }}
+                      >
                         <Crown size={16} />
                         Upgrade to Premium
                       </button>
@@ -387,23 +425,23 @@ const Header = () => {
                 </div>
               )}
             </div>
-          </div>
-        ) : (
-          <div className="auth-buttons">
-            <button
-              className="auth-btn login-btn"
-              onClick={() => navigate('/signin')}
-            >
-              Log in
-            </button>
-            <button
-              className="auth-btn signup-btn"
-              onClick={() => navigate('/signup')}
-            >
-              Sign up
-            </button>
-          </div>
-        )}
+          ) : (
+            <div className="auth-buttons">
+              <button
+                className="auth-btn login-btn"
+                onClick={() => navigate('/signin')}
+              >
+                Log in
+              </button>
+              <button
+                className="auth-btn signup-btn"
+                onClick={() => navigate('/signup')}
+              >
+                Sign up
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

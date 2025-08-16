@@ -32,6 +32,15 @@ export const NotificationProvider = ({ children }) => {
     };
 
     setNotifications(prev => [newNotification, ...prev.slice(0, 49)]); // Keep only 50 notifications
+    
+    // Show browser notification if permission granted
+    if (Notification.permission === 'granted') {
+      new Notification(notification.title, {
+        body: notification.message,
+        icon: '/vite.svg',
+        badge: '/vite.svg'
+      });
+    }
   };
 
   const markAsRead = (notificationId) => {
@@ -62,8 +71,13 @@ export const NotificationProvider = ({ children }) => {
 
   // Add system notifications
   useEffect(() => {
-    // Welcome notification for new users
-    const hasWelcomeNotification = notifications.some(n => n.type === 'welcome');
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    
+    // Add welcome notification only once
+    const hasWelcomeNotification = localStorage.getItem('welcome_notification_shown');
     if (!hasWelcomeNotification) {
       addNotification({
         type: 'welcome',
@@ -71,6 +85,7 @@ export const NotificationProvider = ({ children }) => {
         message: 'Start exploring music and create your first playlist',
         icon: '🎵'
       });
+      localStorage.setItem('welcome_notification_shown', 'true');
     }
   }, []);
 

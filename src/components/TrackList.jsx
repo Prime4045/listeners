@@ -59,6 +59,11 @@ const TrackList = ({
         newLikedTracks.add(track.spotifyId);
       }
       setLikedTracks(newLikedTracks);
+      
+      // Trigger notification update
+      window.dispatchEvent(new CustomEvent('song_liked', { 
+        detail: { track, liked: !likedTracks.has(track.spotifyId) }
+      }));
     } catch (error) {
       console.error('Failed to like track:', error);
     }

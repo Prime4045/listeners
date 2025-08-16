@@ -130,12 +130,15 @@ const Library = () => {
     setShowCreateModal(false);
 
     // Add notification
-    addNotification({
+    addNotification?.({
       type: 'playlist_created',
       title: 'Playlist Created',
       message: `"${playlist.name}" has been created successfully`,
       data: { playlistId: playlist._id }
     });
+    
+    // Update stats
+    setStats(prev => ({ ...prev, totalPlaylists: prev.totalPlaylists + 1 }));
   };
 
   const handlePlayAll = async (tracks) => {
@@ -157,7 +160,7 @@ const Library = () => {
       loadLibraryData();
 
       // Add notification
-      addNotification({
+      addNotification?.({
         type: 'song_liked',
         title: 'Song Liked',
         message: `Added "${song.title}" to your liked songs`,
