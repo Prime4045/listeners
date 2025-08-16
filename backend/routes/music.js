@@ -78,61 +78,15 @@ router.get('/search', optionalAuth, async (req, res) => {
     }
 
     const searchLimit = Math.min(parseInt(limit) || 20, 50);
-
-    // First search in database
-    console.log('Searching in database first for:', query.trim());
-    const dbSongs = await Song.searchInDatabase(query.trim(), Math.min(searchLimit, 20));
-
-    // Format database songs
-    const dbResults = dbSongs.map(song => ({
-      spotifyId: song.spotifyId,
-      title: song.title,
-      artist: song.artist,
-      album: song.album,
-      duration: song.duration,
-      imageUrl: song.imageUrl,
-      audioUrl: song.audioUrl,
-      playCount: song.playCount,
-      likeCount: song.likeCount,
-      popularity: song.popularity,
-      explicit: song.explicit,
-      releaseDate: song.releaseDate,
-      genre: song.genre,
-      isInDatabase: true,
-      canPlay: true,
-      spotifyData: song.spotifyData,
-    }));
-
-    console.log(`Found ${dbResults.length} songs in database`);
-
-    // If we have enough results from database, return them
-    if (dbResults.length >= searchLimit) {
-      return res.json({
-        songs: dbResults.slice(0, searchLimit),
-        source: 'database',
-        query: query.trim(),
-        total: dbResults.length,
-        availableCount: dbResults.length,
-      });
-    }
-
-    // Search Spotify for additional results
-    const remainingLimit = searchLimit - dbResults.length;
-    const cacheKey = `spotify_search:${query.trim()}:${remainingLimit}`;
+    const cacheKey = `spotify_search:${query.trim()}:${searchLimit}`;
     // Check cache first
     let spotifyTracks = await cacheService.getCachedSpotifySearch(cacheKey);
 
     if (!spotifyTracks) {
-      console.log('Searching Spotify for additional results...');
-      spotifyTracks = await spotifyService.searchTracks(query.trim(), remainingLimit);
-
-      // Filter out tracks that are already in database
-      const dbSpotifyIds = new Set(dbResults.map(song => song.spotifyId));
-      spotifyTracks = spotifyTracks.filter(track => !dbSpotifyIds.has(track.spotifyId));
-
+      spotifyTracks = await spotifyService.searchTracks(query.trim(), searchLimit);
       await cacheService.cacheSpotifySearch(cacheKey, spotifyTracks, 15 * 60);
     } else {
-      console.log('Using cached Spotify search results:', { query: query.trim(), count: spotifyTracks.length });
+      console.log('Using cached Spotify search results:', { query, count: spotifyTracks.length });
     }
 
     // Check S3 availability for each track
@@ -161,17 +115,12 @@ router.get('/search', optionalAuth, async (req, res) => {
       })
     );
 
-    // Combine database and Spotify results
-    const allResults = [...dbResults, ...tracksWithS3Check];
-
     res.json({
-      songs: allResults.slice(0, searchLimit),
-      source: dbResults.length > 0 ? 'mixed' : 'spotify',
+      songs: tracksWithS3Check,
+      source: 'spotify',
       query: query.trim(),
-      total: allResults.length,
-      availableCount: allResults.filter(t => t.canPlay).length,
-      databaseCount: dbResults.length,
-      spotifyCount: tracksWithS3Check.length,
+      total: tracksWithS3Check.length,
+      availableCount: tracksWithS3Check.filter(t => t.canPlay).length,
     });
   } catch (error) {
     console.error('Search error:', {
@@ -242,77 +191,6 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
       // Existing song: get fresh audio URL
       song.audioUrl = await s3Service.getAudioUrl(spotifyId);
       await song.incrementPlayCount();
-      await song.save();
-    }
-
-    // Song not in database, check S3 availability
-    const s3CacheKey = `s3_check:${spotifyId}`;
-    let audioExists = await cacheService.getCachedS3Check(s3CacheKey);
-
-    if (audioExists === null) {
-      audioExists = await s3Service.audioExists(spotifyId);
-      await cacheService.cacheS3Check(s3CacheKey, audioExists, 60 * 60);
-    }
-
-    if (!audioExists) {
-      return res.status(404).json({
-        message: 'Audio file not found in our library. Song will be added soon!',
-        code: 'AUDIO_NOT_FOUND',
-        spotifyId
-      });
-    }
-
-    // Fetch track metadata from Spotify
-    console.log('Fetching track metadata from Spotify:', spotifyId);
-    const spotifyTrack = await spotifyService.getTrack(spotifyId);
-
-    // Generate S3 signed URL
-    const audioUrl = await s3Service.getAudioUrl(spotifyId);
-
-    // Get file metadata with fallback
-    let fileMetadata;
-    try {
-      fileMetadata = await s3Service.getFileMetadata(spotifyId);
-    } catch (metadataError) {
-      console.warn('Failed to get file metadata, using defaults:', metadataError.message);
-      fileMetadata = {
-        size: 0,
-        lastModified: new Date(),
-        contentType: 'audio/mpeg',
-        etag: null,
-      };
-    }
-
-    // Create new song in database with upsert to handle duplicates
-    song = await Song.findOneAndUpdate(
-      { spotifyId: spotifyTrack.spotifyId },
-      {
-        spotifyId: spotifyTrack.spotifyId,
-        title: spotifyTrack.title,
-        artist: spotifyTrack.artist,
-        album: spotifyTrack.album,
-        duration: spotifyTrack.duration,
-        imageUrl: spotifyTrack.imageUrl,
-        audioUrl: audioUrl,
-        genre: spotifyTrack.genre || null,
-        releaseDate: spotifyTrack.releaseDate,
-        popularity: spotifyTrack.popularity,
-        explicit: spotifyTrack.explicit,
-        spotifyData: spotifyTrack.spotifyData,
-        s3Key: spotifyId,
-        audioMetadata: fileMetadata,
-        playCount: 1,
-      },
-      {
-        upsert: true,
-        new: true,
-        setDefaultsOnInsert: true
-      }
-    );
-
-    // Increment play count if it's an existing song
-    if (!song.isNew) {
-      song.playCount += 1;
       await song.save();
     }
 

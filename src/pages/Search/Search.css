@@ -324,11 +324,25 @@
   animation: musicWave 1.5s ease-in-out infinite;
 }
 
-.wave-bar:nth-child(1) { animation-delay: 0s; }
-.wave-bar:nth-child(2) { animation-delay: 0.1s; }
-.wave-bar:nth-child(3) { animation-delay: 0.2s; }
-.wave-bar:nth-child(4) { animation-delay: 0.3s; }
-.wave-bar:nth-child(5) { animation-delay: 0.4s; }
+.wave-bar:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.wave-bar:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.wave-bar:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.wave-bar:nth-child(4) {
+  animation-delay: 0.3s;
+}
+
+.wave-bar:nth-child(5) {
+  animation-delay: 0.4s;
+}
 
 .loading-results h3 {
   font-size: 1.5rem;
@@ -471,13 +485,25 @@
 
 /* Animations */
 @keyframes musicWave {
-  0%, 100% { height: 10px; }
-  50% { height: 40px; }
+
+  0%,
+  100% {
+    height: 10px;
+  }
+
+  50% {
+    height: 40px;
+  }
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .animate-spin {
@@ -511,23 +537,23 @@
   .browse-content {
     padding: 1.5rem;
   }
-  
+
   .results-header {
     padding: 1.5rem;
   }
-  
+
   .results-content {
     padding: 0 1.5rem 2rem;
   }
-  
+
   .categories-grid {
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   }
-  
+
   .suggestions-grid {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   }
-  
+
   .history-grid {
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   }
@@ -538,37 +564,37 @@
     padding: 1rem;
     gap: 2rem;
   }
-  
+
   .results-header {
     padding: 1rem;
   }
-  
+
   .results-content {
     padding: 0 1rem 2rem;
   }
-  
+
   .results-info h1 {
     font-size: 1.5rem;
   }
-  
+
   .filter-buttons {
     overflow-x: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
-  
+
   .filter-buttons::-webkit-scrollbar {
     display: none;
   }
-  
+
   .categories-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
-  
+
   .suggestions-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .history-grid {
     grid-template-columns: 1fr;
   }
@@ -578,25 +604,25 @@
   .results-info h1 {
     font-size: 1.25rem;
   }
-  
+
   .categories-grid {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   }
-  
+
   .category-card {
     min-height: 120px;
     padding: 1.5rem;
   }
-  
+
   .category-name {
     font-size: 1.125rem;
   }
-  
+
   .suggestion-card {
     padding: 1rem;
     gap: 1rem;
   }
-  
+
   .suggestion-icon {
     width: 48px;
     height: 48px;
