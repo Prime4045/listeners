@@ -63,6 +63,7 @@ const Header = () => {
     if (searchQuery.trim().length >= 2) {
       searchTimeoutRef.current = setTimeout(() => {
         performSearch(searchQuery.trim());
+        setShowSearchResults(true);
       }, 300);
     } else {
       setSearchResults([]);
@@ -85,6 +86,7 @@ const Header = () => {
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
+      setShowSearchResults(false);
     } finally {
       setIsSearching(false);
     }
@@ -101,7 +103,6 @@ const Header = () => {
   const handleSearchResultClick = (track) => {
     setSearchQuery('');
     setShowSearchResults(false);
-    // Navigate to search page with this specific track
     navigate(`/search?q=${encodeURIComponent(track.title)}`);
   };
 
@@ -130,8 +131,7 @@ const Header = () => {
 
   const handleNotificationClick = (notification) => {
     markAsRead(notification.id);
-    
-    // Navigate based on notification type
+
     switch (notification.type) {
       case 'song_added':
         navigate('/library');
@@ -145,7 +145,7 @@ const Header = () => {
       default:
         break;
     }
-    
+
     setShowNotifications(false);
   };
 
@@ -173,7 +173,11 @@ const Header = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="search-input"
-                onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
+                onFocus={() => {
+                  if (searchQuery.trim().length >= 2 && searchResults.length > 0) {
+                    setShowSearchResults(true);
+                  }
+                }}
               />
               {searchQuery && (
                 <button
@@ -197,7 +201,12 @@ const Header = () => {
             <div className="search-results">
               <div className="results-header">
                 <span>Quick Results</span>
-                <button onClick={() => handleSearchSubmit({ preventDefault: () => { } })}>
+                <button
+                  type="submit"
+                  className="view-all-btn"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={handleSearchSubmit}
+                >
                   View All
                 </button>
               </div>
@@ -236,11 +245,11 @@ const Header = () => {
         {isAuthenticated ? (
           <div className="user-section">
             <div className="notification-container" ref={notificationRef}>
-              <button 
+              <button
                 className="notification-btn"
                 onClick={() => setShowNotifications(!showNotifications)}
               >
-              <Bell size={20} />
+                <Bell size={20} />
                 {unreadCount > 0 && (
                   <span className="notification-badge">{unreadCount}</span>
                 )}
@@ -251,7 +260,7 @@ const Header = () => {
                   <div className="notification-header">
                     <h3>Notifications</h3>
                     {notifications.length > 0 && (
-                      <button 
+                      <button
                         className="clear-all-btn"
                         onClick={clearAll}
                       >
@@ -259,7 +268,7 @@ const Header = () => {
                       </button>
                     )}
                   </div>
-                  
+
                   <div className="notification-list">
                     {notifications.length > 0 ? (
                       notifications.slice(0, 10).map((notification) => (

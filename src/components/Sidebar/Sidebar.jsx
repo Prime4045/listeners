@@ -175,7 +175,7 @@ const Sidebar = () => {
                       >
                         <Music size={16} />
                       </div>
-                      <div className="playlist-info">
+                      <div className="slideBar-playlist-info">
                         <div className="playlist-name">{playlist.name}</div>
                         <div className="playlist-meta">
                           {getPlaylistIcon(playlist)}

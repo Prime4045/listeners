@@ -205,10 +205,6 @@ const PlaylistView = () => {
     <div className="playlist-view">
       {/* Header */}
       <div className="playlist-header">
-        <button className="back-btn" onClick={() => navigate('/')}>
-          <ArrowLeft size={20} />
-        </button>
-
         <div className="playlist-hero">
           <div className="playlist-artwork">
             {playlistImage ? (
@@ -226,15 +222,6 @@ const PlaylistView = () => {
               style={{ display: playlistImage ? 'none' : 'flex' }}
             >
               <Music size={80} />
-            </div>
-            <div className="artwork-overlay">
-              <button
-                className="hero-play-btn"
-                onClick={handlePlayPlaylist}
-                disabled={!tracks.length}
-              >
-                {isPlaylistPlaying ? <Pause size={24} /> : <Play size={24} />}
-              </button>
             </div>
           </div>
 
@@ -304,41 +291,30 @@ const PlaylistView = () => {
             {isPlaylistPlaying ? <Pause size={28} /> : <Play size={28} />}
           </button>
 
-          <button className="control-btn shuffle-btn">
+          <button className="playlist-control-btn shuffle-btn">
             <Shuffle size={20} />
           </button>
 
           <button
-            className={`control-btn like-btn ${isLiked ? 'liked' : ''}`}
+            className={`playlist-control-btn like-btn ${isLiked ? 'liked' : ''}`}
             onClick={() => setIsLiked(!isLiked)}
           >
             <Heart size={20} fill={isLiked ? 'currentColor' : 'none'} />
           </button>
 
-          <button className="control-btn">
+          <button className="playlist-control-btn">
             <Download size={20} />
           </button>
 
-          <button className="control-btn">
+          <button className="playlist-control-btn">
             <Share size={20} />
           </button>
 
-          <button className="control-btn">
-            <MoreHorizontal size={20} />
-          </button>
-        </div>
-
-        <div className="secondary-controls">
           <button
-            className={`control-btn search-btn ${showSearch ? 'active' : ''}`}
+            className={`playlist-control-btn search-btn ${showSearch ? 'active' : ''}`}
             onClick={() => setShowSearch(!showSearch)}
           >
             <Search size={18} />
-          </button>
-
-          <button className="control-btn sort-btn">
-            <span>Custom order</span>
-            <SortDesc size={16} />
           </button>
         </div>
       </div>

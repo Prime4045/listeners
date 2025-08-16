@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  User, 
-  Music, 
-  Heart, 
-  Clock, 
+import {
+  User,
+  Music,
+  Heart,
+  Clock,
   Calendar,
   TrendingUp,
   Settings,
@@ -39,12 +39,12 @@ const Dashboard = () => {
     };
 
     window.addEventListener('storage', handleStorageChange);
-    
+
     // Also listen for custom events
     const handleUpdate = () => {
       loadDashboardData();
     };
-    
+
     window.addEventListener('liked_songs_updated', handleUpdate);
     window.addEventListener('playlist_created', handleUpdate);
     window.addEventListener('song_played', handleUpdate);
@@ -63,7 +63,7 @@ const Dashboard = () => {
       setError(null);
       const data = await ApiService.getUserDashboard();
       setDashboardData(data);
-      
+
       // Update user context with fresh data
       if (data.user) {
         updateUser(data.user);
@@ -99,16 +99,16 @@ const Dashboard = () => {
     const now = new Date();
     const playedAt = new Date(date);
     const diffInMinutes = Math.floor((now - playedAt) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    
+
     const diffInHours = Math.floor(diffInMinutes / 60);
     if (diffInHours < 24) return `${diffInHours}h ago`;
-    
+
     const diffInDays = Math.floor(diffInHours / 24);
     if (diffInDays < 7) return `${diffInDays}d ago`;
-    
+
     return formatDate(date);
   };
 
@@ -138,8 +138,8 @@ const Dashboard = () => {
         <div className="welcome-section">
           <div className="user-avatar">
             {user?.avatar ? (
-              <img 
-                src={user.avatar} 
+              <img
+                src={user.avatar}
                 alt={user.username}
                 style={{ width: '80px', height: '80px', borderRadius: '50%' }}
               />
@@ -237,10 +237,6 @@ const Dashboard = () => {
                 <div className="detail-row">
                   <span className="label">Member Since:</span>
                   <span className="value">{formatDate(stats?.memberSince)}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="label">Last Login:</span>
-                  <span className="value">{formatDate(stats?.lastLogin)}</span>
                 </div>
                 <div className="detail-row">
                   <span className="label">Account Status:</span>

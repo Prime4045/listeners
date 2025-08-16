@@ -179,7 +179,7 @@
 }
 
 .playlists-header span {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--text-primary);
   text-transform: uppercase;
@@ -276,9 +276,12 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-.playlist-info {
+.slideBar-playlist-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
 }
 
 .playlist-name {

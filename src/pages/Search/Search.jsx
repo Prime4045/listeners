@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { 
-  TrendingUp, 
-  Clock, 
-  Music, 
+import {
+  TrendingUp,
+  Clock,
+  Music,
   Filter,
   Loader2,
   Sparkles,
@@ -24,7 +24,7 @@ const Search = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { playTrack } = useMusic();
-  
+
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -142,29 +142,6 @@ const Search = () => {
           /* Browse Section - FULL WIDTH USAGE */
           <div className="browse-section">
             <div className="browse-content">
-              {/* Search History */}
-              {searchHistory.length > 0 && (
-                <div className="history-section">
-                  <div className="section-header">
-                    <h2>Recent searches</h2>
-                  </div>
-                  <div className="history-grid">
-                    {searchHistory.map((item, index) => (
-                      <button
-                        key={index}
-                        className="history-item"
-                        onClick={() => handleSuggestionClick(item)}
-                      >
-                        <div className="history-icon">
-                          <Clock size={20} />
-                        </div>
-                        <span>{item}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Trending Suggestions */}
               <div className="suggestions-section">
                 <div className="section-header">

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Music, 
-  Heart, 
-  Clock, 
-  Download, 
+import {
+  Music,
+  Heart,
+  Clock,
+  Download,
   TrendingUp,
   Play,
   Pause,
@@ -39,7 +39,7 @@ const Library = () => {
   const { isAuthenticated, user } = useAuth();
   const { currentTrack, isPlaying, playTrack } = useMusic();
   const { addNotification } = useNotifications();
-  
+
   const [activeTab, setActiveTab] = useState('playlists');
   const [viewMode, setViewMode] = useState('grid');
   const [sortBy, setSortBy] = useState('recent');
@@ -74,7 +74,7 @@ const Library = () => {
 
     window.addEventListener('playlist_created', handleUpdate);
     window.addEventListener('liked_songs_updated', handleUpdate);
-    
+
     return () => {
       window.removeEventListener('playlist_created', handleUpdate);
       window.removeEventListener('liked_songs_updated', handleUpdate);
@@ -107,11 +107,11 @@ const Library = () => {
       if (historyResponse.status === 'fulfilled') {
         const history = historyResponse.value || [];
         setRecentlyPlayed(history);
-        
+
         // Calculate total listening time (in minutes)
         const totalTime = history.reduce((acc, track) => acc + (track.playDuration || 0), 0);
-        setStats(prev => ({ 
-          ...prev, 
+        setStats(prev => ({
+          ...prev,
           totalListeningTime: Math.round(totalTime / 60000),
           recentActivity: history.length
         }));
@@ -128,7 +128,7 @@ const Library = () => {
   const handlePlaylistCreated = (playlist) => {
     setPlaylists(prev => [playlist, ...prev]);
     setShowCreateModal(false);
-    
+
     // Add notification
     addNotification({
       type: 'playlist_created',
@@ -140,7 +140,7 @@ const Library = () => {
 
   const handlePlayAll = async (tracks) => {
     if (tracks.length === 0) return;
-    
+
     const playableTracks = tracks.filter(track => track.canPlay);
     if (playableTracks.length === 0) return;
 
@@ -155,7 +155,7 @@ const Library = () => {
     try {
       await ApiService.likeTrack(song.spotifyId);
       loadLibraryData();
-      
+
       // Add notification
       addNotification({
         type: 'song_liked',
@@ -245,16 +245,6 @@ const Library = () => {
           <h1 className="library-title">Your Music Library</h1>
           <p className="library-subtitle">Your personal collection of music and playlists</p>
         </div>
-        
-        <div className="header-stats">
-          {tabs.map((tab) => (
-            <div key={tab.id} className="stat-pill">
-              <tab.icon size={16} />
-              <span className="stat-label">{tab.label}</span>
-              <span className="stat-count">{tab.count}</span>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Controls Bar */}
@@ -319,30 +309,7 @@ const Library = () => {
                     className="playlist-card"
                     onClick={() => navigate(`/playlist/${playlist._id}`)}
                   >
-                    <div className="playlist-cover">
-                      <div
-                        className="cover-gradient"
-                        style={{ background: getPlaylistGradient(index) }}
-                      >
-                        <Music size={32} />
-                      </div>
-                      <div className="cover-overlay">
-                        <button
-                          className="play-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const songs = playlist.songs?.map(item => item.song).filter(Boolean) || [];
-                            handlePlayAll(songs);
-                          }}
-                        >
-                          <Play size={20} />
-                        </button>
-                      </div>
-                      <div className="playlist-badge">
-                        {getPlaylistIcon(playlist)}
-                      </div>
-                    </div>
-                    
+
                     <div className="playlist-info">
                       <h3 className="playlist-name">{playlist.name}</h3>
                       <p className="playlist-meta">{playlist.songs?.length || 0} songs</p>

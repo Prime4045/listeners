@@ -179,6 +179,27 @@ class S3Service {
             };
         }
     }
+
+    /**
+     * Get metadata for a specific file
+     */
+    async getFileMetadata(spotifyId) {
+        try {
+            const params = {
+                Bucket: this.bucketName,
+                Key: spotifyId,
+            };
+            const headData = await this.s3.headObject(params).promise();
+            return {
+                contentType: headData.ContentType,
+                contentLength: headData.ContentLength,
+                lastModified: headData.LastModified,
+                etag: headData.ETag,
+            };
+        } catch (error) {
+            return null;
+        }
+    }
 }
 
 export default new S3Service();

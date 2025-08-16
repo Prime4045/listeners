@@ -100,10 +100,16 @@ router.get('/search', optionalAuth, async (req, res) => {
           await cacheService.cacheS3Check(s3CacheKey, audioExists, 60 * 60);
         }
 
+        let audioUrl = null;
+        if (audioExists) {
+          audioUrl = await s3Service.getAudioUrl(track.spotifyId);
+        }
+
         return {
           ...track,
           isInDatabase: false,
           canPlay: audioExists,
+          audioUrl, // <-- Add this line
           message: audioExists ? null : 'Song not available for playback yet'
         };
       })
@@ -139,112 +145,54 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
     // Check if song exists in database first
     let song = await Song.findOne({ spotifyId });
 
-    if (song) {
-      // Song exists in database, generate fresh S3 URL
-      try {
-        const audioUrl = await s3Service.getAudioUrl(spotifyId);
-        song.audioUrl = audioUrl;
-        await song.incrementPlayCount();
-        await song.save();
-
-        // Record play history only if user is authenticated
-        if (req.user) {
-          const playHistory = new PlayHistory({
-            user: req.user._id,
-            song: song._id,
-            playDuration,
-            completedPercentage,
-            deviceInfo: {
-              userAgent: req.get('User-Agent'),
-              platform: req.get('Sec-Ch-Ua-Platform'),
-            },
-            sessionId: req.sessionID
-          });
-          await playHistory.save();
-        }
-
-        const songData = {
-          spotifyId: song.spotifyId,
-          title: song.title,
-          artist: song.artist,
-          album: song.album,
-          duration: song.duration,
-          imageUrl: song.imageUrl,
-          audioUrl: song.audioUrl,
-          playCount: song.playCount,
-          likeCount: song.likeCount,
-          popularity: song.popularity,
-          explicit: song.explicit,
-          releaseDate: song.releaseDate,
-          genre: song.genre,
-          isInDatabase: true,
-          canPlay: true,
-          spotifyData: song.spotifyData,
-        };
-
-        await cacheService.cacheSong(spotifyId, songData);
-        return res.json(songData);
-      } catch (s3Error) {
-        console.error('S3 error for existing song:', s3Error.message);
+    if (!song) {
+      // Check S3
+      const audioExists = await s3Service.audioExists(spotifyId);
+      if (!audioExists) {
         return res.status(404).json({
-          message: 'Audio file not available',
+          message: 'Audio file not found in our library. Song will be added soon!',
           code: 'AUDIO_NOT_FOUND',
           spotifyId
         });
       }
+
+      // Fetch metadata from Spotify
+      const spotifyTrack = await spotifyService.getTrack(spotifyId);
+      const audioUrl = await s3Service.getAudioUrl(spotifyId);
+      const fileMetadata = await s3Service.getFileMetadata(spotifyId);
+
+      // Upsert song in MongoDB
+      song = await Song.findOneAndUpdate(
+        { spotifyId: spotifyTrack.spotifyId },
+        {
+          spotifyId: spotifyTrack.spotifyId,
+          title: spotifyTrack.title,
+          artist: spotifyTrack.artist,
+          album: spotifyTrack.album,
+          duration: spotifyTrack.duration,
+          imageUrl: spotifyTrack.imageUrl,
+          audioUrl: audioUrl,
+          genre: spotifyTrack.genre || null,
+          releaseDate: spotifyTrack.releaseDate,
+          popularity: spotifyTrack.popularity,
+          explicit: spotifyTrack.explicit,
+          spotifyData: spotifyTrack.spotifyData,
+          s3Key: spotifyId,
+          audioMetadata: fileMetadata,
+          $inc: { playCount: 1 },
+        },
+        {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true
+        }
+      );
+    } else {
+      // Existing song: get fresh audio URL
+      song.audioUrl = await s3Service.getAudioUrl(spotifyId);
+      await song.incrementPlayCount();
+      await song.save();
     }
-
-    // Song not in database, check S3 availability
-    const s3CacheKey = `s3_check:${spotifyId}`;
-    let audioExists = await cacheService.getCachedS3Check(s3CacheKey);
-
-    if (audioExists === null) {
-      audioExists = await s3Service.audioExists(spotifyId);
-      await cacheService.cacheS3Check(s3CacheKey, audioExists, 60 * 60);
-    }
-
-    if (!audioExists) {
-      return res.status(404).json({
-        message: 'Audio file not found in our library. Song will be added soon!',
-        code: 'AUDIO_NOT_FOUND',
-        spotifyId
-      });
-    }
-
-    // Fetch track metadata from Spotify
-    console.log('Fetching track metadata from Spotify:', spotifyId);
-    const spotifyTrack = await spotifyService.getTrack(spotifyId);
-
-    // Generate S3 signed URL
-    const audioUrl = await s3Service.getAudioUrl(spotifyId);
-    const fileMetadata = await s3Service.getFileMetadata(spotifyId);
-
-    // Create new song in database with upsert to handle duplicates
-    song = await Song.findOneAndUpdate(
-      { spotifyId: spotifyTrack.spotifyId },
-      {
-        spotifyId: spotifyTrack.spotifyId,
-        title: spotifyTrack.title,
-        artist: spotifyTrack.artist,
-        album: spotifyTrack.album,
-        duration: spotifyTrack.duration,
-        imageUrl: spotifyTrack.imageUrl,
-        audioUrl: audioUrl,
-        genre: spotifyTrack.genre || null,
-        releaseDate: spotifyTrack.releaseDate,
-        popularity: spotifyTrack.popularity,
-        explicit: spotifyTrack.explicit,
-        spotifyData: spotifyTrack.spotifyData,
-        s3Key: spotifyId,
-        audioMetadata: fileMetadata,
-        $inc: { playCount: 1 },
-      },
-      {
-        upsert: true,
-        new: true,
-        setDefaultsOnInsert: true
-      }
-    );
 
     // Record play history only if user is authenticated
     if (req.user) {
@@ -285,7 +233,6 @@ router.post('/:spotifyId/play', optionalAuth, async (req, res) => {
     await cacheService.cacheSong(spotifyId, songData);
     await cacheService.invalidateSearchCaches();
 
-    console.log('Successfully created and played new song:', spotifyId);
     res.json(songData);
   } catch (error) {
     console.error('Play error:', {
@@ -361,6 +308,37 @@ router.get('/:spotifyId', optionalAuth, async (req, res) => {
         await cacheService.cacheS3Check(s3CacheKey, audioExists, 60 * 60);
       }
 
+      let audioUrl = null;
+      if (audioExists) {
+        audioUrl = await s3Service.getAudioUrl(spotifyId);
+
+        // Save song in MongoDB with audioUrl
+        await Song.findOneAndUpdate(
+          { spotifyId: spotifyTrack.spotifyId },
+          {
+            spotifyId: spotifyTrack.spotifyId,
+            title: spotifyTrack.title,
+            artist: spotifyTrack.artist,
+            album: spotifyTrack.album,
+            duration: spotifyTrack.duration,
+            imageUrl: spotifyTrack.imageUrl,
+            audioUrl: audioUrl,
+            genre: spotifyTrack.genre || null,
+            releaseDate: spotifyTrack.releaseDate,
+            popularity: spotifyTrack.popularity,
+            explicit: spotifyTrack.explicit,
+            spotifyData: spotifyTrack.spotifyData,
+            s3Key: spotifyId,
+            $setOnInsert: { playCount: 0, likeCount: 0 },
+          },
+          {
+            upsert: true,
+            new: true,
+            setDefaultsOnInsert: true
+          }
+        );
+      }
+
       const songData = {
         spotifyId: spotifyTrack.spotifyId,
         title: spotifyTrack.title,
@@ -373,8 +351,9 @@ router.get('/:spotifyId', optionalAuth, async (req, res) => {
         releaseDate: spotifyTrack.releaseDate,
         previewUrl: spotifyTrack.previewUrl,
         genre: spotifyTrack.genre,
-        isInDatabase: false,
+        isInDatabase: !!audioExists,
         canPlay: audioExists,
+        audioUrl, // <-- S3 URL if available
         isLiked: false,
         spotifyData: spotifyTrack.spotifyData,
         message: audioExists ? null : 'Song not available for playback yet'

@@ -6,7 +6,7 @@ import ApiService from '../services/api';
 const MusicContext = createContext({});
 
 export const MusicProvider = ({ children }) => {
-  const { addNotification } = useNotifications?.() || { addNotification: () => {} };
+  const { addNotification } = useNotifications?.() || { addNotification: () => { } };
   const [currentTrack, setCurrentTrack] = useState(null);
   const [playlist, setPlaylist] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -93,6 +93,13 @@ export const MusicProvider = ({ children }) => {
 
       if (trackList) {
         setPlaylist(trackList);
+      }
+
+      // Check for audioUrl before creating Howl
+      if (!songData.audioUrl) {
+        setIsLoading(false);
+        setError('Audio file not available for this track.');
+        return;
       }
 
       // Create new Howl instance with the audio URL from S3
